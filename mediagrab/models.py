@@ -66,6 +66,7 @@ class StatusResponse(BaseModel):
 
 class HistoryItem(BaseModel):
     filename: str
+    folder: Optional[str] = None
     ext: str
     size: str
     downloaded_at: str
@@ -73,6 +74,12 @@ class HistoryItem(BaseModel):
 
 class LocaleResponse(BaseModel):
     lang: Literal["tr", "en"]
+
+
+class YtdlpVersionResponse(BaseModel):
+    installed: str
+    latest: Optional[str] = None
+    update_available: Optional[bool] = None
 
 
 class ChannelAddRequest(BaseModel):

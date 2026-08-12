@@ -16,11 +16,14 @@ const historyError = document.getElementById("history-error");
 const historyClearBtn = document.getElementById("history-clear-btn");
 const navHome = document.getElementById("nav-home");
 const navHistory = document.getElementById("nav-history");
+const navSites = document.getElementById("nav-sites");
 const navSettings = document.getElementById("nav-settings");
 const footerLegal = document.getElementById("footer-legal");
 const footerNote = document.getElementById("footer-note");
 const langSwitch = document.getElementById("lang-switch");
 const itemCard = document.querySelector(".item-card");
+const itemRevealBtn = document.getElementById("item-reveal-btn");
+const sitesPage = document.querySelector(".sites-category");
 
 const pendingBanner = document.getElementById("pending-banner");
 const pendingTitleEl = document.getElementById("pending-title");
@@ -40,6 +43,10 @@ const channelEmpty = document.getElementById("channel-empty");
 const modeNotifyLabel = document.getElementById("mode-notify-label");
 const modeAutoLabel = document.getElementById("mode-auto-label");
 const channelModeRadios = document.querySelectorAll('input[name="channel-mode"]');
+const settingsYtdlpTitleEl = document.getElementById("settings-ytdlp-title");
+const ytdlpStatus = document.getElementById("ytdlp-status");
+const ytdlpInstructions = document.getElementById("ytdlp-instructions");
+const ytdlpCredit = document.getElementById("ytdlp-credit");
 
 const LANG_KEY = "mediagrab_lang";
 
@@ -50,12 +57,13 @@ const I18N = {
   tr: {
     navHome: "Ana Sayfa",
     navHistory: "Geçmiş",
+    navSites: "Desteklenen Siteler",
     navSettings: "Ayarlar",
     footerLegal:
       "Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz.",
     footerNote: "MediaGrab, yt-dlp ile çalışır. Veritabanı ve hesap sistemi yoktur — sadece bu bilgisayarda çalışır.",
     heroTitle: "Link yapıştır, indir",
-    heroSub: "YouTube ve YouTube Music linkini yapıştırın; ses veya video olarak indirin.",
+    heroSub: "YouTube, YouTube Music ve yt-dlp'nin desteklediği diğer birçok siteden linki yapıştırın; ses veya video olarak indirin.",
     placeholder: "Video linkini yapıştır...",
     resolveBtn: "Çözümle",
     resolveBtnBusy: "...",
@@ -76,7 +84,7 @@ const I18N = {
       bitti: "Tamamlandı",
       hata: "Hata",
     },
-    downloadBtn: "Dosyayı indir",
+    downloadBtn: "Klasörde göster",
     errProbeFailed: "Çözümlenemedi",
     errDownloadFailed: "İndirme başlatılamadı",
     errNetwork: "Ağ hatası: ",
@@ -84,7 +92,7 @@ const I18N = {
     errUnknown: "Bilinmeyen hata",
     historyPageTitle: "İndirme Geçmişi",
     historyEmpty: "Henüz indirme yok",
-    historyDownload: "İndir",
+    historyDownload: "Klasörde göster",
     historyDelete: "Sil",
     historyDeleteFailed: "Silinemedi",
     historyClear: "Tümünü Sil",
@@ -113,16 +121,35 @@ const I18N = {
     channelNeverChecked: "Henüz kontrol edilmedi",
     pendingTitle: "Takip Edilen Kanallarda Yeni Video",
     pendingClear: "Temizle",
+    settingsYtdlpTitle: "yt-dlp Sürümü",
+    ytdlpChecking: "Kontrol ediliyor...",
+    ytdlpCheckFailed: "Sürüm bilgisi alınamadı (internet bağlantınızı kontrol edin)",
+    ytdlpUpToDate: "Güncel",
+    ytdlpUpdateAvailable: "Güncelleme mevcut",
+    ytdlpInstalledLabel: "Kurulu sürüm",
+    ytdlpLatestLabel: "Güncel sürüm",
+    ytdlpInstructionsTitle: "Nasıl güncellenir?",
+    ytdlpStep1: "1. Proje klasöründe bir terminal açın",
+    ytdlpStep2: "2. Sanal ortamı etkinleştirin",
+    ytdlpStep2Win: "Windows (PowerShell):",
+    ytdlpStep2Unix: "macOS / Linux:",
+    ytdlpStep3: "3. Şu komutu çalıştırın:",
+    ytdlpStep4: "4. MediaGrab'ı kapatıp yeniden başlatın",
+    ytdlpCopyBtn: "Kopyala",
+    ytdlpCopied: "Kopyalandı ✓",
+    ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
+    ytdlpCreditLink: "GitHub'da teşekkür edin →",
   },
   en: {
     navHome: "Home",
     navHistory: "History",
+    navSites: "Supported Sites",
     navSettings: "Settings",
     footerLegal:
       "This tool is for personal use only. You are solely responsible for the copyright status of downloaded content and compliance with the relevant platform's terms of service.",
     footerNote: "MediaGrab runs on yt-dlp. No database or account system — it only runs on this computer.",
     heroTitle: "Paste a link, download",
-    heroSub: "Paste a YouTube or YouTube Music link; download it as audio or video.",
+    heroSub: "Paste a link from YouTube, YouTube Music, or many other sites supported by yt-dlp; download it as audio or video.",
     placeholder: "Paste a video link...",
     resolveBtn: "Resolve",
     resolveBtnBusy: "...",
@@ -143,7 +170,7 @@ const I18N = {
       bitti: "Done",
       hata: "Error",
     },
-    downloadBtn: "Download file",
+    downloadBtn: "Show in folder",
     errProbeFailed: "Could not resolve",
     errDownloadFailed: "Could not start download",
     errNetwork: "Network error: ",
@@ -151,7 +178,7 @@ const I18N = {
     errUnknown: "Unknown error",
     historyPageTitle: "Download History",
     historyEmpty: "No downloads yet",
-    historyDownload: "Download",
+    historyDownload: "Show in folder",
     historyDelete: "Delete",
     historyDeleteFailed: "Could not delete",
     historyClear: "Clear All",
@@ -180,6 +207,24 @@ const I18N = {
     channelNeverChecked: "Not checked yet",
     pendingTitle: "New Videos From Followed Channels",
     pendingClear: "Clear",
+    settingsYtdlpTitle: "yt-dlp Version",
+    ytdlpChecking: "Checking...",
+    ytdlpCheckFailed: "Couldn't check the version (check your internet connection)",
+    ytdlpUpToDate: "Up to date",
+    ytdlpUpdateAvailable: "Update available",
+    ytdlpInstalledLabel: "Installed version",
+    ytdlpLatestLabel: "Latest version",
+    ytdlpInstructionsTitle: "How to update",
+    ytdlpStep1: "1. Open a terminal in the project folder",
+    ytdlpStep2: "2. Activate the virtual environment",
+    ytdlpStep2Win: "Windows (PowerShell):",
+    ytdlpStep2Unix: "macOS / Linux:",
+    ytdlpStep3: "3. Run this command:",
+    ytdlpStep4: "4. Close and restart MediaGrab",
+    ytdlpCopyBtn: "Copy",
+    ytdlpCopied: "Copied ✓",
+    ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
+    ytdlpCreditLink: "Say thanks on GitHub →",
   },
 };
 
@@ -212,10 +257,11 @@ async function initLang() {
 function setLang(newLang) {
   lang = newLang;
   localStorage.setItem(LANG_KEY, lang);
-  if (itemCard) {
-    // NOTE: the metadata labels on the /item page are rendered server-side
-    // (Jinja2); rather than keeping a second translation layer in JS, we just
-    // reload the page in the correct language when it changes.
+  if (itemCard || sitesPage) {
+    // NOTE: the metadata labels on /item and the site list on
+    // /supported-sites are rendered server-side (Jinja2); rather than
+    // keeping a second translation layer in JS, we just reload the page in
+    // the correct language when it changes.
     const url = new URL(window.location.href);
     url.searchParams.set("lang", lang);
     window.location.href = url.toString();
@@ -243,6 +289,10 @@ function applyLang() {
   if (navHistory) {
     navHistory.textContent = t().navHistory;
     navHistory.href = withLang("/history");
+  }
+  if (navSites) {
+    navSites.textContent = t().navSites;
+    navSites.href = withLang("/supported-sites");
   }
   if (navSettings) {
     navSettings.textContent = t().navSettings;
@@ -274,9 +324,11 @@ function applyLang() {
   if (channelEmpty) channelEmpty.textContent = t().channelEmpty;
   if (pendingTitleEl) pendingTitleEl.textContent = t().pendingTitle;
   if (pendingClearBtn) pendingClearBtn.textContent = t().pendingClear;
+  if (settingsYtdlpTitleEl) settingsYtdlpTitleEl.textContent = t().settingsYtdlpTitle;
 
   if (channelList) renderChannelList(lastChannels);
   if (pendingBanner) renderPending();
+  if (ytdlpStatus) renderYtdlpVersion();
 
   if (card) {
     if (lastProbe) {
@@ -306,6 +358,17 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+async function revealFile(url) {
+  // NOTE: fetch() rather than a plain <a href> navigation - the endpoint
+  // just opens the OS file explorer server-side and returns {"ok": true};
+  // navigating to it directly would have shown raw JSON in the tab.
+  try {
+    await fetch(url);
+  } catch (err) {
+    // best-effort - revealing the file in explorer is a nice-to-have here.
+  }
 }
 
 async function fetchProbe(url) {
@@ -557,7 +620,10 @@ function pollStatus(jobId) {
       if (data.state === "bitti" && data.ready) {
         clearInterval(pollTimer);
         if (extraEl) {
-          extraEl.innerHTML = `<a class="download-btn" href="/api/file/${jobId}">${t().downloadBtn}</a>`;
+          extraEl.innerHTML = `<button type="button" class="download-btn" id="reveal-btn-${jobId}">${t().downloadBtn}</button>`;
+          document
+            .getElementById(`reveal-btn-${jobId}`)
+            ?.addEventListener("click", () => revealFile(`/api/file/${jobId}`));
         }
         loadHistory();
       }
@@ -585,19 +651,29 @@ async function loadHistory() {
 const VIDEO_EXTS = new Set(["mp4"]);
 const SUBTITLE_EXTS = new Set(["srt"]);
 
+function encodePath(relPath) {
+  // NOTE: encodes each "/"-separated segment individually so the slash stays
+  // a literal path separator (matches the server's {..:path} routes) instead
+  // of becoming "%2F", which plain encodeURIComponent would do.
+  return relPath.split("/").map(encodeURIComponent).join("/");
+}
+
 function historyCardHtml(item, withActions) {
   const date = new Date(item.downloaded_at).toLocaleString(t().locale, {
     dateStyle: "medium",
     timeStyle: "short",
   });
   const placeholder = VIDEO_EXTS.has(item.ext) ? "▶" : SUBTITLE_EXTS.has(item.ext) ? "CC" : "♪";
-  const fileUrl = `/api/history/file/${encodeURIComponent(item.filename)}`;
-  const thumbUrl = `/api/history/thumb/${encodeURIComponent(item.filename)}`;
-  const itemUrl = withLang(`/item/${encodeURIComponent(item.filename)}`);
+  const encodedPath = encodePath(item.filename);
+  const fileUrl = `/api/history/file/${encodedPath}`;
+  const thumbUrl = `/api/history/thumb/${encodedPath}`;
+  const itemUrl = withLang(`/item/${encodedPath}`);
+  const baseName = item.filename.includes("/") ? item.filename.split("/").pop() : item.filename;
+  const folderBadge = item.folder ? `<div class="folder-badge">${escapeHtml(item.folder)}</div>` : "";
   const actions = withActions
     ? `
       <div class="history-actions">
-        <a href="${fileUrl}">${t().historyDownload}</a>
+        <button type="button" class="reveal-btn" data-reveal-url="${fileUrl}">${t().historyDownload}</button>
         <button type="button" class="delete-btn">${t().historyDelete}</button>
       </div>`
     : "";
@@ -609,7 +685,8 @@ function historyCardHtml(item, withActions) {
           <img src="${thumbUrl}" alt="" loading="lazy" onerror="this.remove()">
         </div>
         <div class="history-body">
-          <div class="name" title="${escapeHtml(item.filename)}">${escapeHtml(item.filename)}</div>
+          ${folderBadge}
+          <div class="name" title="${escapeHtml(baseName)}">${escapeHtml(baseName)}</div>
           <div class="meta">${item.size} · ${date}</div>
         </div>
       </a>${actions}
@@ -629,6 +706,10 @@ function renderHistory(items) {
 
   historyList.querySelectorAll(".history-card").forEach((row) => {
     const filename = row.dataset.filename;
+    row.querySelector(".reveal-btn")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      revealFile(row.querySelector(".reveal-btn").dataset.revealUrl);
+    });
     row.querySelector(".delete-btn").addEventListener("click", () => deleteHistoryItem(filename));
   });
 }
@@ -643,7 +724,7 @@ function renderRecent(items) {
 async function deleteHistoryItem(filename) {
   historyError?.classList.add("hidden");
   try {
-    const res = await fetch(`/api/history/${encodeURIComponent(filename)}`, { method: "DELETE" });
+    const res = await fetch(`/api/history/${encodePath(filename)}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       if (historyError) {
@@ -847,6 +928,90 @@ async function clearPending() {
   }
 }
 
+// --- Ayarlar sayfasi: yt-dlp surum kontrolu ---
+
+const YTDLP_PIP_CMD = "pip install --upgrade yt-dlp";
+let lastYtdlpInfo = null;
+
+async function loadYtdlpVersion() {
+  if (!ytdlpStatus) return;
+  ytdlpStatus.textContent = t().ytdlpChecking;
+  try {
+    const res = await fetch("/api/ytdlp-version");
+    lastYtdlpInfo = await res.json();
+  } catch (err) {
+    lastYtdlpInfo = { installed: null, latest: null, update_available: null };
+  }
+  renderYtdlpVersion();
+}
+
+function ytdlpInstructionsHtml() {
+  return `
+    <div class="ytdlp-instructions-title">${t().ytdlpInstructionsTitle}</div>
+    <ol class="ytdlp-steps">
+      <li>${t().ytdlpStep1}</li>
+      <li>
+        ${t().ytdlpStep2}
+        <div class="ytdlp-substep">${t().ytdlpStep2Win} <code>.venv\\Scripts\\Activate.ps1</code></div>
+        <div class="ytdlp-substep">${t().ytdlpStep2Unix} <code>source .venv/bin/activate</code></div>
+      </li>
+      <li>
+        ${t().ytdlpStep3}
+        <div class="ytdlp-cmd-row">
+          <code>${escapeHtml(YTDLP_PIP_CMD)}</code>
+          <button type="button" id="ytdlp-copy-btn">${t().ytdlpCopyBtn}</button>
+        </div>
+      </li>
+      <li>${t().ytdlpStep4}</li>
+    </ol>`;
+}
+
+function wireYtdlpCopyBtn() {
+  const btn = document.getElementById("ytdlp-copy-btn");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(YTDLP_PIP_CMD);
+      const original = btn.textContent;
+      btn.textContent = t().ytdlpCopied;
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 1500);
+    } catch (err) {
+      // NOTE: clipboard access can fail (permissions) - the command is
+      // already visible as selectable text, so this is a nice-to-have.
+    }
+  });
+}
+
+function renderYtdlpVersion() {
+  if (!ytdlpStatus || !lastYtdlpInfo) return;
+  const info = lastYtdlpInfo;
+
+  if (info.update_available === null) {
+    ytdlpStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
+    ytdlpInstructions?.classList.add("hidden");
+  } else if (info.update_available) {
+    ytdlpStatus.innerHTML = `
+      <span class="ytdlp-badge outdated">${t().ytdlpUpdateAvailable}</span>
+      <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)} &rarr; ${t().ytdlpLatestLabel}: ${escapeHtml(info.latest)}</span>`;
+    if (ytdlpInstructions) {
+      ytdlpInstructions.classList.remove("hidden");
+      ytdlpInstructions.innerHTML = ytdlpInstructionsHtml();
+      wireYtdlpCopyBtn();
+    }
+  } else {
+    ytdlpStatus.innerHTML = `
+      <span class="ytdlp-badge uptodate">${t().ytdlpUpToDate}</span>
+      <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)}</span>`;
+    ytdlpInstructions?.classList.add("hidden");
+  }
+
+  if (ytdlpCredit) {
+    ytdlpCredit.innerHTML = `${t().ytdlpCreditText} <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener noreferrer">${t().ytdlpCreditLink}</a>`;
+  }
+}
+
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") probe();
@@ -855,6 +1020,7 @@ langSwitch?.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
 });
 historyClearBtn?.addEventListener("click", clearAllHistory);
+itemRevealBtn?.addEventListener("click", () => revealFile(itemRevealBtn.dataset.revealUrl));
 channelAddBtn?.addEventListener("click", addChannel);
 channelModeRadios.forEach((r) => r.addEventListener("change", updateChannelChoiceVisibility));
 pendingClearBtn?.addEventListener("click", clearPending);
@@ -864,3 +1030,4 @@ initLang();
 loadHistory();
 loadChannels();
 loadPending();
+loadYtdlpVersion();

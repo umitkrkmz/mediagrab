@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{% if lang == "en" %}Supported Sites{% else %}Desteklenen Siteler{% endif %} — MediaGrab{% endblock %}
+{% block main_class %}main-narrow{% endblock %}
+{% block content %}
+
+<div class="page-title-row">
+  <h1>{% if lang == "en" %}Supported Sites{% else %}Desteklenen Siteler{% endif %}</h1>
+</div>
+
+<p class="settings-hint">
+  {% if lang == "en" %}
+  MediaGrab isn't limited to YouTube — it works with any site yt-dlp supports, over 1700 in total. Below are some of the most commonly used ones.
+  {% else %}
+  MediaGrab yalnızca YouTube'a özel değil — yt-dlp'nin desteklediği 1700'den fazla sitenin herhangi biriyle çalışır. Aşağıda en sık kullanılanlardan bir kısmı listelenmiştir.
+  {% endif %}
+</p>
+
+<div class="sites-category">
+  <div class="sites-category-title">{% if lang == "en" %}Video{% else %}Video{% endif %}</div>
+  <div class="sites-grid">
+    <span class="sites-chip">YouTube</span>
+    <span class="sites-chip">Vimeo</span>
+    <span class="sites-chip">Dailymotion</span>
+    <span class="sites-chip">Twitch</span>
+    <span class="sites-chip">TikTok</span>
+  </div>
+</div>
+
+<div class="sites-category">
+  <div class="sites-category-title">{% if lang == "en" %}Social Media{% else %}Sosyal Medya{% endif %}</div>
+  <div class="sites-grid">
+    <span class="sites-chip">X (Twitter)</span>
+    <span class="sites-chip">Instagram</span>
+    <span class="sites-chip">Facebook</span>
+    <span class="sites-chip">Reddit</span>
+    <span class="sites-chip">Tumblr</span>
+  </div>
+</div>
+
+<div class="sites-category">
+  <div class="sites-category-title">{% if lang == "en" %}Music & Audio{% else %}Müzik & Ses{% endif %}</div>
+  <div class="sites-grid">
+    <span class="sites-chip">YouTube Music</span>
+    <span class="sites-chip">SoundCloud</span>
+    <span class="sites-chip">Bandcamp</span>
+    <span class="sites-chip">Mixcloud</span>
+  </div>
+</div>
+
+<div class="sites-category">
+  <div class="sites-category-title">{% if lang == "en" %}Archive{% else %}Arşiv{% endif %}</div>
+  <div class="sites-grid">
+    <span class="sites-chip">archive.org</span>
+  </div>
+</div>
+
+<a class="back-link" href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md" target="_blank" rel="noopener noreferrer">
+  {% if lang == "en" %}
+  See the full list of 1700+ supported sites on GitHub &rarr;
+  {% else %}
+  1700'den fazla desteklenen sitenin tam listesini GitHub'da görün &rarr;
+  {% endif %}
+</a>
+
+{% endblock %}

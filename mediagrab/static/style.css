@@ -599,11 +599,14 @@ button:disabled {
   display: inline-block;
   margin-top: 16px;
   background: #2f9e5e;
+  border: none;
   text-decoration: none;
   color: #fff;
+  font: inherit;
   font-weight: 600;
   padding: 13px 22px;
   border-radius: 10px;
+  cursor: pointer;
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
@@ -704,6 +707,16 @@ button:disabled {
   flex: 1;
 }
 
+.history-body .folder-badge {
+  color: #767b84;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .history-body .name {
   font-weight: 600;
   font-size: 0.82rem;
@@ -731,21 +744,26 @@ button:disabled {
 .history-actions button {
   flex: 1;
   padding: 7px 0;
+  border: none;
   border-radius: 7px;
+  font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;
   text-align: center;
+  cursor: pointer;
   box-shadow: none;
 }
 
-.history-actions a {
+.history-actions a,
+.history-actions .reveal-btn {
   background: #5b8def;
   color: #fff;
   transition: background 0.15s ease;
 }
 
-.history-actions a:hover {
+.history-actions a:hover,
+.history-actions .reveal-btn:hover {
   background: #6f9af2;
 }
 
@@ -859,6 +877,19 @@ button:disabled {
   text-align: center;
 }
 
+.item-download-btn.btn-secondary {
+  margin-top: 10px;
+  background: transparent;
+  color: #a8adb5;
+  border: 1px solid #33373f;
+}
+
+.item-download-btn.btn-secondary:hover {
+  background: #22262d;
+  box-shadow: none;
+  color: #fff;
+}
+
 /* --- /settings page --- */
 
 .settings-section {
@@ -869,6 +900,36 @@ button:disabled {
   color: #767b84;
   font-size: 0.85rem;
   margin: -4px 0 14px;
+}
+
+/* --- /supported-sites page --- */
+
+.sites-category {
+  margin-bottom: 22px;
+}
+
+.sites-category-title {
+  color: #9a9ea6;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.sites-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sites-chip {
+  background: #1e2126;
+  border: 1px solid #2a2d33;
+  color: #e8e8ec;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
 }
 
 .settings-add-form {
@@ -1057,4 +1118,123 @@ button:disabled {
 
 .pending-banner .playlist-list {
   max-height: 320px;
+}
+
+/* --- yt-dlp version check (Settings page) --- */
+
+.ytdlp-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.ytdlp-badge {
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ytdlp-badge.uptodate {
+  background: rgba(47, 158, 94, 0.18);
+  color: #5fd68a;
+}
+
+.ytdlp-badge.outdated {
+  background: rgba(230, 172, 46, 0.18);
+  color: #e6c96e;
+}
+
+.ytdlp-badge.unknown {
+  background: #2a2d33;
+  color: #9a9ea6;
+  font-weight: 600;
+}
+
+.ytdlp-version-row {
+  color: #9a9ea6;
+  font-size: 0.85rem;
+}
+
+.ytdlp-instructions {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #1a1d22;
+  border: 1px solid #2a2d33;
+}
+
+.ytdlp-instructions-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.ytdlp-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #c4c7cc;
+  font-size: 0.88rem;
+}
+
+.ytdlp-substep {
+  margin-top: 4px;
+  color: #9a9ea6;
+  font-size: 0.85rem;
+}
+
+.ytdlp-instructions code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: #22262d;
+  border: 1px solid #2a2d33;
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 0.82rem;
+  color: #e8e8ec;
+}
+
+.ytdlp-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ytdlp-cmd-row code {
+  flex: 1;
+}
+
+#ytdlp-copy-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #2a2d33;
+  color: #c4c7cc;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#ytdlp-copy-btn:hover {
+  background: #33373f;
+}
+
+.ytdlp-credit {
+  margin-top: 14px;
+  color: #767b84;
+  font-size: 0.8rem;
+}
+
+.ytdlp-credit a {
+  color: #86aef7;
+  text-decoration: none;
+}
+
+.ytdlp-credit a:hover {
+  text-decoration: underline;
 }

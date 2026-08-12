@@ -1,14 +1,18 @@
 # The yt_dlp import must appear ONLY in this file. Other modules call this
 # file's functions instead of touching the yt-dlp API directly.
 import base64
+import json
 import os
 import subprocess
 import sys
+import urllib.request
+from datetime import datetime
 from typing import Callable, Optional
 
 from mutagen import File as MutagenFile
 from mutagen.flac import Picture
 from yt_dlp import YoutubeDL
+from yt_dlp.version import __version__ as YT_DLP_VERSION
 
 from .paths import app_dir
 
@@ -24,7 +28,13 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 # user's request. The cost: re-downloading the same video at a different
 # quality reuses the same filename and overwrites it (intentional, see
 # "overwrites" below).
-OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(title).120B.%(ext)s")
+# NOTE: files are auto-organized into a per-channel/uploader subfolder.
+# "%(uploader,channel,extractor)s" falls back through the field list (yt-dlp
+# outtmpl syntax) so sites without a populated uploader/channel field still
+# get a stable folder name (extractor is always present) instead of "NA".
+# yt-dlp sanitizes each templated field for the filesystem automatically, the
+# same way it already does for %(title)s.
+OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
 
 
 def human_size(num_bytes: Optional[float]) -> str:
@@ -41,10 +51,15 @@ def human_size(num_bytes: Optional[float]) -> str:
 
 
 def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
-    # NOTE: keep only the highest-tbr variant per height.
+    # NOTE: keep only the highest-tbr variant per height. Only "none" (the
+    # explicit "no video track" marker YouTube uses for audio-only formats)
+    # is excluded - many non-YouTube extractors just leave vcodec unset
+    # (None) on real video formats instead of populating it, so treating
+    # None the same as "none" was wrongly hiding every video quality option
+    # on those sites (e.g. archive.org).
     best_by_height: dict[int, dict] = {}
     for f in formats:
-        if f.get("vcodec") in (None, "none"):
+        if f.get("vcodec") == "none":
             continue
         height = f.get("height")
         if not height:
@@ -297,6 +312,46 @@ def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> d
     return opts
 
 
+def metadata_sidecar_path(media_path: str) -> str:
+    base, _ext = os.path.splitext(media_path)
+    return base + ".json"
+
+
+def _format_upload_date(raw: Optional[str]) -> Optional[str]:
+    # NOTE: yt-dlp gives upload_date as a raw "YYYYMMDD" string; reformat to
+    # "YYYY-MM-DD" for readability in the exported sidecar.
+    if not raw or len(raw) != 8:
+        return raw
+    return f"{raw[0:4]}-{raw[4:6]}-{raw[6:8]}"
+
+
+def _write_metadata_sidecar(media_path: str, info: dict, kind: str, choice: str) -> None:
+    # NOTE: a metadata export failure should never fail the download itself -
+    # this is a best-effort archival extra, not the main deliverable.
+    try:
+        data = {
+            "title": info.get("title"),
+            "uploader": info.get("uploader") or info.get("channel"),
+            "uploader_url": info.get("uploader_url") or info.get("channel_url"),
+            "upload_date": _format_upload_date(info.get("upload_date")),
+            "duration": info.get("duration"),
+            "description": info.get("description"),
+            "view_count": info.get("view_count"),
+            "like_count": info.get("like_count"),
+            "tags": info.get("tags") or [],
+            "source_url": info.get("webpage_url") or info.get("original_url"),
+            "extractor": info.get("extractor_key") or info.get("extractor"),
+            "video_id": info.get("id"),
+            "kind": kind,
+            "format": choice,
+            "downloaded_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        with open(metadata_sidecar_path(media_path), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
 def download(
     url: str,
     kind: str,
@@ -344,6 +399,7 @@ def download(
     for d in info.get("requested_downloads") or []:
         path = d.get("filepath") or d.get("_filename")
         if path:
+            _write_metadata_sidecar(path, info, kind, choice)
             return path
 
     raise ProbeError("Indirilen dosya yolu bulunamadi")
@@ -464,3 +520,31 @@ def reveal_in_explorer(path: str) -> None:
             subprocess.Popen(["xdg-open", os.path.dirname(path)])
     except Exception:
         pass
+
+
+def _parse_version(v: str) -> tuple:
+    try:
+        return tuple(int(part) for part in v.split("."))
+    except ValueError:
+        return ()
+
+
+def check_ytdlp_update() -> dict:
+    # NOTE: yt-dlp versions are dates ("2026.07.04"), but yt_dlp.version's
+    # copy keeps the zero-padding while PyPI's JSON API normalizes it
+    # per PEP 440 ("2026.7.4") - a plain string compare treats those as
+    # DIFFERENT versions (since "7" > "07" as text), falsely flagging every
+    # up-to-date install as outdated. Parsing into int tuples compares them
+    # numerically instead, where 2026.07.04 == 2026.7.4 as expected.
+    result = {"installed": YT_DLP_VERSION, "latest": None, "update_available": None}
+    try:
+        with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json", timeout=5) as resp:
+            data = json.loads(resp.read())
+        latest = data["info"]["version"]
+        result["latest"] = latest
+        result["update_available"] = _parse_version(latest) > _parse_version(YT_DLP_VERSION)
+    except Exception:
+        # NOTE: no internet / PyPI unreachable - the caller shows a neutral
+        # "couldn't check" message rather than failing the whole page.
+        pass
+    return result

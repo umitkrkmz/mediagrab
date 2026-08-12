@@ -10,7 +10,7 @@
 <div class="item-card">
   <div class="item-thumb">
     {% if has_thumb %}
-    <img src="/api/history/thumb/{{ filename | urlencode }}" alt="">
+    <img src="/api/history/thumb/{{ filename_url }}" alt="">
     {% else %}
     <span class="placeholder">{% if ext == "mp4" %}&#9654;{% elif ext == "srt" %}CC{% else %}&#9834;{% endif %}</span>
     {% endif %}
@@ -21,6 +21,12 @@
     {% if artist %}<div class="item-artist">{{ artist }}</div>{% endif %}
 
     <div class="item-meta-grid">
+      {% if folder %}
+      <div class="item-meta-row">
+        <span class="k">{% if lang == "en" %}Channel{% else %}Kanal{% endif %}</span>
+        <span class="v">{{ folder }}</span>
+      </div>
+      {% endif %}
       <div class="item-meta-row">
         <span class="k">{% if lang == "en" %}File{% else %}Dosya{% endif %}</span>
         <span class="v">{{ filename }}</span>
@@ -45,9 +51,14 @@
       </div>
     </div>
 
-    <a class="download-btn item-download-btn" href="/api/history/file/{{ filename | urlencode }}">
-      {% if lang == "en" %}Download file{% else %}Dosyayı indir{% endif %}
+    <button type="button" id="item-reveal-btn" class="download-btn item-download-btn" data-reveal-url="/api/history/file/{{ filename_url }}">
+      {% if lang == "en" %}Show in folder{% else %}Klasörde göster{% endif %}
+    </button>
+    {% if has_metadata %}
+    <a class="download-btn item-download-btn btn-secondary" href="/api/history/json/{{ filename_url }}">
+      {% if lang == "en" %}Download metadata (JSON){% else %}Meta verileri indir (JSON){% endif %}
     </a>
+    {% endif %}
   </div>
 </div>
 

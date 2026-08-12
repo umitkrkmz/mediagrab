@@ -5,6 +5,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -22,6 +23,7 @@ from .models import (
     PendingVideo,
     ProbeRequest,
     StatusResponse,
+    YtdlpVersionResponse,
 )
 from .paths import resource_dir
 
@@ -74,13 +76,22 @@ def _resolve_lang(lang: Optional[str]) -> str:
     return _detect_system_lang()
 
 
-def _history_path(filename: str) -> str:
-    safe_name = os.path.basename(filename)
+def _history_path(rel_path: str) -> str:
+    # NOTE: rel_path may include a channel subfolder (e.g. "Kanal Adi/Video.mp4")
+    # now that downloads are auto-organized - os.path.commonpath guards against
+    # ".." escaping DOWNLOAD_DIR while still allowing that one nesting level.
     download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
-    path = os.path.abspath(os.path.join(download_dir, safe_name))
-    if os.path.dirname(path) != download_dir or not os.path.isfile(path):
+    path = os.path.abspath(os.path.join(download_dir, rel_path))
+    if os.path.commonpath([path, download_dir]) != download_dir or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Dosya bulunamadi")
     return path
+
+
+def _url_path_quote(rel_path: str) -> str:
+    # NOTE: quotes each path segment individually so "/" stays a literal
+    # separator (matches the {..:path} route converters below) instead of
+    # becoming "%2F", which a plain urlencode of the whole string would do.
+    return "/".join(quote(seg) for seg in rel_path.split("/"))
 
 
 def _set_job(job_id: str, **fields) -> None:
@@ -196,6 +207,11 @@ def history_page(request: Request, lang: Optional[str] = None):
     return templates.TemplateResponse(request, "history.html", {"lang": _resolve_lang(lang), "active": "history"})
 
 
+@app.get("/supported-sites")
+def supported_sites_page(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "supported_sites.html", {"lang": _resolve_lang(lang), "active": "sites"})
+
+
 @app.post("/api/probe")
 def probe(req: ProbeRequest) -> dict:
     # NOTE: response_model is deliberately omitted - single-video and
@@ -234,16 +250,19 @@ def status(job_id: str) -> dict:
 
 
 @app.get("/api/file/{job_id}")
-def file(job_id: str) -> FileResponse:
+def file(job_id: str) -> dict:
+    # NOTE: this used to also stream the file back as a FileResponse, which
+    # made the browser save a SECOND copy (into its own default downloads
+    # folder) on top of the one yt-dlp already wrote to DOWNLOAD_DIR. The file
+    # is already permanently on disk once the job is "bitti" - clicking this
+    # only needs to reveal it, not duplicate it.
     with jobs_lock:
         job = jobs.get(job_id)
         if job is None or not job.get("ready"):
             raise HTTPException(status_code=404, detail="Dosya henuz hazir degil")
         filepath = job["filepath"]
-    # NOTE: the file explorer is triggered right here - i.e. when the user
-    # actually clicks "Download file", not when the background job finishes.
     downloader.reveal_in_explorer(filepath)
-    return FileResponse(filepath, filename=os.path.basename(filepath))
+    return {"ok": True}
 
 
 @app.get("/api/locale", response_model=LocaleResponse)
@@ -251,32 +270,47 @@ def locale_info() -> dict:
     return {"lang": _detect_system_lang()}
 
 
+@app.get("/api/ytdlp-version", response_model=YtdlpVersionResponse)
+def ytdlp_version() -> dict:
+    return downloader.check_ytdlp_update()
+
+
 @app.get("/api/history", response_model=list[HistoryItem])
 def history() -> list[dict]:
+    # NOTE: recursive walk - downloads now land in per-channel subfolders, but
+    # older files from before that change may still sit flat in DOWNLOAD_DIR,
+    # so both must keep showing up here.
     items = []
-    for name in os.listdir(downloader.DOWNLOAD_DIR):
-        path = os.path.join(downloader.DOWNLOAD_DIR, name)
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-        if ext not in HISTORY_EXTS or not os.path.isfile(path):
-            continue
-        stat = os.stat(path)
-        items.append(
-            {
-                "filename": name,
-                "ext": ext,
-                "size": downloader.human_size(stat.st_size),
-                "downloaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
-            }
-        )
+    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+        for name in files:
+            path = os.path.join(root, name)
+            ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+            if ext not in HISTORY_EXTS or not os.path.isfile(path):
+                continue
+            rel = os.path.relpath(path, downloader.DOWNLOAD_DIR).replace(os.sep, "/")
+            folder = rel.rsplit("/", 1)[0] if "/" in rel else None
+            stat = os.stat(path)
+            items.append(
+                {
+                    "filename": rel,
+                    "folder": folder,
+                    "ext": ext,
+                    "size": downloader.human_size(stat.st_size),
+                    "downloaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
+                }
+            )
     items.sort(key=lambda x: x["downloaded_at"], reverse=True)
     return items
 
 
-@app.get("/api/history/file/{filename}")
-def history_file(filename: str) -> FileResponse:
+@app.get("/api/history/file/{filename:path}")
+def history_file(filename: str) -> dict:
+    # NOTE: see the matching comment on /api/file/{job_id} - this reveals the
+    # already-archived file in the OS file explorer instead of also streaming
+    # a duplicate copy through the browser's own downloads folder.
     path = _history_path(filename)
     downloader.reveal_in_explorer(path)
-    return FileResponse(path, filename=os.path.basename(path))
+    return {"ok": True}
 
 
 def _guess_image_mime(data: bytes) -> str:
@@ -289,7 +323,7 @@ def _guess_image_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-@app.get("/api/history/thumb/{filename}")
+@app.get("/api/history/thumb/{filename:path}")
 def history_thumb(filename: str) -> Response:
     path = _history_path(filename)
     thumb = downloader.extract_thumbnail(path)
@@ -298,22 +332,61 @@ def history_thumb(filename: str) -> Response:
     return Response(content=thumb, media_type=_guess_image_mime(thumb))
 
 
-@app.delete("/api/history/{filename}")
+def _remove_sidecar_json(path: str) -> None:
+    json_path = downloader.metadata_sidecar_path(path)
+    if os.path.isfile(json_path):
+        os.remove(json_path)
+
+
+def _cleanup_empty_dir(path: str) -> None:
+    # NOTE: best-effort - after deleting the last file in a per-channel
+    # folder, remove the now-empty folder too so indirilenler/ doesn't
+    # accumulate stray empty channel folders over time.
+    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    parent = os.path.abspath(os.path.dirname(path))
+    if parent != download_dir and os.path.isdir(parent) and not os.listdir(parent):
+        try:
+            os.rmdir(parent)
+        except OSError:
+            pass
+
+
+@app.get("/api/history/json/{filename:path}")
+def history_json(filename: str) -> FileResponse:
+    path = _history_path(filename)
+    json_path = downloader.metadata_sidecar_path(path)
+    if not os.path.isfile(json_path):
+        raise HTTPException(status_code=404, detail="Meta veri bulunamadi")
+    return FileResponse(json_path, filename=os.path.basename(json_path), media_type="application/json")
+
+
+@app.delete("/api/history/{filename:path}")
 def delete_history(filename: str) -> dict:
     path = _history_path(filename)
     os.remove(path)
+    _remove_sidecar_json(path)
+    _cleanup_empty_dir(path)
     return {"ok": True}
 
 
 @app.delete("/api/history")
 def clear_history() -> dict:
     removed = 0
-    for name in os.listdir(downloader.DOWNLOAD_DIR):
-        path = os.path.join(downloader.DOWNLOAD_DIR, name)
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-        if ext in HISTORY_EXTS and os.path.isfile(path):
-            os.remove(path)
-            removed += 1
+    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+        for name in files:
+            path = os.path.join(root, name)
+            ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+            if ext in HISTORY_EXTS and os.path.isfile(path):
+                os.remove(path)
+                _remove_sidecar_json(path)
+                removed += 1
+    for entry in os.listdir(downloader.DOWNLOAD_DIR):
+        sub = os.path.join(downloader.DOWNLOAD_DIR, entry)
+        if os.path.isdir(sub) and not os.listdir(sub):
+            try:
+                os.rmdir(sub)
+            except OSError:
+                pass
     return {"ok": True, "removed": removed}
 
 
@@ -324,23 +397,29 @@ def _fmt_duration(seconds: Optional[int]) -> Optional[str]:
     return f"{m}:{s:02d}"
 
 
-@app.get("/item/{filename}")
+@app.get("/item/{filename:path}")
 def item_detail(request: Request, filename: str, lang: Optional[str] = None):
     lang = _resolve_lang(lang)
     path = _history_path(filename)
     stat = os.stat(path)
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    base_name = filename.rsplit("/", 1)[-1]
+    ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
     meta = downloader.get_metadata(path)
     has_thumb = downloader.extract_thumbnail(path) is not None
+    has_metadata = os.path.isfile(downloader.metadata_sidecar_path(path))
+    folder = filename.rsplit("/", 1)[0] if "/" in filename else None
 
     context = {
         "lang": lang,
-        "filename": filename,
+        "filename": base_name,
+        "filename_url": _url_path_quote(filename),
+        "folder": folder,
         "ext": ext,
         "size": downloader.human_size(stat.st_size),
         "downloaded_at": datetime.fromtimestamp(stat.st_mtime).strftime("%d.%m.%Y %H:%M"),
         "has_thumb": has_thumb,
-        "title": meta["title"] or filename,
+        "has_metadata": has_metadata,
+        "title": meta["title"] or base_name,
         "artist": meta["artist"],
         "duration_label": _fmt_duration(meta["duration"]),
     }
