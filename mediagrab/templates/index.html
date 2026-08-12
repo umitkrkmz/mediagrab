@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}MediaGrab — Video ve Ses İndirici{% endblock %}
+{% block main_class %}main-narrow{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <h1 id="hero-title">Link yapıştır, indir</h1>
+  <p id="hero-sub" class="hero-sub">YouTube ve YouTube Music linkini yapıştırın; ses veya video olarak indirin.</p>
+</section>
+
+<div class="input-row">
+  <input id="url-input" type="text" placeholder="Video linkini yapıştır..." autocomplete="off">
+  <button id="probe-btn">Çözümle</button>
+</div>
+
+<div id="card" class="card hidden"></div>
+
+<section id="recent-section" class="recent-section hidden">
+  <div class="recent-header">
+    <div class="section-title" id="recent-title">Son İndirilenler</div>
+    <a href="/history?lang={{ lang }}" id="recent-see-all">Tümünü gör →</a>
+  </div>
+  <div id="recent-list" class="history-grid recent-grid"></div>
+</section>
+
+{% endblock %}

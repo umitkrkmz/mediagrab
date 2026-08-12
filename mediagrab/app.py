@@ -1,0 +1,287 @@
+import locale
+import os
+import threading
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from . import downloader
+from .models import (
+    DownloadRequest,
+    DownloadStartResponse,
+    HistoryItem,
+    LocaleResponse,
+    ProbeRequest,
+    StatusResponse,
+)
+from .paths import resource_dir
+
+app = FastAPI()
+
+STATIC_DIR = resource_dir("static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# NOTE: every page is rendered via Jinja2 (base.html gives them a shared
+# header/nav/footer); in-page interaction (probe/download/history) is still
+# plain vanilla JS.
+TEMPLATES_DIR = resource_dir("templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# NOTE: job records live in memory only and are lost on server restart.
+jobs: dict[str, dict] = {}
+jobs_lock = threading.Lock()
+
+# NOTE: at most 3 concurrent downloads; the rest queue up.
+executor = ThreadPoolExecutor(max_workers=3)
+
+# NOTE: we don't keep a separate DB for download history; the indirilenler/
+# folder already holds the actual files, so the history list is built by
+# reading that folder.
+HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "srt"}
+
+
+def _detect_system_lang() -> str:
+    # NOTE: since the app only runs locally, the language is read from the OS
+    # locale rather than the browser. If anything other than Turkish is
+    # detected (or nothing is), it defaults to Turkish.
+    try:
+        lang = locale.getlocale()[0]
+        if not lang:
+            locale.setlocale(locale.LC_ALL, "")
+            lang = locale.getlocale()[0]
+    except Exception:
+        lang = None
+    if lang and "turk" not in lang.lower() and not lang.lower().startswith("tr"):
+        return "en"
+    return "tr"
+
+
+def _resolve_lang(lang: Optional[str]) -> str:
+    # NOTE: use ?lang= from the URL if it's valid (JS appends it to links so
+    # the language stays consistent across page navigations); otherwise fall
+    # back to the system language.
+    if lang in ("tr", "en"):
+        return lang
+    return _detect_system_lang()
+
+
+def _history_path(filename: str) -> str:
+    safe_name = os.path.basename(filename)
+    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    path = os.path.abspath(os.path.join(download_dir, safe_name))
+    if os.path.dirname(path) != download_dir or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Dosya bulunamadi")
+    return path
+
+
+def _set_job(job_id: str, **fields) -> None:
+    with jobs_lock:
+        jobs[job_id].update(fields)
+
+
+def _format_speed(bytes_per_sec) -> str | None:
+    if not bytes_per_sec:
+        return None
+    speed = float(bytes_per_sec)
+    for unit in ("B/s", "KB/s", "MB/s", "GB/s"):
+        if speed < 1024 or unit == "GB/s":
+            return f"{speed:.1f} {unit}"
+        speed /= 1024
+    return None
+
+
+def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str]) -> None:
+    def on_progress(d: dict) -> None:
+        status = d.get("status")
+        if status == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate")
+            downloaded = d.get("downloaded_bytes") or 0
+            percent = (downloaded / total * 100) if total else 0.0
+            _set_job(
+                job_id,
+                state="indiriliyor",
+                percent=round(percent, 1),
+                speed=_format_speed(d.get("speed")),
+            )
+        elif status == "finished":
+            # NOTE: yt-dlp says "finished" here, but ffmpeg (merge/remux/encode)
+            # may not have run yet; we don't count the job as "done" here.
+            _set_job(job_id, state="isleniyor", percent=100.0, speed=None)
+
+    def on_postprocess(d: dict) -> None:
+        if d.get("status") == "started":
+            _set_job(job_id, state="isleniyor")
+
+    try:
+        _set_job(job_id, state="indiriliyor")
+        filepath = downloader.download(url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs)
+        _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
+    except Exception as exc:
+        _set_job(job_id, state="hata", error=str(exc))
+
+
+@app.get("/")
+def index(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "index.html", {"lang": _resolve_lang(lang), "active": "home"})
+
+
+@app.get("/history")
+def history_page(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "history.html", {"lang": _resolve_lang(lang), "active": "history"})
+
+
+@app.post("/api/probe")
+def probe(req: ProbeRequest) -> dict:
+    # NOTE: response_model is deliberately omitted - single-video and
+    # playlist responses have different shapes (a video list vs. an entries
+    # list), so we return a plain dict instead of one Union model; the client
+    # distinguishes them via the "type" field.
+    try:
+        return downloader.probe(req.url)
+    except downloader.ProbeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/download", response_model=DownloadStartResponse)
+def start_download(req: DownloadRequest) -> dict:
+    job_id = uuid.uuid4().hex
+    with jobs_lock:
+        jobs[job_id] = {
+            "state": "basliyor",
+            "percent": 0.0,
+            "speed": None,
+            "ready": False,
+            "error": None,
+            "filepath": None,
+        }
+    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs)
+    return {"job_id": job_id}
+
+
+@app.get("/api/status/{job_id}", response_model=StatusResponse)
+def status(job_id: str) -> dict:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Is bulunamadi")
+        return dict(job)
+
+
+@app.get("/api/file/{job_id}")
+def file(job_id: str) -> FileResponse:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None or not job.get("ready"):
+            raise HTTPException(status_code=404, detail="Dosya henuz hazir degil")
+        filepath = job["filepath"]
+    # NOTE: the file explorer is triggered right here - i.e. when the user
+    # actually clicks "Download file", not when the background job finishes.
+    downloader.reveal_in_explorer(filepath)
+    return FileResponse(filepath, filename=os.path.basename(filepath))
+
+
+@app.get("/api/locale", response_model=LocaleResponse)
+def locale_info() -> dict:
+    return {"lang": _detect_system_lang()}
+
+
+@app.get("/api/history", response_model=list[HistoryItem])
+def history() -> list[dict]:
+    items = []
+    for name in os.listdir(downloader.DOWNLOAD_DIR):
+        path = os.path.join(downloader.DOWNLOAD_DIR, name)
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        if ext not in HISTORY_EXTS or not os.path.isfile(path):
+            continue
+        stat = os.stat(path)
+        items.append(
+            {
+                "filename": name,
+                "ext": ext,
+                "size": downloader.human_size(stat.st_size),
+                "downloaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
+            }
+        )
+    items.sort(key=lambda x: x["downloaded_at"], reverse=True)
+    return items
+
+
+@app.get("/api/history/file/{filename}")
+def history_file(filename: str) -> FileResponse:
+    path = _history_path(filename)
+    downloader.reveal_in_explorer(path)
+    return FileResponse(path, filename=os.path.basename(path))
+
+
+def _guess_image_mime(data: bytes) -> str:
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    return "image/jpeg"
+
+
+@app.get("/api/history/thumb/{filename}")
+def history_thumb(filename: str) -> Response:
+    path = _history_path(filename)
+    thumb = downloader.extract_thumbnail(path)
+    if not thumb:
+        raise HTTPException(status_code=404, detail="Kapak resmi yok")
+    return Response(content=thumb, media_type=_guess_image_mime(thumb))
+
+
+@app.delete("/api/history/{filename}")
+def delete_history(filename: str) -> dict:
+    path = _history_path(filename)
+    os.remove(path)
+    return {"ok": True}
+
+
+@app.delete("/api/history")
+def clear_history() -> dict:
+    removed = 0
+    for name in os.listdir(downloader.DOWNLOAD_DIR):
+        path = os.path.join(downloader.DOWNLOAD_DIR, name)
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        if ext in HISTORY_EXTS and os.path.isfile(path):
+            os.remove(path)
+            removed += 1
+    return {"ok": True, "removed": removed}
+
+
+def _fmt_duration(seconds: Optional[int]) -> Optional[str]:
+    if not seconds:
+        return None
+    m, s = divmod(int(seconds), 60)
+    return f"{m}:{s:02d}"
+
+
+@app.get("/item/{filename}")
+def item_detail(request: Request, filename: str, lang: Optional[str] = None):
+    lang = _resolve_lang(lang)
+    path = _history_path(filename)
+    stat = os.stat(path)
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    meta = downloader.get_metadata(path)
+    has_thumb = downloader.extract_thumbnail(path) is not None
+
+    context = {
+        "lang": lang,
+        "filename": filename,
+        "ext": ext,
+        "size": downloader.human_size(stat.st_size),
+        "downloaded_at": datetime.fromtimestamp(stat.st_mtime).strftime("%d.%m.%Y %H:%M"),
+        "has_thumb": has_thumb,
+        "title": meta["title"] or filename,
+        "artist": meta["artist"],
+        "duration_label": _fmt_duration(meta["duration"]),
+    }
+    return templates.TemplateResponse(request, "item.html", context)

@@ -1,0 +1,36 @@
+# Uygulama verisi
+indirilenler/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Sanal ortam
+.venv/
+venv/
+env/
+
+# Ortam / gizli bilgiler
+.env
+.env.*
+
+# Log dosyaları (test/geliştirme sırasında oluşan uvicorn çıktıları)
+*.log
+
+# Editör / IDE
+.vscode/
+.idea/
+
+# Claude Code çalışma zamanı durumu
+.claude/
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# PyInstaller derleme çıktıları (exe GitHub Release'e yüklenir, repo'ya değil)
+build/
+dist/

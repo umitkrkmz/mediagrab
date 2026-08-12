@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — MediaGrab{% endblock %}
+{% block main_class %}main-narrow{% endblock %}
+{% block content %}
+
+<a class="back-link" href="/history?lang={{ lang }}">
+  {% if lang == "en" %}&larr; Back to history{% else %}&larr; Geçmişe dön{% endif %}
+</a>
+
+<div class="item-card">
+  <div class="item-thumb">
+    {% if has_thumb %}
+    <img src="/api/history/thumb/{{ filename | urlencode }}" alt="">
+    {% else %}
+    <span class="placeholder">{% if ext == "mp4" %}&#9654;{% elif ext == "srt" %}CC{% else %}&#9834;{% endif %}</span>
+    {% endif %}
+  </div>
+
+  <div class="item-info">
+    <h1>{{ title }}</h1>
+    {% if artist %}<div class="item-artist">{{ artist }}</div>{% endif %}
+
+    <div class="item-meta-grid">
+      <div class="item-meta-row">
+        <span class="k">{% if lang == "en" %}File{% else %}Dosya{% endif %}</span>
+        <span class="v">{{ filename }}</span>
+      </div>
+      <div class="item-meta-row">
+        <span class="k">Format</span>
+        <span class="v">{{ ext | upper }}</span>
+      </div>
+      <div class="item-meta-row">
+        <span class="k">{% if lang == "en" %}Size{% else %}Boyut{% endif %}</span>
+        <span class="v">{{ size }}</span>
+      </div>
+      {% if duration_label %}
+      <div class="item-meta-row">
+        <span class="k">{% if lang == "en" %}Duration{% else %}Süre{% endif %}</span>
+        <span class="v">{{ duration_label }}</span>
+      </div>
+      {% endif %}
+      <div class="item-meta-row">
+        <span class="k">{% if lang == "en" %}Downloaded{% else %}İndirilme{% endif %}</span>
+        <span class="v">{{ downloaded_at }}</span>
+      </div>
+    </div>
+
+    <a class="download-btn item-download-btn" href="/api/history/file/{{ filename | urlencode }}">
+      {% if lang == "en" %}Download file{% else %}Dosyayı indir{% endif %}
+    </a>
+  </div>
+</div>
+
+{% endblock %}

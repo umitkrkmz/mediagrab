@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}MediaGrab{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/?lang={{ lang }}">
+      <span class="brand-mark">M</span>
+      <span class="brand-name">MediaGrab</span>
+    </a>
+    <nav class="site-nav">
+      <a href="/?lang={{ lang }}" id="nav-home" class="{{ 'active' if active == 'home' else '' }}">Ana Sayfa</a>
+      <a href="/history?lang={{ lang }}" id="nav-history" class="{{ 'active' if active == 'history' else '' }}">Geçmiş</a>
+    </nav>
+    <div class="lang-switch" id="lang-switch">
+      <button type="button" data-lang="tr">TR</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+</header>
+
+<main class="site-main {% block main_class %}{% endblock %}">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p id="footer-legal">Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz.</p>
+    <p class="footer-meta"><span id="footer-note">MediaGrab, yt-dlp ile çalışır. Veritabanı ve hesap sistemi yoktur — sadece bu bilgisayarda çalışır.</span></p>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

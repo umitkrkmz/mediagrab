@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}İndirme Geçmişi — MediaGrab{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+
+<div class="page-title-row">
+  <h1 id="history-page-title">İndirme Geçmişi</h1>
+  <button type="button" id="history-clear-btn" class="clear-history-btn hidden">Tümünü Sil</button>
+</div>
+<div id="history-error" class="error hidden"></div>
+<div id="history-list" class="history-grid"></div>
+
+{% endblock %}
