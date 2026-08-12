@@ -73,3 +73,33 @@ class HistoryItem(BaseModel):
 
 class LocaleResponse(BaseModel):
     lang: Literal["tr", "en"]
+
+
+class ChannelAddRequest(BaseModel):
+    url: str
+    mode: Literal["notify", "auto"]
+    choice_kind: Literal["audio", "video"]
+    choice: str
+
+
+class ChannelItem(BaseModel):
+    id: str
+    url: str
+    name: str
+    thumbnail: Optional[str] = None
+    mode: Literal["notify", "auto"]
+    choice_kind: Literal["audio", "video"]
+    choice: str
+    last_video_id: Optional[str] = None
+    added_at: str
+    last_checked_at: Optional[str] = None
+
+
+class PendingVideo(BaseModel):
+    channel_id: str
+    channel_name: str
+    id: str
+    title: str
+    url: str
+    thumbnail: Optional[str] = None
+    duration: int = 0

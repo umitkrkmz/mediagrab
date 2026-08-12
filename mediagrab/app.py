@@ -11,12 +11,15 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import downloader
+from . import downloader, store
 from .models import (
+    ChannelAddRequest,
+    ChannelItem,
     DownloadRequest,
     DownloadStartResponse,
     HistoryItem,
     LocaleResponse,
+    PendingVideo,
     ProbeRequest,
     StatusResponse,
 )
@@ -126,9 +129,66 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
         _set_job(job_id, state="hata", error=str(exc))
 
 
+def _check_channel(channel: dict) -> None:
+    try:
+        new_videos = downloader.check_channel_new_videos(channel["url"], channel.get("last_video_id"))
+    except Exception:
+        # NOTE: a channel being temporarily unreachable (network hiccup, video
+        # taken down, etc.) shouldn't block checking the other channels.
+        return
+
+    if new_videos:
+        newest_id = new_videos[0]["id"]
+        if channel["mode"] == "auto":
+            for v in new_videos:
+                job_id = uuid.uuid4().hex
+                with jobs_lock:
+                    jobs[job_id] = {
+                        "state": "basliyor",
+                        "percent": 0.0,
+                        "speed": None,
+                        "ready": False,
+                        "error": None,
+                        "filepath": None,
+                    }
+                executor.submit(_run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [])
+        else:
+            store.add_pending(
+                [
+                    {
+                        "channel_id": channel["id"],
+                        "channel_name": channel["name"],
+                        **v,
+                    }
+                    for v in new_videos
+                ]
+            )
+        store.update_channel(channel["id"], last_video_id=newest_id)
+
+    store.update_channel(channel["id"], last_checked_at=datetime.now().isoformat(timespec="seconds"))
+
+
+def _check_all_channels() -> None:
+    for channel in store.list_channels():
+        _check_channel(channel)
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    # NOTE: this is a "check on launch" design, not a persistent background
+    # service - the app only runs while opened, so followed channels are
+    # checked once here rather than on a timer. See README for why.
+    threading.Thread(target=_check_all_channels, daemon=True).start()
+
+
 @app.get("/")
 def index(request: Request, lang: Optional[str] = None):
     return templates.TemplateResponse(request, "index.html", {"lang": _resolve_lang(lang), "active": "home"})
+
+
+@app.get("/settings")
+def settings_page(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "settings.html", {"lang": _resolve_lang(lang), "active": "settings"})
 
 
 @app.get("/history")
@@ -285,3 +345,57 @@ def item_detail(request: Request, filename: str, lang: Optional[str] = None):
         "duration_label": _fmt_duration(meta["duration"]),
     }
     return templates.TemplateResponse(request, "item.html", context)
+
+
+@app.get("/api/channels", response_model=list[ChannelItem])
+def list_channels() -> list[dict]:
+    return store.list_channels()
+
+
+@app.post("/api/channels", response_model=ChannelItem)
+def add_channel(req: ChannelAddRequest) -> dict:
+    try:
+        info = downloader.resolve_channel(req.url)
+    except downloader.ProbeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return store.add_channel(
+        url=info["url"],
+        name=info["name"],
+        thumbnail=info["thumbnail"],
+        mode=req.mode,
+        choice_kind=req.choice_kind,
+        choice=req.choice,
+        last_video_id=info["last_video_id"],
+    )
+
+
+@app.get("/api/channels/pending", response_model=list[PendingVideo])
+def get_pending_videos() -> list[dict]:
+    return store.get_pending()
+
+
+@app.delete("/api/channels/pending")
+def clear_pending_videos() -> dict:
+    store.clear_pending()
+    return {"ok": True}
+
+
+# NOTE: the two literal "/pending" routes above MUST be registered before the
+# "/{channel_id}" routes below - FastAPI matches routes in registration
+# order, so a parameterized route registered first would swallow "pending" as
+# if it were a channel_id (this was a real bug: DELETE /api/channels/pending
+# matched delete_channel("pending") instead, silently doing nothing).
+@app.delete("/api/channels/{channel_id}")
+def delete_channel(channel_id: str) -> dict:
+    store.remove_channel(channel_id)
+    return {"ok": True}
+
+
+@app.post("/api/channels/{channel_id}/check")
+def check_channel_now(channel_id: str) -> dict:
+    channels = {c["id"]: c for c in store.list_channels()}
+    channel = channels.get(channel_id)
+    if channel is None:
+        raise HTTPException(status_code=404, detail="Kanal bulunamadi")
+    _check_channel(channel)
+    return {"ok": True}

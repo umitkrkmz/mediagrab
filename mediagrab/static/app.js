@@ -16,10 +16,30 @@ const historyError = document.getElementById("history-error");
 const historyClearBtn = document.getElementById("history-clear-btn");
 const navHome = document.getElementById("nav-home");
 const navHistory = document.getElementById("nav-history");
+const navSettings = document.getElementById("nav-settings");
 const footerLegal = document.getElementById("footer-legal");
 const footerNote = document.getElementById("footer-note");
 const langSwitch = document.getElementById("lang-switch");
 const itemCard = document.querySelector(".item-card");
+
+const pendingBanner = document.getElementById("pending-banner");
+const pendingTitleEl = document.getElementById("pending-title");
+const pendingClearBtn = document.getElementById("pending-clear-btn");
+const pendingList = document.getElementById("pending-list");
+
+const settingsPageTitleEl = document.getElementById("settings-page-title");
+const settingsAddTitleEl = document.getElementById("settings-add-title");
+const settingsAddHintEl = document.getElementById("settings-add-hint");
+const settingsListTitleEl = document.getElementById("settings-list-title");
+const channelUrlInput = document.getElementById("channel-url-input");
+const channelChoiceSelect = document.getElementById("channel-choice-select");
+const channelAddBtn = document.getElementById("channel-add-btn");
+const channelError = document.getElementById("channel-error");
+const channelList = document.getElementById("channel-list");
+const channelEmpty = document.getElementById("channel-empty");
+const modeNotifyLabel = document.getElementById("mode-notify-label");
+const modeAutoLabel = document.getElementById("mode-auto-label");
+const channelModeRadios = document.querySelectorAll('input[name="channel-mode"]');
 
 const LANG_KEY = "mediagrab_lang";
 
@@ -30,6 +50,7 @@ const I18N = {
   tr: {
     navHome: "Ana Sayfa",
     navHistory: "Geçmiş",
+    navSettings: "Ayarlar",
     footerLegal:
       "Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz.",
     footerNote: "MediaGrab, yt-dlp ile çalışır. Veritabanı ve hesap sistemi yoktur — sadece bu bilgisayarda çalışır.",
@@ -74,10 +95,29 @@ const I18N = {
     videoWord: "video",
     backToPlaylist: "← Playlist'e dön",
     locale: "tr-TR",
+    settingsPageTitle: "Ayarlar",
+    settingsAddTitle: "Kanal Takip Et",
+    settingsAddHint: "Uygulamayı her açtığınızda takip ettiğiniz kanallar yeni video için kontrol edilir.",
+    channelUrlPlaceholder: "Kanal linki yapıştır (ör. youtube.com/@kanaladi)",
+    modeNotify: "Bildir",
+    modeAuto: "Otomatik indir",
+    channelAddBtnLabel: "Ekle",
+    settingsListTitle: "Takip Edilen Kanallar",
+    channelEmpty: "Henüz takip edilen kanal yok.",
+    channelCheckNow: "Şimdi kontrol et",
+    channelRemove: "Kaldır",
+    channelAddFailed: "Kanal eklenemedi",
+    channelModeAutoBadge: "OTOMATİK",
+    channelModeNotifyBadge: "BİLDİR",
+    channelLastChecked: "Son kontrol",
+    channelNeverChecked: "Henüz kontrol edilmedi",
+    pendingTitle: "Takip Edilen Kanallarda Yeni Video",
+    pendingClear: "Temizle",
   },
   en: {
     navHome: "Home",
     navHistory: "History",
+    navSettings: "Settings",
     footerLegal:
       "This tool is for personal use only. You are solely responsible for the copyright status of downloaded content and compliance with the relevant platform's terms of service.",
     footerNote: "MediaGrab runs on yt-dlp. No database or account system — it only runs on this computer.",
@@ -122,6 +162,24 @@ const I18N = {
     videoWord: "videos",
     backToPlaylist: "← Back to playlist",
     locale: "en-US",
+    settingsPageTitle: "Settings",
+    settingsAddTitle: "Follow a Channel",
+    settingsAddHint: "Every time you open the app, followed channels are checked for new videos.",
+    channelUrlPlaceholder: "Paste a channel link (e.g. youtube.com/@channelname)",
+    modeNotify: "Notify",
+    modeAuto: "Auto-download",
+    channelAddBtnLabel: "Add",
+    settingsListTitle: "Followed Channels",
+    channelEmpty: "No followed channels yet.",
+    channelCheckNow: "Check now",
+    channelRemove: "Remove",
+    channelAddFailed: "Could not add channel",
+    channelModeAutoBadge: "AUTO",
+    channelModeNotifyBadge: "NOTIFY",
+    channelLastChecked: "Last checked",
+    channelNeverChecked: "Not checked yet",
+    pendingTitle: "New Videos From Followed Channels",
+    pendingClear: "Clear",
   },
 };
 
@@ -131,6 +189,8 @@ let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
 let pollTimer = null;
 let selectedSubtitles = new Set(); // checked subtitle language codes - go along with the next video download
+let lastPending = [];
+let lastChannels = [];
 
 function t() {
   return I18N[lang];
@@ -184,6 +244,10 @@ function applyLang() {
     navHistory.textContent = t().navHistory;
     navHistory.href = withLang("/history");
   }
+  if (navSettings) {
+    navSettings.textContent = t().navSettings;
+    navSettings.href = withLang("/settings");
+  }
   if (footerLegal) footerLegal.textContent = t().footerLegal;
   if (footerNote) footerNote.textContent = t().footerNote;
 
@@ -198,6 +262,21 @@ function applyLang() {
   }
   if (historyPageTitle) historyPageTitle.textContent = t().historyPageTitle;
   if (historyClearBtn) historyClearBtn.textContent = t().historyClear;
+
+  if (settingsPageTitleEl) settingsPageTitleEl.textContent = t().settingsPageTitle;
+  if (settingsAddTitleEl) settingsAddTitleEl.textContent = t().settingsAddTitle;
+  if (settingsAddHintEl) settingsAddHintEl.textContent = t().settingsAddHint;
+  if (settingsListTitleEl) settingsListTitleEl.textContent = t().settingsListTitle;
+  if (channelUrlInput) channelUrlInput.placeholder = t().channelUrlPlaceholder;
+  if (modeNotifyLabel) modeNotifyLabel.textContent = t().modeNotify;
+  if (modeAutoLabel) modeAutoLabel.textContent = t().modeAuto;
+  if (channelAddBtn) channelAddBtn.textContent = t().channelAddBtnLabel;
+  if (channelEmpty) channelEmpty.textContent = t().channelEmpty;
+  if (pendingTitleEl) pendingTitleEl.textContent = t().pendingTitle;
+  if (pendingClearBtn) pendingClearBtn.textContent = t().pendingClear;
+
+  if (channelList) renderChannelList(lastChannels);
+  if (pendingBanner) renderPending();
 
   if (card) {
     if (lastProbe) {
@@ -604,6 +683,170 @@ async function clearAllHistory() {
   }
 }
 
+// --- Ayarlar sayfasi: kanal takibi ---
+
+function updateChannelChoiceVisibility() {
+  if (!channelChoiceSelect) return;
+  const mode = document.querySelector('input[name="channel-mode"]:checked')?.value;
+  channelChoiceSelect.classList.toggle("hidden", mode !== "auto");
+}
+
+async function loadChannels() {
+  if (!channelList) return;
+  try {
+    const res = await fetch("/api/channels");
+    const data = await res.json();
+    lastChannels = data;
+    renderChannelList(lastChannels);
+  } catch (err) {
+    // NOTE: silent - settings page just shows an empty list on failure.
+  }
+}
+
+function renderChannelList(items) {
+  if (!channelList) return;
+  channelEmpty?.classList.toggle("hidden", items.length > 0);
+
+  channelList.innerHTML = items
+    .map((c) => {
+      const thumb = c.thumbnail ? `<img src="${escapeHtml(c.thumbnail)}" alt="">` : "";
+      const modeLabel = c.mode === "auto" ? t().channelModeAutoBadge : t().channelModeNotifyBadge;
+      const lastChecked = c.last_checked_at
+        ? new Date(c.last_checked_at).toLocaleString(t().locale, { dateStyle: "medium", timeStyle: "short" })
+        : t().channelNeverChecked;
+      return `
+    <div class="channel-item" data-id="${c.id}">
+      <div class="channel-thumb">${thumb}</div>
+      <div class="channel-info">
+        <div class="name">${escapeHtml(c.name)}</div>
+        <div class="meta">${t().channelLastChecked}: ${lastChecked}</div>
+      </div>
+      <span class="channel-mode-badge ${c.mode}">${modeLabel}</span>
+      <div class="channel-actions">
+        <button type="button" class="check-now-btn">${t().channelCheckNow}</button>
+        <button type="button" class="remove-btn">${t().channelRemove}</button>
+      </div>
+    </div>`;
+    })
+    .join("");
+
+  channelList.querySelectorAll(".channel-item").forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector(".check-now-btn").addEventListener("click", async (e) => {
+      e.target.disabled = true;
+      try {
+        await fetch(`/api/channels/${id}/check`, { method: "POST" });
+        await loadChannels();
+        await loadPending();
+      } finally {
+        e.target.disabled = false;
+      }
+    });
+    row.querySelector(".remove-btn").addEventListener("click", async () => {
+      await fetch(`/api/channels/${id}`, { method: "DELETE" });
+      loadChannels();
+    });
+  });
+}
+
+async function addChannel() {
+  if (!channelUrlInput) return;
+  const url = channelUrlInput.value.trim();
+  if (!url) return;
+  channelError?.classList.add("hidden");
+
+  const mode = document.querySelector('input[name="channel-mode"]:checked')?.value || "notify";
+  let choiceKind = "audio";
+  let choice = "opus";
+  if (mode === "auto") {
+    const [kind, val] = (channelChoiceSelect.value || "audio:opus").split(":");
+    choiceKind = kind;
+    choice = val;
+  }
+
+  channelAddBtn.disabled = true;
+  try {
+    const res = await fetch("/api/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, mode, choice_kind: choiceKind, choice }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (channelError) {
+        channelError.textContent = data.detail || t().channelAddFailed;
+        channelError.classList.remove("hidden");
+      }
+      return;
+    }
+    channelUrlInput.value = "";
+    loadChannels();
+  } catch (err) {
+    if (channelError) {
+      channelError.textContent = t().errNetwork + err.message;
+      channelError.classList.remove("hidden");
+    }
+  } finally {
+    channelAddBtn.disabled = false;
+  }
+}
+
+// --- Ana sayfa: takip edilen kanallardan yeni video banner'i ---
+
+async function loadPending() {
+  if (!pendingBanner) return;
+  try {
+    const res = await fetch("/api/channels/pending");
+    const data = await res.json();
+    lastPending = data;
+    renderPending();
+  } catch (err) {
+    // NOTE: silent - the banner just stays hidden on failure.
+  }
+}
+
+function renderPending() {
+  if (!pendingBanner) return;
+  pendingBanner.classList.toggle("hidden", lastPending.length === 0);
+  if (lastPending.length === 0) return;
+
+  pendingList.innerHTML = lastPending
+    .map((v, i) => {
+      const thumb = v.thumbnail
+        ? `<img src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy">`
+        : `<span class="placeholder">▶</span>`;
+      const meta = [escapeHtml(v.channel_name), fmtDuration(v.duration)].filter(Boolean).join(" · ");
+      return `
+    <button type="button" class="playlist-item" data-index="${i}">
+      <div class="playlist-thumb">${thumb}</div>
+      <div class="playlist-info">
+        <div class="name">${escapeHtml(v.title)}</div>
+        <div class="meta">${meta}</div>
+      </div>
+    </button>`;
+    })
+    .join("");
+
+  pendingList.querySelectorAll(".playlist-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const v = lastPending[Number(btn.dataset.index)];
+      selectPlaylistEntry(v);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+async function clearPending() {
+  try {
+    const res = await fetch("/api/channels/pending", { method: "DELETE" });
+    if (!res.ok) return;
+    lastPending = [];
+    renderPending();
+  } catch (err) {
+    // NOTE: silent - user can just try the button again.
+  }
+}
+
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") probe();
@@ -612,6 +855,12 @@ langSwitch?.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
 });
 historyClearBtn?.addEventListener("click", clearAllHistory);
+channelAddBtn?.addEventListener("click", addChannel);
+channelModeRadios.forEach((r) => r.addEventListener("change", updateChannelChoiceVisibility));
+pendingClearBtn?.addEventListener("click", clearPending);
+updateChannelChoiceVisibility();
 
 initLang();
 loadHistory();
+loadChannels();
+loadPending();

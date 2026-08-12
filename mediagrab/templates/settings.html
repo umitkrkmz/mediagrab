@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar — MediaGrab{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+
+<div class="page-title-row">
+  <h1 id="settings-page-title">Ayarlar</h1>
+</div>
+
+<div class="settings-section">
+  <div class="section-title" id="settings-add-title">Kanal Takip Et</div>
+  <p class="settings-hint" id="settings-add-hint">Uygulamayı her açtığınızda takip ettiğiniz kanallar yeni video için kontrol edilir.</p>
+
+  <div class="settings-add-form">
+    <input id="channel-url-input" type="text" placeholder="Kanal linki yapıştır (ör. youtube.com/@kanaladi)" autocomplete="off">
+
+    <div class="settings-mode-row">
+      <label class="settings-radio">
+        <input type="radio" name="channel-mode" value="notify" checked>
+        <span id="mode-notify-label">Bildir</span>
+      </label>
+      <label class="settings-radio">
+        <input type="radio" name="channel-mode" value="auto">
+        <span id="mode-auto-label">Otomatik indir</span>
+      </label>
+    </div>
+
+    <select id="channel-choice-select" class="hidden">
+      <option value="audio:opus">Opus</option>
+      <option value="audio:m4a">M4A</option>
+      <option value="audio:mp3">MP3</option>
+      <option value="video:best">En iyi video kalitesi</option>
+    </select>
+
+    <button type="button" id="channel-add-btn">Ekle</button>
+  </div>
+  <div id="channel-error" class="error hidden"></div>
+</div>
+
+<div class="settings-section">
+  <div class="section-title" id="settings-list-title">Takip Edilen Kanallar</div>
+  <div id="channel-empty" class="history-empty hidden">Henüz takip edilen kanal yok.</div>
+  <div id="channel-list" class="channel-list"></div>
+</div>
+
+{% endblock %}

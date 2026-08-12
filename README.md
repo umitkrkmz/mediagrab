@@ -18,6 +18,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak
 - **Altyazı** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir
 - **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir, birine tıklayınca normal indirme akışı açılır
+- **Kanal takibi** (`/settings`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil — bkz. aşağıdaki not.
 - **İndirme geçmişi** — kapak resimli kart görünümünde, ayrı bir sayfada (`/history`); tekrar indirme, silme, tümünü silme
 - **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
 - **Türkçe / İngilizce arayüz** — sistem diline göre otomatik, elle de değiştirilebilir
@@ -96,6 +97,12 @@ Tarayıcıda `http://127.0.0.1:8000` adresini açın. Durdurmak için terminalde
 
 Kaynak kod yerine hazır Windows exe'sini kullanıyorsanız (bkz. [Releases](../../releases)): sunucuyu kapatmak için konsol penceresini X ile kapatmak yerine tıklayıp **`Ctrl+C`** yapın. X ile kapatmak süreci arka planda bırakabilir, 8000 portunu tutmaya devam eder ve bir dahaki açışta yeni sunucu başlamaz (sadece eski pencereyi tarayıcıda açar). Böyle bir durumda Görev Yöneticisi'nden `MediaGrab.exe`'yi sonlandırın.
 
+### Kanal Takibi Nasıl Çalışır
+
+MediaGrab sürekli arka planda çalışan bir servis **değil** — sadece siz açtığınızda çalışır. Bu yüzden kanal takibi de "her açılışta bir kez kontrol et" mantığıyla çalışır: uygulamayı başlattığınızda (`uvicorn` komutunu çalıştırdığınızda ya da exe'yi açtığınızda), takip listenizdeki tüm kanallar arka planda kontrol edilir. Uygulama kapalıyken yeni yüklenen videolar, siz tekrar açana kadar tespit edilmez — kişisel/lokal bir araç için beklenen davranış budur; 7/24 arka planda çalışan bir Windows servisi haline getirmek istemiyoruz.
+
+Takip listesi ve son görülen video bilgisi, veritabanı yerine `channels.json` dosyasında (git'e dahil değil) tutulur — projenin geri kalanıyla aynı "gerçek veri diskte, ayrı bir DB yok" felsefesi.
+
 ### Sorun Giderme
 
 **`ModuleNotFoundError` veya "paket bulunamadı" hatası**
@@ -131,9 +138,12 @@ mediagrab/
     app.py          # FastAPI uygulaması, endpoint'ler
     downloader.py   # yt-dlp sarmalayıcı — yt_dlp importu SADECE burada
     models.py       # Pydantic modelleri
-    templates/      # Jinja2: base, index, history, item
+    store.py        # channels.json okuma/yazma (kanal takibi, DB değil)
+    paths.py         # kaynak/exe modunda doğru klasör yollarını çözer
+    templates/      # Jinja2: base, index, history, item, settings
     static/         # style.css, app.js
 indirilenler/       # indirilen dosyalar (git'e dahil değil)
+channels.json       # takip edilen kanallar (git'e dahil değil)
 requirements.txt
 LICENSE
 README.md
@@ -184,6 +194,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **Video** — every available resolution, auto-merged with audio into an mp4
 - **Subtitles** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them
 - **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to open the normal download flow
+- **Channel following** (`/settings`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service - see the note below.
 - **Download history** — cover-art cards on their own page (`/history`); re-download, delete, or clear all
 - **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
 - **Turkish / English UI** — follows your system locale by default, switchable by hand
@@ -262,6 +273,12 @@ Open `http://127.0.0.1:8000` in your browser. Stop it with `Ctrl+C` in the termi
 
 If you're using the prebuilt Windows exe instead of source (see [Releases](../../releases)): stop it by clicking the console window and pressing **`Ctrl+C`**, not by closing the window with the X button. Closing with X can leave the process running in the background holding port 8000, so the next launch won't start a fresh server (it'll just reopen your browser to the old instance). If that happens, end `MediaGrab.exe` in Task Manager.
 
+### How Channel Following Works
+
+MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (running the `uvicorn` command, or opening the exe), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
+
+The followed-channel list and each channel's "last seen video" state live in a `channels.json` file (not committed to git) instead of a database - same "real data lives on disk, no separate DB" philosophy as the rest of the project.
+
 ### Troubleshooting
 
 **`ModuleNotFoundError` or "package not found" errors**
@@ -297,9 +314,12 @@ mediagrab/
     app.py          # FastAPI app, endpoints
     downloader.py   # yt-dlp wrapper — the ONLY file that imports yt_dlp
     models.py       # Pydantic models
-    templates/      # Jinja2: base, index, history, item
+    store.py        # reads/writes channels.json (channel following, not a DB)
+    paths.py         # resolves the right folders whether running from source or as the exe
+    templates/      # Jinja2: base, index, history, item, settings
     static/         # style.css, app.js
 indirilenler/       # downloaded files (not in git)
+channels.json       # followed channels (not in git)
 requirements.txt
 LICENSE
 README.md

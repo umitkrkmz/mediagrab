@@ -92,6 +92,86 @@ def _best_thumbnail(entry: dict) -> Optional[str]:
     return best.get("url")
 
 
+def _normalize_channel_url(url: str) -> str:
+    # NOTE: a bare channel URL (e.g. "youtube.com/@TED") resolves to the
+    # channel's TAB LIST (Videos/Live/Shorts) under extract_flat, not actual
+    # videos. Appending "/videos" points straight at the uploads feed.
+    url = url.strip().rstrip("/")
+    if url.endswith(("/videos", "/streams", "/shorts", "/playlists")):
+        return url
+    return url + "/videos"
+
+
+def resolve_channel(url: str) -> dict:
+    # NOTE: used when a channel is first followed - only establishes the
+    # current newest video as a baseline. Older uploads are NOT treated as
+    # "new" (matches normal subscribe-from-now-on expectations, and avoids
+    # notifying/auto-downloading a channel's entire back catalog on add).
+    norm_url = _normalize_channel_url(url)
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "extract_flat": "in_playlist",
+        "playlistend": 1,
+    }
+    try:
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(norm_url, download=False)
+    except Exception as exc:
+        raise ProbeError(str(exc)) from exc
+
+    if info.get("_type") != "playlist":
+        raise ProbeError("Bu bir kanal linki gibi gorunmuyor")
+
+    entries = [e for e in (info.get("entries") or []) if e and e.get("id")]
+    latest = entries[0] if entries else None
+
+    return {
+        "url": norm_url,
+        "name": info.get("channel") or info.get("title") or norm_url,
+        "thumbnail": _best_thumbnail(info) or (latest and _best_thumbnail(latest)),
+        "last_video_id": latest["id"] if latest else None,
+    }
+
+
+def check_channel_new_videos(url: str, last_video_id: Optional[str], limit: int = 15) -> list[dict]:
+    # NOTE: relies on the channel's uploads feed being newest-first (it is,
+    # by default). Stops at the first entry matching last_video_id, so
+    # everything before it in the list is "new". Capped at `limit` per check
+    # so a channel that uploaded 200 videos since the last check doesn't
+    # flood a single check.
+    if not last_video_id:
+        return []
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "extract_flat": "in_playlist",
+        "playlistend": limit,
+    }
+    with YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    entries = [e for e in (info.get("entries") or []) if e and e.get("id")]
+    new_entries = []
+    for e in entries:
+        if e["id"] == last_video_id:
+            break
+        new_entries.append(e)
+
+    return [
+        {
+            "id": e["id"],
+            "title": e.get("title") or "?",
+            "url": e.get("url") or f"https://www.youtube.com/watch?v={e['id']}",
+            "thumbnail": _best_thumbnail(e),
+            "duration": int(e.get("duration") or 0),
+        }
+        for e in new_entries
+    ]
+
+
 def probe(url: str) -> dict:
     opts = {
         "quiet": True,
@@ -191,8 +271,12 @@ def _subtitle_opts(lang_code: str) -> dict:
 
 
 def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> dict:
+    # NOTE: "best" is a sentinel (not a real yt-dlp format_id) used by channel
+    # auto-download, where we can't probe a specific format_id per-video ahead
+    # of time - it maps to a generic, always-valid selector instead.
+    fmt = "bestvideo+bestaudio/best" if format_id == "best" else f"{format_id}+bestaudio/{format_id}"
     opts = {
-        "format": f"{format_id}+bestaudio/{format_id}",
+        "format": fmt,
         "merge_output_format": "mp4",
         # NOTE: we embed a cover into video downloads too, so the history
         # list can show a thumbnail (mp4 supports EmbedThumbnail).
