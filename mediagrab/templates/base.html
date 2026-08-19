@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}MediaGrab{% endblock %}</title>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#5b8def">
 </head>
 <body>
 <header class="site-header">
@@ -29,6 +32,8 @@
 <main class="site-main {% block main_class %}{% endblock %}">
 {% block content %}{% endblock %}
 </main>
+
+<div id="download-dock" class="download-dock hidden"></div>
 
 <footer class="site-footer">
   <div class="site-footer-inner">

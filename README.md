@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.1.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.1.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.2.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.2.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -17,14 +17,20 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **Ses** — Opus / M4A (yeniden kodlanmadan, kalite kaybı yok) veya MP3 (evrensel uyumluluk için yeniden kodlanır)
 - **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak
 - **Altyazı** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir
+- **Transkript indirme** — altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkripti (`.txt`) ayrıca indirebilirsiniz
+- **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu; en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
+- **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
+- **Sayfa içi önizleme** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın
+- **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
 - **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir, birine tıklayınca normal indirme akışı açılır
 - **Çoklu platform** — YouTube'a özel değil; yt-dlp'nin desteklediği 1700'den fazla site (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb.) aynı arayüzden çalışır
 - **Meta veri (JSON) dışa aktarma** — her indirmeyle birlikte aynı dosya adıyla (`video.mp4` + `video.json`) başlık, kanal, yükleme tarihi, açıklama, etiketler ve kaynak linki gibi bilgileri içeren bir JSON dosyası kaydedilir; indirme detay sayfasından ayrıca indirilebilir
 - **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir; disk üzerinde dosya gezgininde veya medya kitaplığı uygulamalarında düzenli görünür
 - **Desteklenen Siteler sayfası** (`/supported-sites`) — yt-dlp'nin desteklediği popüler sitelerin kategorilere ayrılmış kısa bir listesi, tam listeye (1700+ site) link ile
-- **yt-dlp sürüm kontrolü** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır, güncelleme gerekiyorsa adım adım talimat ve kopyalanabilir komut sunar
+- **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
 - **Kanal takibi** (`/settings`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil — bkz. aşağıdaki not.
-- **İndirme geçmişi** — kapak resimli kart görünümünde, ayrı bir sayfada (`/history`); tekrar indirme, silme, tümünü silme
+- **İndirme geçmişi** — kapak resimli kart görünümünde, ayrı bir sayfada (`/history`); başlığa göre arama ve kanala göre filtreleme, tekrar indirme, silme, tümünü silme
+- **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
 - **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
 - **Türkçe / İngilizce arayüz** — sistem diline göre otomatik, elle de değiştirilebilir
 - Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır
@@ -173,15 +179,14 @@ MediaGrab'ın kendi kaynak kodu **MIT** lisansı ile lisanslanmıştır (bkz. [L
 | Paket | Lisans | Not |
 |---|---|---|
 | `yt-dlp` | Unlicense (kamu malı) | indirme/çözümleme motoru |
-| `mutagen` | GPL-2.0-or-later | etiket/kapak/süre okuma — kodumuz bunu doğrudan `import` ediyor |
 | `fastapi` | MIT | web çatısı |
 | `starlette` | BSD-3-Clause | fastapi'nin ASGI katmanı |
 | `uvicorn` | BSD-3-Clause | ASGI sunucusu |
 | `pydantic` | MIT | veri doğrulama |
 | `jinja2` | BSD-3-Clause | HTML şablonlama |
-| `ffmpeg` / `ffprobe` | LGPL-2.1+ veya GPL-2+ (derlemeye göre değişir) | projeye dahil DEĞİL — kullanıcı kendi sistemine ayrıca kurar |
+| `ffmpeg` / `ffprobe` | LGPL-2.1+ veya GPL-2+ (derlemeye göre değişir) | projeye dahil DEĞİL — kullanıcı kendi sistemine ayrıca kurar; etiket/kapak okuma ve süre hesaplama da subprocess ile buradan yapılır |
 
-> **GPL notu:** `mutagen` GPL-2.0-or-later lisanslıdır ve kodumuz onu doğrudan `import` eder. Bu, GPL'in copyleft yükümlülüklerini tetikleyen bir "birleşik/derlenmiş yapıt dağıtımı" değildir — kullanıcı `pip` üzerinden kendi bağımlılığını kendi kurduğu için "mere aggregation" sayılır. Yükümlülük yalnızca MediaGrab'ın kodunu mutagen ile aynı pakette (ör. tek bir `.exe`) birleştirip dağıtırsanız devreye girerdi; bu proje bunu yapmıyor.
+Tüm doğrudan bağımlılıklar izin verici (MIT/BSD) veya kamu malı lisanslıdır — GPL'li bir bağımlılık yoktur.
 
 ### Yasal Uyarı
 
@@ -210,14 +215,20 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **Audio** — Opus / M4A (remuxed, no re-encoding, no quality loss) or MP3 (re-encoded for universal compatibility)
 - **Video** — every available resolution, auto-merged with audio into an mp4
 - **Subtitles** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them
+- **Transcript download** — for videos with subtitles (manual or auto-generated), you can separately download a plain-text transcript (`.txt`)
+- **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link; one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
+- **Persistent download panel** — track multiple downloads at once; progress survives page navigation and even closing and reopening the app
+- **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
+- **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
 - **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to open the normal download flow
 - **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more)
 - **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL; also downloadable from the item detail page
 - **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`), so files stay organized in your file explorer or media library apps
 - **Supported Sites page** (`/supported-sites`) — a short, categorized list of popular sites yt-dlp supports, with a link to the full list (1700+ sites)
-- **yt-dlp version check** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI, and shows step-by-step instructions with a copyable command if an update is available
+- **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Channel following** (`/settings`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service - see the note below.
-- **Download history** — cover-art cards on their own page (`/history`); re-download, delete, or clear all
+- **Download history** — cover-art cards on their own page (`/history`); search by title and filter by channel, re-download, delete, or clear all
+- **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
 - **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
 - **Turkish / English UI** — follows your system locale by default, switchable by hand
 - **No** database, account system, or cloud connection — runs only on this machine
@@ -366,15 +377,14 @@ MediaGrab's own source code is licensed under **MIT** (see [LICENSE](LICENSE)). 
 | Package | License | Note |
 |---|---|---|
 | `yt-dlp` | Unlicense (public domain) | download/resolve engine |
-| `mutagen` | GPL-2.0-or-later | reads tags/cover art/duration — our code `import`s it directly |
 | `fastapi` | MIT | web framework |
 | `starlette` | BSD-3-Clause | fastapi's ASGI layer |
 | `uvicorn` | BSD-3-Clause | ASGI server |
 | `pydantic` | MIT | data validation |
 | `jinja2` | BSD-3-Clause | HTML templating |
-| `ffmpeg` / `ffprobe` | LGPL-2.1+ or GPL-2+ (depends on the build) | NOT bundled — the user installs it separately on their own system |
+| `ffmpeg` / `ffprobe` | LGPL-2.1+ or GPL-2+ (depends on the build) | NOT bundled — the user installs it separately on their own system; tag/cover-art reading and duration are also done through it via subprocess |
 
-> **GPL note:** `mutagen` is GPL-2.0-or-later, and our code `import`s it directly. This doesn't trigger GPL's copyleft obligations, which apply to distributing a combined/compiled artifact — since users install their own copy of the dependency via `pip`, this counts as mere aggregation. The obligation would only kick in if MediaGrab's code were bundled together with mutagen into a single distributed package (e.g. one `.exe`), which this project does not do.
+All direct dependencies are permissively licensed (MIT/BSD) or public domain — there is no GPL dependency.
 
 ### Legal Notice
 

@@ -1,0 +1,13 @@
+{
+  "name": "MediaGrab",
+  "short_name": "MediaGrab",
+  "description": "Local, personal-use video/audio downloader powered by yt-dlp.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#14161a",
+  "theme_color": "#5b8def",
+  "icons": [
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

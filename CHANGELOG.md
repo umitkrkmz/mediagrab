@@ -11,6 +11,28 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.2.0] — 2026-08-19
+
+#### Eklenen
+
+- **Transkript indirme** — altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkript (`.txt`) ayrıca indirilebiliyor
+- **Link yapıştır ve hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu; en iyi ses/en iyi video için tek tıkla hızlı indirme butonları, diğer tüm kalite/format seçenekleri daraltılmış "gelişmiş seçenekler" alanında
+- **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
+- **Tek tıkla yt-dlp güncelleme** (`/settings`) — güncelleme mevcutsa tek tıkla kurulur, uygulama otomatik olarak kendini yeniden başlatır
+- **Geçmişte arama ve kanal filtresi** — indirme geçmişinde başlığa göre arama, kanala göre filtreleme
+- **Sayfa içi önizleme** — ses/video dosyalarını indirme detay sayfasından, dosya gezgini açmadan doğrudan oynatın
+- **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle bağımsız bir uygulama gibi kullanılabilir
+- **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı mesajlar gösteriliyor
+
+#### Değiştirilen
+
+- **`mutagen` bağımlılığı kaldırıldı** — etiket/kapak/süre okuma artık zaten sistemde kurulu olan `ffprobe`/`ffmpeg` üzerinden yapılıyor; GPL bağımlılık ortadan kalktı, tüm doğrudan bağımlılıklar artık izin verici (MIT/BSD) veya kamu malı lisanslı
+
+#### Düzeltilen
+
+- Kalıcı indirme paneli, sunucu yeniden başladığında oluşan geçersiz iş kayıtlarını artık hata göstermeden sessizce temizliyor
+- Otomatik oluşturulmuş (YouTube) altyazılardan üretilen transkriptlerde metin iki kere tekrar ediyordu — düzeltildi
+
 ### [1.1.0] — 2026-08-12
 
 #### Eklenen
@@ -40,6 +62,28 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.2.0] — 2026-08-19
+
+#### Added
+
+- **Transcript download** — for videos with subtitles (manual or auto-generated), a plain-text transcript (`.txt`) can now be downloaded separately
+- **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link; one-click buttons for best audio/best video, with every other quality/format option tucked under a collapsed "advanced options" section
+- **Persistent download panel** — track multiple downloads at once; progress survives page navigation and even closing and reopening the app
+- **One-click yt-dlp update** (`/settings`) — if an update is available, it installs with one click and the app restarts itself automatically
+- **History search & channel filter** — search download history by title, filter by channel
+- **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
+- **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
+- **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) now show an explanatory message instead of yt-dlp's raw output
+
+#### Changed
+
+- **Removed the `mutagen` dependency** — tag/cover-art/duration reading now goes through the `ffprobe`/`ffmpeg` you already have installed; this removes the project's only GPL dependency, so every direct dependency is now permissively licensed (MIT/BSD) or public domain
+
+#### Fixed
+
+- The persistent download panel now silently cleans up stale job entries left over from a server restart instead of showing them as errors
+- Transcripts generated from auto-generated (YouTube) captions had every line duplicated — fixed
 
 ### [1.1.0] — 2026-08-12
 

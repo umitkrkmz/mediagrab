@@ -1,16 +1,14 @@
 # The yt_dlp import must appear ONLY in this file. Other modules call this
 # file's functions instead of touching the yt-dlp API directly.
-import base64
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.request
 from datetime import datetime
 from typing import Callable, Optional
 
-from mutagen import File as MutagenFile
-from mutagen.flac import Picture
 from yt_dlp import YoutubeDL
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
@@ -19,6 +17,18 @@ from .paths import app_dir
 
 class ProbeError(Exception):
     pass
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi_codes(text: str) -> str:
+    # NOTE: yt-dlp colors its own error messages for terminal output (e.g.
+    # "\x1b[0;31mERROR:\x1b[0m ..."). Those escape codes are meaningless
+    # outside a terminal, so shown raw in the UI they just look like garbled
+    # text - this strips them before an error message ever reaches the
+    # frontend.
+    return _ANSI_RE.sub("", text)
 
 
 DOWNLOAD_DIR = os.path.join(app_dir(), "indirilenler")
@@ -96,6 +106,31 @@ def _subtitle_list(info: dict) -> list[dict]:
     return result
 
 
+def _transcript_language(info: dict) -> Optional[dict]:
+    # NOTE: unlike _subtitle_list (manual-only, for the timed .srt bundled
+    # with a video download), a transcript is a plain-text read - it's most
+    # useful precisely on videos that only have auto-generated captions, so
+    # this falls back to automatic_captions when no manual track exists.
+    # Only ONE language is offered (not the whole auto-translate list): the
+    # video's own detected spoken language, since every other automatic_captions
+    # entry is a machine-translated copy of that same original track.
+    subs = info.get("subtitles") or {}
+    if subs:
+        lang = info.get("language")
+        code = lang if lang in subs else next(iter(subs), None)
+        if code:
+            return {"code": code, "source": "manual"}
+
+    auto = info.get("automatic_captions") or {}
+    if auto:
+        lang = info.get("language")
+        code = lang if lang in auto else next(iter(auto), None)
+        if code:
+            return {"code": code, "source": "auto"}
+
+    return None
+
+
 def _best_thumbnail(entry: dict) -> Optional[str]:
     thumb = entry.get("thumbnail")
     if thumb:
@@ -134,7 +169,7 @@ def resolve_channel(url: str) -> dict:
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(norm_url, download=False)
     except Exception as exc:
-        raise ProbeError(str(exc)) from exc
+        raise ProbeError(strip_ansi_codes(str(exc))) from exc
 
     if info.get("_type") != "playlist":
         raise ProbeError("Bu bir kanal linki gibi gorunmuyor")
@@ -202,7 +237,7 @@ def probe(url: str) -> dict:
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        raise ProbeError(str(exc)) from exc
+        raise ProbeError(strip_ansi_codes(str(exc))) from exc
 
     if info.get("_type") == "playlist":
         entries = []
@@ -234,6 +269,7 @@ def probe(url: str) -> dict:
         "thumbnail": info.get("thumbnail"),
         "video": _dedupe_video_formats(formats),
         "subtitles": _subtitle_list(info),
+        "transcript": _transcript_language(info),
     }
 
 
@@ -283,6 +319,60 @@ def _subtitle_opts(lang_code: str) -> dict:
         # original format (e.g. .vtt), never converting to .srt.
         "postprocessors": [{"key": "FFmpegSubtitlesConvertor", "format": "srt", "when": "before_dl"}],
     }
+
+
+def _transcript_opts(lang_code: str, source: str) -> dict:
+    opts = {
+        "skip_download": True,
+        "subtitleslangs": [lang_code],
+        "subtitlesformat": "vtt",
+    }
+    if source == "auto":
+        opts["writeautomaticsub"] = True
+    else:
+        opts["writesubtitles"] = True
+    return opts
+
+
+_VTT_TAG_RE = re.compile(r"<[^>]+>")
+_VTT_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->")
+
+
+def _vtt_to_text(vtt_path: str) -> str:
+    # NOTE: YouTube's auto-generated captions are "rolling": each real cue
+    # holds TWO physical lines - the previous cue's final line repeated
+    # verbatim, then a second line with the words added so far - and is
+    # followed by a near-zero-duration "transition" cue that repeats just
+    # that second line again on its own. So at the LINE level (not cue
+    # level), a line only ever gets fully repeated verbatim, never
+    # partially - dropping consecutive exact-duplicate lines removes all of
+    # that redundancy while keeping every new line of speech. Plain
+    # (non-rolling) manual subtitles pass through unchanged since their
+    # lines essentially never repeat like this.
+    with open(vtt_path, "r", encoding="utf-8", errors="replace") as f:
+        raw_lines = f.readlines()
+
+    lines: list[str] = []
+    for raw_line in raw_lines:
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if stripped.upper().startswith(("WEBVTT", "KIND:", "LANGUAGE:", "NOTE", "STYLE")):
+            continue
+        if _VTT_TIME_RE.match(stripped) or stripped.isdigit():
+            continue
+        text = _VTT_TAG_RE.sub("", stripped).strip()
+        if text:
+            lines.append(text)
+
+    output_lines: list[str] = []
+    prev = None
+    for line in lines:
+        if line != prev:
+            output_lines.append(line)
+        prev = line
+
+    return re.sub(r"\s+", " ", " ".join(output_lines)).strip()
 
 
 def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> dict:
@@ -366,6 +456,10 @@ def download(
         opts = _video_opts(choice, subtitle_langs)
     elif kind == "subtitle":
         opts = _subtitle_opts(choice)
+    elif kind == "transcript":
+        # NOTE: choice is "<lang_code>:<manual|auto>", matching _transcript_language()'s output.
+        lang_code, _, source = choice.partition(":")
+        opts = _transcript_opts(lang_code, source)
     else:
         raise ProbeError(f"Bilinmeyen tur: {kind}")
 
@@ -396,6 +490,22 @@ def download(
             return entry["filepath"]
         raise ProbeError("Altyazi indirilemedi")
 
+    if kind == "transcript":
+        lang_code, _, _source = choice.partition(":")
+        entry = (info.get("requested_subtitles") or {}).get(lang_code)
+        if not entry or not entry.get("filepath"):
+            raise ProbeError("Transkript indirilemedi")
+        vtt_path = entry["filepath"]
+        text = _vtt_to_text(vtt_path)
+        txt_path = os.path.splitext(vtt_path)[0] + ".txt"
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            os.remove(vtt_path)
+        except OSError:
+            pass
+        return txt_path
+
     for d in info.get("requested_downloads") or []:
         path = d.get("filepath") or d.get("_filename")
         if path:
@@ -405,54 +515,41 @@ def download(
     raise ProbeError("Indirilen dosya yolu bulunamadi")
 
 
+def _ffprobe_json(path: str, entries: str) -> dict:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", entries, "-of", "json", path],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return json.loads(result.stdout or "{}")
+    except Exception:
+        return {}
+
+
 def extract_thumbnail(path: str) -> Optional[bytes]:
     # NOTE: we don't keep a separate cover-art file; EmbedThumbnail already
-    # embeds the cover into the file, so the history list's thumbnail is read
-    # from here.
+    # embeds the cover into the file as an "attached_pic" stream, so the
+    # history list's thumbnail is read straight from there via
+    # ffprobe/ffmpeg - no tag-parsing library (and its license) needed.
+    data = _ffprobe_json(path, "stream=index:stream_disposition=attached_pic")
+    stream_index = None
+    for s in data.get("streams", []):
+        if s.get("disposition", {}).get("attached_pic") == 1:
+            stream_index = s["index"]
+            break
+    if stream_index is None:
+        return None
     try:
-        audio = MutagenFile(path)
+        result = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", path, "-map", f"0:{stream_index}", "-c", "copy", "-f", "image2pipe", "-"],
+            capture_output=True,
+            timeout=15,
+        )
+        return result.stdout or None
     except Exception:
         return None
-    if audio is None:
-        return None
-
-    tags = getattr(audio, "tags", None)
-    if tags:
-        for key in tags.keys():
-            if str(key).startswith("APIC"):
-                return tags[key].data
-
-    try:
-        covers = audio["covr"]
-        if covers:
-            return bytes(covers[0])
-    except Exception:
-        pass
-
-    try:
-        raw = audio.get("metadata_block_picture") if hasattr(audio, "get") else None
-        if raw:
-            return Picture(base64.b64decode(raw[0])).data
-    except Exception:
-        pass
-
-    return None
-
-
-def _first_tag(tags, keys: tuple[str, ...]) -> Optional[str]:
-    for key in keys:
-        try:
-            if key not in tags:
-                continue
-            val = tags[key]
-            if hasattr(val, "text"):
-                return str(val.text[0])
-            if isinstance(val, list) and val:
-                return str(val[0])
-            return str(val)
-        except Exception:
-            continue
-    return None
 
 
 def _ffprobe_duration(path: str) -> Optional[int]:
@@ -484,20 +581,12 @@ def _ffprobe_duration(path: str) -> Optional[int]:
 
 def get_metadata(path: str) -> dict:
     # NOTE: for the history detail page - title/artist were already written
-    # into the file by FFmpegMetadata, and are read back here via mutagen.
-    try:
-        audio = MutagenFile(path)
-    except Exception:
-        audio = None
-
-    title = artist = None
-    if audio is not None:
-        tags = getattr(audio, "tags", None)
-        if tags:
-            title = _first_tag(tags, ("TIT2", "\xa9nam", "title", "TITLE"))
-            artist = _first_tag(tags, ("TPE1", "\xa9ART", "artist", "ARTIST"))
-
-    return {"title": title, "artist": artist, "duration": _ffprobe_duration(path)}
+    # into the file by FFmpegMetadata, and are read back here via ffprobe
+    # (container tag keys are case-insensitive in practice but ffprobe's
+    # casing varies by container, so keys are lowercased before lookup).
+    data = _ffprobe_json(path, "format_tags=title,artist")
+    tags = {k.lower(): v for k, v in (data.get("format", {}).get("tags") or {}).items()}
+    return {"title": tags.get("title"), "artist": tags.get("artist"), "duration": _ffprobe_duration(path)}
 
 
 def reveal_in_explorer(path: str) -> None:
@@ -548,3 +637,24 @@ def check_ytdlp_update() -> dict:
         # "couldn't check" message rather than failing the whole page.
         pass
     return result
+
+
+def update_ytdlp() -> dict:
+    # NOTE: sys.executable is THIS process's own Python interpreter, which is
+    # already inside the user's active venv - no need to spawn a shell,
+    # activate anything, or guess a path. Installing "in place" like this is
+    # safe because pip only replaces files on disk; the already-imported
+    # yt_dlp module in memory is untouched until the process restarts.
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return {
+            "ok": result.returncode == 0,
+            "output": ((result.stdout or "") + (result.stderr or "")).strip(),
+        }
+    except Exception as exc:
+        return {"ok": False, "output": str(exc)}

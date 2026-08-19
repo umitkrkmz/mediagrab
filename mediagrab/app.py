@@ -1,6 +1,8 @@
 import locale
 import os
+import sys
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -32,6 +34,16 @@ app = FastAPI()
 STATIC_DIR = resource_dir("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+
+@app.get("/sw.js")
+def service_worker() -> FileResponse:
+    # NOTE: served from the site ROOT (not /static/sw.js) so its default
+    # scope covers the whole app ("/") - a service worker's scope defaults
+    # to the directory containing its script, so /static/sw.js could only
+    # ever control pages under /static/ without a Service-Worker-Allowed
+    # response header. Serving from "/" sidesteps that entirely.
+    return FileResponse(os.path.join(STATIC_DIR, "sw.js"), media_type="application/javascript")
+
 # NOTE: every page is rendered via Jinja2 (base.html gives them a shared
 # header/nav/footer); in-page interaction (probe/download/history) is still
 # plain vanilla JS.
@@ -48,7 +60,7 @@ executor = ThreadPoolExecutor(max_workers=3)
 # NOTE: we don't keep a separate DB for download history; the indirilenler/
 # folder already holds the actual files, so the history list is built by
 # reading that folder.
-HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "srt"}
+HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "srt", "txt"}
 
 
 def _detect_system_lang() -> str:
@@ -137,7 +149,7 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
         filepath = downloader.download(url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs)
         _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
     except Exception as exc:
-        _set_job(job_id, state="hata", error=str(exc))
+        _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
 
 
 def _check_channel(channel: dict) -> None:
@@ -275,6 +287,24 @@ def ytdlp_version() -> dict:
     return downloader.check_ytdlp_update()
 
 
+def _delayed_restart() -> None:
+    # NOTE: os.execv replaces this process's image with a fresh one using the
+    # exact same command line (sys.argv) that launched it - works the same
+    # whether that was "python run.py" or "uvicorn mediagrab.app:app", since
+    # both run this same process. The 1s delay lets the HTTP response for the
+    # update request actually reach the browser before the process restarts.
+    time.sleep(1.0)
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+@app.post("/api/ytdlp-update")
+def ytdlp_update() -> dict:
+    result = downloader.update_ytdlp()
+    if result["ok"]:
+        threading.Thread(target=_delayed_restart, daemon=True).start()
+    return result
+
+
 @app.get("/api/history", response_model=list[HistoryItem])
 def history() -> list[dict]:
     # NOTE: recursive walk - downloads now land in per-channel subfolders, but
@@ -330,6 +360,28 @@ def history_thumb(filename: str) -> Response:
     if not thumb:
         raise HTTPException(status_code=404, detail="Kapak resmi yok")
     return Response(content=thumb, media_type=_guess_image_mime(thumb))
+
+
+_STREAM_MIME_TYPES = {
+    "mp3": "audio/mpeg",
+    "m4a": "audio/mp4",
+    "opus": "audio/ogg",
+    "mp4": "video/mp4",
+}
+
+
+@app.get("/api/history/stream/{filename:path}")
+def history_stream(filename: str) -> FileResponse:
+    # NOTE: unlike /api/history/file, this deliberately omits the `filename=`
+    # argument - that sets Content-Disposition: attachment, which makes the
+    # browser save the file instead of playing it inline in <audio>/<video>.
+    # FileResponse supports Range requests out of the box, so seeking works.
+    path = _history_path(filename)
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    media_type = _STREAM_MIME_TYPES.get(ext)
+    if not media_type:
+        raise HTTPException(status_code=415, detail="Bu dosya turu onizlenemez")
+    return FileResponse(path, media_type=media_type)
 
 
 def _remove_sidecar_json(path: str) -> None:

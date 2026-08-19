@@ -12,7 +12,7 @@
     {% if has_thumb %}
     <img src="/api/history/thumb/{{ filename_url }}" alt="">
     {% else %}
-    <span class="placeholder">{% if ext == "mp4" %}&#9654;{% elif ext == "srt" %}CC{% else %}&#9834;{% endif %}</span>
+    <span class="placeholder">{% if ext == "mp4" %}&#9654;{% elif ext == "srt" %}CC{% elif ext == "txt" %}&#128196;{% else %}&#9834;{% endif %}</span>
     {% endif %}
   </div>
 
@@ -54,6 +54,12 @@
     <button type="button" id="item-reveal-btn" class="download-btn item-download-btn" data-reveal-url="/api/history/file/{{ filename_url }}">
       {% if lang == "en" %}Show in folder{% else %}Klasörde göster{% endif %}
     </button>
+    {% if ext in ("mp3", "m4a", "opus", "mp4") %}
+    <button type="button" id="item-preview-btn" class="download-btn item-download-btn btn-secondary" data-stream-url="/api/history/stream/{{ filename_url }}" data-ext="{{ ext }}">
+      {% if lang == "en" %}▶ Play{% else %}▶ Oynat{% endif %}
+    </button>
+    <div id="item-preview-player" class="item-preview-player hidden"></div>
+    {% endif %}
     {% if has_metadata %}
     <a class="download-btn item-download-btn btn-secondary" href="/api/history/json/{{ filename_url }}">
       {% if lang == "en" %}Download metadata (JSON){% else %}Meta verileri indir (JSON){% endif %}

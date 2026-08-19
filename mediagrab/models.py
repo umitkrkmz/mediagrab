@@ -47,7 +47,7 @@ class PlaylistProbeResponse(BaseModel):
 
 class DownloadRequest(BaseModel):
     url: str
-    kind: Literal["audio", "video", "subtitle"]
+    kind: Literal["audio", "video", "subtitle", "transcript"]
     choice: str
     subtitle_langs: list[str] = []
 
