@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.2.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.2.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.3.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.3.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -36,6 +36,45 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır
 
 ### Kurulum
+
+Windows'ta iki yol var: **kolay kurulum** (hazır `.exe`, terminal komutu yazmadan) veya **elle kurulum** (git clone + pip, her platformda çalışır).
+
+#### Yöntem A: Kolay kurulum (Windows, `MediaGrabSetup.exe`)
+
+**1. Önce Git ve Python'u kurun**
+
+- Git: [git-scm.com/downloads](https://git-scm.com/downloads)
+- Python 3.9+: [python.org/downloads](https://www.python.org/downloads/) — kurulum ekranında **"Add python.exe to PATH"** kutusunu işaretlemeyi unutmayın.
+
+**2. Kurulum programını indirin**
+
+[GitHub Release sayfasından](https://github.com/umitkrkmz/mediagrab/releases/latest) `MediaGrabSetup.exe`'yi indirin. İsterseniz dosyanın bozulmadığını SHA256 ile doğrulayın (PowerShell'de `certutil -hashfile MediaGrabSetup.exe SHA256`):
+
+```
+8e03d9a58ade7581e49dc67522249d41843c934476d685efdedd3e0e1540a1d4  MediaGrabSetup.exe
+```
+
+**3. Boş bir klasöre koyun**
+
+`MediaGrabSetup.exe`'yi kurmak istediğiniz **boş bir klasöre** koyun (örn. `C:\MediaGrab\`) — MediaGrab'ın tüm dosyaları bu exe'nin bulunduğu klasöre kurulur.
+
+> **Önemli:** Bu klasör **OneDrive, Dropbox, Google Drive gibi bulut senkronizasyon servislerinin izlediği bir yerde olmasın** (dikkat: Windows'ta "Masaüstü" veya "Belgelerim" genellikle OneDrive ile senkronize edilir). İndirme sırasında çok sayıda küçük geçici dosya hızlıca yazılıp siliniyor; senkron servisi tam o anda bir dosyayı kilitlerse indirme "No such file or directory" hatasıyla yarıda kesilebilir. `C:\MediaGrab\` gibi senkronlanmayan düz bir klasör kullanmanızı öneririz.
+
+**4. Çalıştırın**
+
+`MediaGrabSetup.exe`'ye çift tıklayın. Git ve Python "bulundu" diyorsa **Kur**'a basın — isterseniz Masaüstüne/Başlat menüsüne kısayol ekleme kutucuklarını da işaretleyebilirsiniz. İlerleme alttaki günlükte görünür.
+
+> Windows, imzasız bir `.exe` olduğu için ilk çalıştırmada "Windows bilgisayarınızı korudu" uyarısı gösterebilir — **Daha fazla bilgi → Yine de çalıştır** ile devam edebilirsiniz. Kaynak kodu repodaki `setup_mediagrab.py` dosyasında, isteyen inceleyebilir.
+
+**5. Başlatın**
+
+Kurulum bitince oluşan **`MediaGrab Baslat.bat`** dosyasına çift tıklamanız yeterli — terminal açmanıza gerek yok (3. adımda kısayol eklediyseniz Masaüstünden/Başlat menüsünden de açabilirsiniz).
+
+Sonrasında hâlâ aşağıdaki **ffmpeg** kurulumu gerekiyor — kurulum programı onu yapmıyor (bkz. adım 4, birazdan).
+
+Kurulumu daha sonra güncellemek veya kaldırmak isterseniz: `MediaGrabSetup.exe`'yi tekrar çalıştırın, **Onar / Güncelle** ya da **Kaldır**'a basın (indirdiğiniz dosyalar ve kanal takip listeniz her durumda korunur).
+
+#### Yöntem B: Elle kurulum (kaynak koddan, her platform)
 
 **1. Proje dosyalarını indirin**
 
@@ -234,6 +273,45 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **No** database, account system, or cloud connection — runs only on this machine
 
 ### Installation
+
+On Windows there are two paths: **easy install** (a ready-made `.exe`, no typing commands) or **manual install** (git clone + pip, works on every platform).
+
+#### Method A: Easy install (Windows, `MediaGrabSetup.exe`)
+
+**1. Install Git and Python first**
+
+- Git: [git-scm.com/downloads](https://git-scm.com/downloads)
+- Python 3.9+: [python.org/downloads](https://www.python.org/downloads/) — check **"Add python.exe to PATH"** during setup.
+
+**2. Download the installer**
+
+Grab `MediaGrabSetup.exe` from the [GitHub Releases page](https://github.com/umitkrkmz/mediagrab/releases/latest). Optionally verify it's intact with SHA256 (in PowerShell: `certutil -hashfile MediaGrabSetup.exe SHA256`):
+
+```
+8e03d9a58ade7581e49dc67522249d41843c934476d685efdedd3e0e1540a1d4  MediaGrabSetup.exe
+```
+
+**3. Put it in an empty folder**
+
+Place `MediaGrabSetup.exe` in an **empty folder** where you want MediaGrab installed (e.g. `C:\MediaGrab\`) — every file gets installed into whichever folder the exe sits in.
+
+> **Important:** don't use a folder that's **watched by a cloud sync service** like OneDrive, Dropbox, or Google Drive (note: on Windows, "Desktop" and "Documents" are often OneDrive-synced by default). Downloads write and delete a lot of small temp files in quick succession; if the sync client locks one of them at just the wrong moment, the download can fail mid-way with a "No such file or directory" error. A plain, non-synced folder like `C:\MediaGrab\` avoids this entirely.
+
+**4. Run it**
+
+Double-click `MediaGrabSetup.exe`. Once Git and Python both show as found, click **Kur** (Install) — optionally check the Desktop/Start Menu shortcut boxes first. Progress shows in the log at the bottom.
+
+> Since it's an unsigned `.exe`, Windows may show a "Windows protected your PC" warning the first time — click **More info → Run anyway** to continue. The source is `setup_mediagrab.py` in this repo if you'd like to inspect it first.
+
+**5. Launch it**
+
+Once install finishes, just double-click the **`MediaGrab Baslat.bat`** file it created — no terminal needed (or use the Desktop/Start Menu shortcut if you added one in step 3).
+
+You'll still need **ffmpeg** afterward — the installer doesn't handle that (see step 4 below).
+
+To update or remove later: run `MediaGrabSetup.exe` again and click **Onar / Güncelle** (Repair/Update) or **Kaldır** (Remove) — your downloads and followed-channel list are preserved either way.
+
+#### Method B: Manual install (from source, any platform)
 
 **1. Get the project files**
 

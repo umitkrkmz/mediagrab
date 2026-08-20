@@ -97,13 +97,28 @@ def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
 
 
 def _subtitle_list(info: dict) -> list[dict]:
-    # NOTE: only manually-provided subtitles are listed. Automatic captions
-    # (automatic_captions) can show up in dozens of languages because of
-    # YouTube's auto-translate feature, which would bloat the list pointlessly.
+    # NOTE: manually-provided subtitles are listed first when present.
+    # Automatic captions (automatic_captions) are deliberately NOT listed
+    # alongside them - YouTube's auto-translate feature means that dict can
+    # hold dozens of languages, which would bloat the list pointlessly.
     subs = info.get("subtitles") or {}
-    result = [{"code": code, "label": code} for code, tracks in subs.items() if tracks]
-    result.sort(key=lambda s: s["label"])
-    return result
+    if subs:
+        result = [{"code": code, "source": "manual"} for code, tracks in subs.items() if tracks]
+        result.sort(key=lambda s: s["code"])
+        return result
+
+    # NOTE: falls back to a single auto-generated caption (the video's own
+    # spoken language, same selection as _transcript_language()) when there's
+    # no manual subtitle at all - many videos (podcasts, talk shows) only
+    # have auto captions, and previously those users had no downloadable
+    # subtitle option at all, only the plain-text transcript.
+    auto = info.get("automatic_captions") or {}
+    if auto:
+        lang = info.get("language")
+        code = lang if lang in auto else next(iter(auto), None)
+        if code:
+            return [{"code": code, "source": "auto"}]
+    return []
 
 
 def _transcript_language(info: dict) -> Optional[dict]:
@@ -309,16 +324,22 @@ def _audio_opts(choice: str) -> dict:
     return opts
 
 
-def _subtitle_opts(lang_code: str) -> dict:
-    return {
+def _subtitle_opts(choice: str) -> dict:
+    # NOTE: choice is "<lang_code>:<manual|auto>", matching _subtitle_list()'s output.
+    lang_code, _, source = choice.partition(":")
+    opts = {
         "skip_download": True,
-        "writesubtitles": True,
         "subtitleslangs": [lang_code],
         # NOTE: "when": "before_dl" is required - otherwise the converter runs
         # AFTER the main download stage and the subtitle file stays in its
         # original format (e.g. .vtt), never converting to .srt.
         "postprocessors": [{"key": "FFmpegSubtitlesConvertor", "format": "srt", "when": "before_dl"}],
     }
+    if source == "auto":
+        opts["writeautomaticsub"] = True
+    else:
+        opts["writesubtitles"] = True
+    return opts
 
 
 def _transcript_opts(lang_code: str, source: str) -> dict:
@@ -335,10 +356,10 @@ def _transcript_opts(lang_code: str, source: str) -> dict:
 
 
 _VTT_TAG_RE = re.compile(r"<[^>]+>")
-_VTT_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->")
+_VTT_TIME_RE = re.compile(r"^(\d{2}:\d{2}:\d{2})[.,]\d{3}\s*-->")
 
 
-def _vtt_to_text(vtt_path: str) -> str:
+def _vtt_to_text(vtt_path: str, timestamps: bool = False) -> str:
     # NOTE: YouTube's auto-generated captions are "rolling": each real cue
     # holds TWO physical lines - the previous cue's final line repeated
     # verbatim, then a second line with the words added so far - and is
@@ -352,27 +373,35 @@ def _vtt_to_text(vtt_path: str) -> str:
     with open(vtt_path, "r", encoding="utf-8", errors="replace") as f:
         raw_lines = f.readlines()
 
-    lines: list[str] = []
+    entries: list[tuple[str, str]] = []
+    current_ts = "00:00:00"
     for raw_line in raw_lines:
         stripped = raw_line.strip()
         if not stripped:
             continue
         if stripped.upper().startswith(("WEBVTT", "KIND:", "LANGUAGE:", "NOTE", "STYLE")):
             continue
-        if _VTT_TIME_RE.match(stripped) or stripped.isdigit():
+        time_match = _VTT_TIME_RE.match(stripped)
+        if time_match:
+            current_ts = time_match.group(1)
+            continue
+        if stripped.isdigit():
             continue
         text = _VTT_TAG_RE.sub("", stripped).strip()
         if text:
-            lines.append(text)
+            entries.append((current_ts, text))
 
-    output_lines: list[str] = []
+    deduped: list[tuple[str, str]] = []
     prev = None
-    for line in lines:
-        if line != prev:
-            output_lines.append(line)
-        prev = line
+    for ts, text in entries:
+        if text != prev:
+            deduped.append((ts, text))
+        prev = text
 
-    return re.sub(r"\s+", " ", " ".join(output_lines)).strip()
+    if not timestamps:
+        return re.sub(r"\s+", " ", " ".join(text for _, text in deduped)).strip()
+
+    return "\n".join(f"[{ts}] {text}" for ts, text in deduped)
 
 
 def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> dict:
@@ -396,8 +425,24 @@ def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> d
         # become separate .srt files sharing the same base name as the mp4
         # (e.g. "video.mp4" + "video.tr.srt"). Media players (VLC, mpv...)
         # auto-match this naming convention.
-        opts["writesubtitles"] = True
-        opts["subtitleslangs"] = subtitle_langs
+        #
+        # Each entry is "<lang_code>:<manual|auto>" (matching _subtitle_list()'s
+        # output). A video only ever offers one source type at a time (auto is
+        # only listed when there's no manual track at all), so it's safe to
+        # decide writesubtitles vs writeautomaticsub from whether ANY selected
+        # entry is auto, rather than needing a separate list per source.
+        codes = []
+        use_auto = False
+        for entry in subtitle_langs:
+            code, _, source = entry.partition(":")
+            codes.append(code)
+            if source == "auto":
+                use_auto = True
+        opts["subtitleslangs"] = codes
+        if use_auto:
+            opts["writeautomaticsub"] = True
+        else:
+            opts["writesubtitles"] = True
         opts["postprocessors"].append({"key": "FFmpegSubtitlesConvertor", "format": "srt", "when": "before_dl"})
     return opts
 
@@ -457,8 +502,11 @@ def download(
     elif kind == "subtitle":
         opts = _subtitle_opts(choice)
     elif kind == "transcript":
-        # NOTE: choice is "<lang_code>:<manual|auto>", matching _transcript_language()'s output.
-        lang_code, _, source = choice.partition(":")
+        # NOTE: choice is "<lang_code>:<manual|auto>:<ts|plain>" - the first
+        # two segments match _transcript_language()'s output, the third is
+        # the timestamp toggle from the UI checkbox.
+        lang_code, _, rest = choice.partition(":")
+        source, _, _fmt = rest.partition(":")
         opts = _transcript_opts(lang_code, source)
     else:
         raise ProbeError(f"Bilinmeyen tur: {kind}")
@@ -485,18 +533,20 @@ def download(
         info = ydl.extract_info(url, download=True)
 
     if kind == "subtitle":
-        entry = (info.get("requested_subtitles") or {}).get(choice)
+        lang_code, _, _source = choice.partition(":")
+        entry = (info.get("requested_subtitles") or {}).get(lang_code)
         if entry and entry.get("filepath"):
             return entry["filepath"]
         raise ProbeError("Altyazi indirilemedi")
 
     if kind == "transcript":
-        lang_code, _, _source = choice.partition(":")
+        lang_code, _, rest = choice.partition(":")
+        _source, _, fmt = rest.partition(":")
         entry = (info.get("requested_subtitles") or {}).get(lang_code)
         if not entry or not entry.get("filepath"):
             raise ProbeError("Transkript indirilemedi")
         vtt_path = entry["filepath"]
-        text = _vtt_to_text(vtt_path)
+        text = _vtt_to_text(vtt_path, timestamps=(fmt == "ts"))
         txt_path = os.path.splitext(vtt_path)[0] + ".txt"
         with open(txt_path, "w", encoding="utf-8") as f:
             f.write(text)

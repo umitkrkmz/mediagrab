@@ -643,6 +643,23 @@ button:disabled {
   color: #fff;
 }
 
+.transcript-bundle-chip {
+  display: inline-block;
+  text-transform: none;
+  margin-top: 4px;
+}
+
+.transcript-timestamp-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9a9ea6;
+  font-size: 0.85rem;
+  margin: -2px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
 .subtitle-chip.selected::before {
   content: "✓ ";
 }

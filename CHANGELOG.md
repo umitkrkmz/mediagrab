@@ -11,6 +11,19 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.3.0] — 2026-08-20
+
+#### Eklenen
+
+- **Kolay kurulum aracı** (`MediaGrabSetup.exe`, GitHub Release'de) — Git/Python'un kurulu olup olmadığını kontrol eder (eksikse resmi indirme sayfasına yönlendirir), tek tıkla kurar/günceller/kaldırır; isteğe bağlı Masaüstü ve Başlat menüsü kısayolu ekler. Kurulum, `indirilenler/` ve `channels.json`'a hiçbir zaman dokunmaz. Başlatmak için oluşturulan `MediaGrab Baslat.bat` dosyasına çift tıklamak yeterli, terminal gerekmez
+- **Transkripti video/sesle birlikte indirme** — transkript artık ayrı bir "chip" olarak seçilebiliyor; seçiliyken herhangi bir ses/video kalitesine tıklayınca ikisi de tek seferde, linki tekrar çözümlemeden iniyor
+- **Otomatik altyazı artık indirilebilir altyazı olarak da sunuluyor** — bir videoda hiç elle eklenmiş altyazı yoksa, tek otomatik altyazı artık "Altyazı" bölümünde de bir seçenek olarak çıkıyor (`.srt` olarak videoyla birlikte iner), önceden sadece düz metin transkript olarak indirilebiliyordu
+- **Zaman damgalı transkript** — transkript indirirken isteğe bağlı bir kutucukla `[SS:DD:SS] satır` formatında zaman damgalı çıktı alınabiliyor, varsayılan hâlâ düz paragraf
+
+#### Düzeltilen
+
+- Kurulum aracı Windows'ta git'in salt-okunur işaretlediği bazı dosyalar yüzünden `.git` klasörünü tam silemiyordu (Onar/Kaldır sırasında) — düzeltildi
+
 ### [1.2.0] — 2026-08-19
 
 #### Eklenen
@@ -62,6 +75,19 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.3.0] — 2026-08-20
+
+#### Added
+
+- **Easy-install tool** (`MediaGrabSetup.exe`, on the GitHub Release) — checks whether Git/Python are installed (points to the official download page if not), installs/updates/removes with one click, and can optionally add a Desktop and/or Start Menu shortcut. Never touches `indirilenler/` or `channels.json`. Once installed, just double-click the generated `MediaGrab Baslat.bat` to launch - no terminal needed
+- **Bundle the transcript with a video/audio download** — the transcript is now a selectable "chip"; with it selected, clicking any audio/video quality downloads both together in one go, without having to re-resolve the link
+- **Auto-generated captions are now offered as a downloadable subtitle too** — when a video has no manual subtitles at all, its single auto-generated caption now also shows up as an option in the Subtitles section (downloads as `.srt` alongside the video), not just as a plain-text transcript
+- **Timestamped transcript** — an optional checkbox produces `[HH:MM:SS] line` formatted output instead of one flowing paragraph
+
+#### Fixed
+
+- The installer tool couldn't fully delete the `.git` folder on Windows during Repair/Remove, because git marks some of its files read-only - fixed
 
 ### [1.2.0] — 2026-08-19
 

@@ -77,11 +77,14 @@ const I18N = {
     sectionVideo: "Video",
     sectionSubtitle: "Altyazı",
     subtitleHint: "Seçtiğiniz video ile birlikte, aynı dosya adıyla iner",
+    subtitleAutoSuffix: "(otomatik)",
     noVideoFormats: "Video seçeneği bulunamadı",
     sectionTranscript: "Transkript",
     transcriptDownload: "Transkript indir (.txt)",
     transcriptManual: "elle eklenmiş altyazıdan",
     transcriptAuto: "otomatik altyazıdan",
+    transcriptTimestamps: "Zaman damgalı",
+    transcriptBundleWithMedia: "Video/ses ile birlikte indir",
     quickBestAudio: "♪ En İyi Ses",
     quickBestVideo: "▶ En İyi Video",
     advancedOptions: "Diğer seçenekler",
@@ -193,11 +196,14 @@ const I18N = {
     sectionVideo: "Video",
     sectionSubtitle: "Subtitles",
     subtitleHint: "Downloads together with the video you pick, using the same filename",
+    subtitleAutoSuffix: "(auto)",
     noVideoFormats: "No video options found",
     sectionTranscript: "Transcript",
     transcriptDownload: "Download transcript (.txt)",
     transcriptManual: "from manual subtitles",
     transcriptAuto: "from auto-generated captions",
+    transcriptTimestamps: "With timestamps",
+    transcriptBundleWithMedia: "Include with video/audio download",
     quickBestAudio: "♪ Best Audio",
     quickBestVideo: "▶ Best Video",
     advancedOptions: "More options",
@@ -305,6 +311,7 @@ let lastProbe = null; // { url, info } - currently shown single-video detail
 let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
 let selectedSubtitles = new Set(); // checked subtitle language codes - go along with the next video download
+let transcriptBundleSelected = false; // whether the transcript should also download alongside the next audio/video download
 let lastPending = [];
 let lastChannels = [];
 
@@ -526,6 +533,7 @@ async function probe() {
   lastProbe = null;
   lastPlaylist = null;
   selectedSubtitles = new Set();
+  transcriptBundleSelected = false;
 
   try {
     const data = await fetchProbe(url);
@@ -548,6 +556,7 @@ async function selectPlaylistEntry(entry) {
   card.classList.remove("hidden");
   card.innerHTML = `<div class="progress-status">${t().resolveBtnBusy}</div>`;
   selectedSubtitles = new Set();
+  transcriptBundleSelected = false;
   try {
     const data = await fetchProbe(entry.url);
     lastProbe = { url: entry.url, info: data };
@@ -602,8 +611,10 @@ function renderCard(url, info) {
   if (info.subtitles && info.subtitles.length > 0) {
     const chipsHtml = info.subtitles
       .map((s) => {
-        const selected = selectedSubtitles.has(s.code) ? " selected" : "";
-        return `<button type="button" class="subtitle-chip${selected}" data-choice="${escapeHtml(s.code)}">${escapeHtml(s.label)}</button>`;
+        const choiceVal = `${s.code}:${s.source}`;
+        const selected = selectedSubtitles.has(choiceVal) ? " selected" : "";
+        const suffix = s.source === "auto" ? ` ${t().subtitleAutoSuffix}` : "";
+        return `<button type="button" class="subtitle-chip${selected}" data-choice="${escapeHtml(choiceVal)}">${escapeHtml(s.code.toUpperCase())}${suffix}</button>`;
       })
       .join("");
     subtitleHtml = `
@@ -617,11 +628,18 @@ function renderCard(url, info) {
     const sourceLabel = info.transcript.source === "auto" ? t().transcriptAuto : t().transcriptManual;
     transcriptHtml = `
     <div class="section-title">${t().sectionTranscript}</div>
+    <label class="transcript-timestamp-check">
+      <input type="checkbox" id="transcript-timestamps">
+      ${t().transcriptTimestamps}
+    </label>
     <button type="button" class="option" data-kind="transcript" data-choice="${escapeHtml(info.transcript.code)}:${info.transcript.source}">
       <span>
         <span class="opt-label">${t().transcriptDownload}</span><br>
         <span class="opt-desc">${escapeHtml(info.transcript.code.toUpperCase())} · ${sourceLabel}</span>
       </span>
+    </button>
+    <button type="button" class="subtitle-chip transcript-bundle-chip${transcriptBundleSelected ? " selected" : ""}" id="transcript-bundle-toggle">
+      ${t().transcriptBundleWithMedia}
     </button>`;
   }
 
@@ -663,11 +681,28 @@ function renderCard(url, info) {
   card.querySelectorAll(".option, .quick-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const subs = btn.dataset.kind === "video" ? Array.from(selectedSubtitles) : [];
-      startDownload(url, btn.dataset.kind, btn.dataset.choice, subs, info.title);
+      let choice = btn.dataset.choice;
+      if (btn.dataset.kind === "transcript") {
+        const tsCheck = document.getElementById("transcript-timestamps");
+        choice = `${choice}:${tsCheck && tsCheck.checked ? "ts" : "plain"}`;
+      }
+      startDownload(url, btn.dataset.kind, choice, subs, info.title);
+
+      // NOTE: transcript has no yt-dlp-level way to bundle into the same
+      // download as audio/video (it needs skip_download: True, the opposite
+      // of what a media download needs) - so "bundle" here just means firing
+      // a second, independent download job right after the first one, both
+      // tracked in the dock. Avoids the user having to re-resolve the link
+      // just to grab the transcript too.
+      if (transcriptBundleSelected && info.transcript && (btn.dataset.kind === "audio" || btn.dataset.kind === "video")) {
+        const tsCheck = document.getElementById("transcript-timestamps");
+        const tChoice = `${info.transcript.code}:${info.transcript.source}:${tsCheck && tsCheck.checked ? "ts" : "plain"}`;
+        startDownload(url, "transcript", tChoice, [], info.title);
+      }
     });
   });
 
-  card.querySelectorAll(".subtitle-chip").forEach((chip) => {
+  card.querySelectorAll(".subtitle-chip:not(.transcript-bundle-chip)").forEach((chip) => {
     chip.addEventListener("click", () => {
       const code = chip.dataset.choice;
       if (selectedSubtitles.has(code)) {
@@ -679,6 +714,14 @@ function renderCard(url, info) {
       }
     });
   });
+
+  const transcriptBundleToggle = document.getElementById("transcript-bundle-toggle");
+  if (transcriptBundleToggle) {
+    transcriptBundleToggle.addEventListener("click", () => {
+      transcriptBundleSelected = !transcriptBundleSelected;
+      transcriptBundleToggle.classList.toggle("selected", transcriptBundleSelected);
+    });
+  }
 
   const backBtn = document.getElementById("back-to-playlist");
   if (backBtn) {
