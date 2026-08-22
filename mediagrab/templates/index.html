@@ -1,33 +1,33 @@
 {% extends "base.html" %}
-{% block title %}MediaGrab — Video ve Ses İndirici{% endblock %}
+{% block title %}{{ ui.title_index }}{% endblock %}
 {% block main_class %}main-narrow{% endblock %}
 {% block content %}
 
 <section class="hero">
-  <h1 id="hero-title">Link yapıştır, indir</h1>
-  <p id="hero-sub" class="hero-sub">YouTube, YouTube Music ve yt-dlp'nin desteklediği diğer birçok siteden linki yapıştırın; ses veya video olarak indirin.</p>
+  <h1 id="hero-title">{{ ui.hero_title }}</h1>
+  <p id="hero-sub" class="hero-sub">{{ ui.hero_sub }}</p>
 </section>
 
 <section id="pending-banner" class="pending-banner hidden">
   <div class="pending-banner-header">
-    <div class="section-title" id="pending-title">Takip Edilen Kanallarda Yeni Video</div>
-    <button type="button" id="pending-clear-btn" class="clear-history-btn">Temizle</button>
+    <div class="section-title" id="pending-title">{{ ui.pending_title }}</div>
+    <button type="button" id="pending-clear-btn" class="clear-history-btn">{{ ui.pending_clear }}</button>
   </div>
   <div id="pending-list" class="playlist-list"></div>
 </section>
 
 <div class="input-row">
-  <input id="url-input" type="text" placeholder="Video linkini yapıştır..." autocomplete="off">
-  <button type="button" id="paste-btn" title="Panodan yapıştır">📋</button>
-  <button id="probe-btn">Çözümle</button>
+  <input id="url-input" type="text" placeholder="{{ ui.url_placeholder }}" autocomplete="off" aria-label="{{ ui.url_placeholder }}">
+  <button type="button" id="paste-btn" title="{{ ui.paste_btn }}" aria-label="{{ ui.paste_btn }}">📋</button>
+  <button type="button" id="probe-btn">{{ ui.resolve_btn }}</button>
 </div>
 
 <div id="card" class="card hidden"></div>
 
 <section id="recent-section" class="recent-section hidden">
   <div class="recent-header">
-    <div class="section-title" id="recent-title">Son İndirilenler</div>
-    <a href="/history?lang={{ lang }}" id="recent-see-all">Tümünü gör →</a>
+    <div class="section-title" id="recent-title">{{ ui.recent_title }}</div>
+    <a href="/history?lang={{ lang }}" id="recent-see-all">{{ ui.recent_see_all }}</a>
   </div>
   <div id="recent-list" class="history-grid recent-grid"></div>
 </section>

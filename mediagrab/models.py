@@ -57,7 +57,7 @@ class DownloadStartResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
-    state: Literal["basliyor", "indiriliyor", "isleniyor", "bitti", "hata"]
+    state: Literal["basliyor", "indiriliyor", "isleniyor", "bitti", "hata", "iptal"]
     percent: float = 0.0
     speed: Optional[str] = None
     ready: bool = False

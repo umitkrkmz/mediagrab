@@ -1,3 +1,4 @@
+import glob
 import locale
 import os
 import sys
@@ -5,6 +6,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 from urllib.parse import quote
@@ -14,7 +16,8 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import downloader, store
+from . import deps, downloader, store
+from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
     ChannelItem,
@@ -29,7 +32,19 @@ from .models import (
 )
 from .paths import resource_dir
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # NOTE: replaces the deprecated @app.on_event("startup") hook.
+    # This is a "check on launch" design, not a persistent background service -
+    # the app only runs while opened, so followed channels are checked once
+    # here rather than on a timer. See README for why.
+    _sweep_orphaned_parts()
+    threading.Thread(target=_check_all_channels, daemon=True).start()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 STATIC_DIR = resource_dir("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -79,13 +94,28 @@ def _detect_system_lang() -> str:
     return "tr"
 
 
-def _resolve_lang(lang: Optional[str]) -> str:
-    # NOTE: use ?lang= from the URL if it's valid (JS appends it to links so
-    # the language stays consistent across page navigations); otherwise fall
-    # back to the system language.
+LANG_COOKIE = "mediagrab_lang"
+
+
+def _resolve_lang(lang: Optional[str], request: Optional[Request] = None) -> str:
+    # NOTE: ?lang= wins (JS appends it to links so the language stays
+    # consistent across navigations), then the cookie set by setLang(), then
+    # the system locale. The cookie matters for a *fresh* visit to a bare URL
+    # (bookmark, PWA launch): without it the server would render its own
+    # default language and the user's real choice would only be applied later
+    # by JS - which is exactly the flash of wrong-language text this avoids.
     if lang in ("tr", "en"):
         return lang
+    if request is not None:
+        cookie_lang = request.cookies.get(LANG_COOKIE)
+        if cookie_lang in ("tr", "en"):
+            return cookie_lang
     return _detect_system_lang()
+
+
+def _page_context(request: Request, lang: Optional[str], active: str) -> dict:
+    resolved = _resolve_lang(lang, request)
+    return {"lang": resolved, "active": active, "ui": ui_text(resolved)}
 
 
 def _history_path(rel_path: str) -> str:
@@ -111,7 +141,7 @@ def _set_job(job_id: str, **fields) -> None:
         jobs[job_id].update(fields)
 
 
-def _format_speed(bytes_per_sec) -> str | None:
+def _format_speed(bytes_per_sec) -> Optional[str]:
     if not bytes_per_sec:
         return None
     speed = float(bytes_per_sec)
@@ -122,8 +152,28 @@ def _format_speed(bytes_per_sec) -> str | None:
     return None
 
 
+class JobCancelled(Exception):
+    """Raised inside a download's progress hook to abort it on request."""
+
+
+def _job_cancelled(job_id: str) -> bool:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        return bool(job and job.get("cancel_requested"))
+
+
 def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str]) -> None:
     def on_progress(d: dict) -> None:
+        # NOTE: this hook is the only place we get to interrupt yt-dlp - it
+        # runs between chunks, and an exception raised here aborts the
+        # download. Remember the temp file it was writing so a cancel doesn't
+        # leave a stray .part behind.
+        tmp = d.get("tmpfilename") or d.get("filename")
+        if tmp:
+            _set_job(job_id, tmpfile=tmp)
+        if _job_cancelled(job_id):
+            raise JobCancelled()
+
         status = d.get("status")
         if status == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate")
@@ -144,12 +194,120 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
         if d.get("status") == "started":
             _set_job(job_id, state="isleniyor")
 
+    # NOTE: a job can be cancelled while it's still queued behind the
+    # executor's 3 worker slots, so check once more before starting any work.
+    if _job_cancelled(job_id):
+        _set_job(job_id, state="iptal", speed=None)
+        return
+
     try:
         _set_job(job_id, state="indiriliyor")
         filepath = downloader.download(url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs)
         _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
+    except JobCancelled:
+        # NOTE: mark it cancelled BEFORE cleaning up - the cleanup waits for
+        # the download's file handles to close, and the UI shouldn't sit on
+        # "downloading" for those extra seconds.
+        _set_job(job_id, state="iptal", speed=None)
+        _cleanup_partial_download(job_id)
     except Exception as exc:
-        _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
+        # NOTE: yt-dlp wraps hook exceptions, so a cancel can surface here as a
+        # generic DownloadError instead of JobCancelled - trust the flag, not
+        # the exception type, or a cancelled job would be reported as failed.
+        if _job_cancelled(job_id):
+            _set_job(job_id, state="iptal", speed=None)
+            _cleanup_partial_download(job_id)
+        else:
+            _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
+
+
+def _cleanup_partial_download(job_id: str) -> None:
+    with jobs_lock:
+        tmp = (jobs.get(job_id) or {}).get("tmpfile")
+    if not tmp:
+        return
+    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    # NOTE: a fragmented (DASH) download leaves far more than one file behind:
+    # "<name>.part" plus a "<name>.part-FragNN[.part]" per in-flight fragment.
+    # They all start with the tmpfilename yt-dlp reported, so one glob catches
+    # the lot; "<name>.ytdl" is the separate resume journal. Matching on
+    # ".part"/".ytdl" only is deliberate - those markers never appear on a
+    # finished file, so this can't touch a real download.
+    candidates = set(glob.glob(glob.escape(tmp) + "*"))
+    base = tmp[: -len(".part")] if tmp.endswith(".part") else tmp
+    candidates.add(base + ".ytdl")
+
+    stale = []
+    for candidate in candidates:
+        path = os.path.abspath(candidate)
+        name = os.path.basename(path)
+        if not path.startswith(download_dir + os.sep):
+            continue
+        if ".part" not in name and not name.endswith(".ytdl"):
+            continue
+        stale.append(path)
+
+    # NOTE: Windows won't delete a file that's still open, and the fragment
+    # worker threads let go at different moments - a short retry catches most
+    # of them. The MAIN ".part" of a fragmented download is a known exception:
+    # a worker thread keeps it open for the life of the process (measured:
+    # still locked 40s after the abort), so it can't be removed here at all.
+    # _sweep_orphaned_parts() at startup is what finally clears those.
+    deadline = time.monotonic() + 2.0
+    while True:
+        stale = [p for p in stale if os.path.isfile(p)]
+        if not stale:
+            return
+        for path in list(stale):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        if time.monotonic() >= deadline:
+            return
+        time.sleep(0.3)
+
+
+def _sweep_orphaned_parts() -> None:
+    # NOTE: runs once at startup, when nothing can possibly be downloading, so
+    # every ".part"/".ytdl" left in indirilenler/ is debris from a cancelled or
+    # crashed run of a previous session. Neither marker ever appears on a
+    # finished file, so this can't touch a real download.
+    removed = 0
+    restored = 0
+    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+        for name in files:
+            path = os.path.join(root, name)
+
+            # NOTE: a leftover backup means the process died mid-download,
+            # before downloader could put the file back itself. If the real
+            # name is free, that backup IS the user's file - restore it.
+            # If something is already there, the download did finish and only
+            # the cleanup was missed, so the backup is redundant.
+            if name.endswith(downloader.BACKUP_SUFFIX):
+                original = path[: -len(downloader.BACKUP_SUFFIX)]
+                try:
+                    if os.path.exists(original):
+                        os.remove(path)
+                        removed += 1
+                    else:
+                        os.replace(path, original)
+                        restored += 1
+                except OSError:
+                    pass
+                continue
+
+            if ".part" not in name and not name.endswith(".ytdl"):
+                continue
+            try:
+                os.remove(path)
+                removed += 1
+            except OSError:
+                pass
+    if removed:
+        print(f"[MediaGrab] {removed} yarim kalmis indirme dosyasi temizlendi.", flush=True)
+    if restored:
+        print(f"[MediaGrab] {restored} dosya yarim kalan indirmeden geri yuklendi.", flush=True)
 
 
 def _check_channel(channel: dict) -> None:
@@ -166,14 +324,7 @@ def _check_channel(channel: dict) -> None:
             for v in new_videos:
                 job_id = uuid.uuid4().hex
                 with jobs_lock:
-                    jobs[job_id] = {
-                        "state": "basliyor",
-                        "percent": 0.0,
-                        "speed": None,
-                        "ready": False,
-                        "error": None,
-                        "filepath": None,
-                    }
+                    jobs[job_id] = _new_job_record()
                 executor.submit(_run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [])
         else:
             store.add_pending(
@@ -196,32 +347,29 @@ def _check_all_channels() -> None:
         _check_channel(channel)
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    # NOTE: this is a "check on launch" design, not a persistent background
-    # service - the app only runs while opened, so followed channels are
-    # checked once here rather than on a timer. See README for why.
-    threading.Thread(target=_check_all_channels, daemon=True).start()
-
-
 @app.get("/")
 def index(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "index.html", {"lang": _resolve_lang(lang), "active": "home"})
+    return templates.TemplateResponse(request, "index.html", _page_context(request, lang, "home"))
 
 
 @app.get("/settings")
 def settings_page(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "settings.html", {"lang": _resolve_lang(lang), "active": "settings"})
+    return templates.TemplateResponse(request, "settings.html", _page_context(request, lang, "settings"))
 
 
 @app.get("/history")
 def history_page(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "history.html", {"lang": _resolve_lang(lang), "active": "history"})
+    return templates.TemplateResponse(request, "history.html", _page_context(request, lang, "history"))
+
+
+@app.get("/channels")
+def channels_page(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "channels.html", _page_context(request, lang, "channels"))
 
 
 @app.get("/supported-sites")
 def supported_sites_page(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "supported_sites.html", {"lang": _resolve_lang(lang), "active": "sites"})
+    return templates.TemplateResponse(request, "supported_sites.html", _page_context(request, lang, "sites"))
 
 
 @app.post("/api/probe")
@@ -236,20 +384,41 @@ def probe(req: ProbeRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _new_job_record() -> dict:
+    return {
+        "state": "basliyor",
+        "percent": 0.0,
+        "speed": None,
+        "ready": False,
+        "error": None,
+        "filepath": None,
+        "cancel_requested": False,
+        "tmpfile": None,
+    }
+
+
 @app.post("/api/download", response_model=DownloadStartResponse)
 def start_download(req: DownloadRequest) -> dict:
     job_id = uuid.uuid4().hex
     with jobs_lock:
-        jobs[job_id] = {
-            "state": "basliyor",
-            "percent": 0.0,
-            "speed": None,
-            "ready": False,
-            "error": None,
-            "filepath": None,
-        }
+        jobs[job_id] = _new_job_record()
     executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs)
     return {"job_id": job_id}
+
+
+@app.post("/api/cancel/{job_id}")
+def cancel_download(job_id: str) -> dict:
+    # NOTE: only flags the job - the actual abort happens in the download's
+    # progress hook (see _run_job), because yt-dlp runs synchronously inside a
+    # worker thread and there's no way to interrupt it from the outside.
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Is bulunamadi")
+        if job["state"] in ("bitti", "hata", "iptal"):
+            return {"ok": False, "state": job["state"]}
+        job["cancel_requested"] = True
+    return {"ok": True}
 
 
 @app.get("/api/status/{job_id}", response_model=StatusResponse)
@@ -305,6 +474,26 @@ def ytdlp_update() -> dict:
     return result
 
 
+@app.get("/api/ffmpeg-version")
+def ffmpeg_version() -> dict:
+    return deps.check_ffmpeg()
+
+
+@app.get("/api/dependencies")
+def dependencies() -> dict:
+    return deps.check_dependencies()
+
+
+@app.post("/api/dependencies-update")
+def dependencies_update() -> dict:
+    result = deps.update_dependencies()
+    if result["ok"]:
+        # NOTE: the freshly installed packages are only picked up by a new
+        # process - same restart dance as the yt-dlp update.
+        threading.Thread(target=_delayed_restart, daemon=True).start()
+    return result
+
+
 @app.get("/api/history", response_model=list[HistoryItem])
 def history() -> list[dict]:
     # NOTE: recursive walk - downloads now land in per-channel subfolders, but
@@ -353,13 +542,58 @@ def _guess_image_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-@app.get("/api/history/thumb/{filename:path}")
-def history_thumb(filename: str) -> Response:
-    path = _history_path(filename)
+# NOTE: extracting one cover costs an ffprobe AND an ffmpeg subprocess
+# (~0.5s measured). The history grid asks for one per card, so without
+# caching a 40-item library meant 80 process spawns and several seconds of
+# waiting on EVERY page load. Two layers fix that:
+#   1. an in-process memo, keyed by (path, mtime, size) so a re-downloaded
+#      file with the same name still produces a fresh cover;
+#   2. ETag + Cache-Control on the response, so the browser normally doesn't
+#      even re-request it (and gets a cheap 304 when it revalidates).
+_THUMB_CACHE: dict[str, tuple[str, Optional[bytes]]] = {}
+_THUMB_CACHE_LIMIT = 500
+_thumb_cache_lock = threading.Lock()
+
+
+def _thumb_version(path: str) -> str:
+    stat = os.stat(path)
+    return f"{int(stat.st_mtime)}-{stat.st_size}"
+
+
+def _cached_thumbnail(path: str, version: str) -> Optional[bytes]:
+    with _thumb_cache_lock:
+        cached = _THUMB_CACHE.get(path)
+        if cached and cached[0] == version:
+            return cached[1]
+
+    # NOTE: deliberately outside the lock - extraction shells out and is slow,
+    # so holding the lock would serialize every thumbnail request.
     thumb = downloader.extract_thumbnail(path)
+
+    with _thumb_cache_lock:
+        if len(_THUMB_CACHE) >= _THUMB_CACHE_LIMIT:
+            _THUMB_CACHE.clear()
+        _THUMB_CACHE[path] = (version, thumb)
+    return thumb
+
+
+@app.get("/api/history/thumb/{filename:path}")
+def history_thumb(request: Request, filename: str) -> Response:
+    path = _history_path(filename)
+    version = _thumb_version(path)
+    etag = f'"{version}"'
+
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "private, max-age=86400"})
+
+    thumb = _cached_thumbnail(path, version)
     if not thumb:
         raise HTTPException(status_code=404, detail="Kapak resmi yok")
-    return Response(content=thumb, media_type=_guess_image_mime(thumb))
+    return Response(
+        content=thumb,
+        media_type=_guess_image_mime(thumb),
+        headers={"ETag": etag, "Cache-Control": "private, max-age=86400"},
+    )
 
 
 _STREAM_MIME_TYPES = {
@@ -451,18 +685,22 @@ def _fmt_duration(seconds: Optional[int]) -> Optional[str]:
 
 @app.get("/item/{filename:path}")
 def item_detail(request: Request, filename: str, lang: Optional[str] = None):
-    lang = _resolve_lang(lang)
+    lang = _resolve_lang(lang, request)
     path = _history_path(filename)
     stat = os.stat(path)
     base_name = filename.rsplit("/", 1)[-1]
     ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
     meta = downloader.get_metadata(path)
-    has_thumb = downloader.extract_thumbnail(path) is not None
+    # NOTE: goes through the same memo as the /thumb endpoint - this page only
+    # needs to know WHETHER a cover exists, and the <img> it renders will ask
+    # for the bytes right after, so extracting twice would be pure waste.
+    has_thumb = _cached_thumbnail(path, _thumb_version(path)) is not None
     has_metadata = os.path.isfile(downloader.metadata_sidecar_path(path))
     folder = filename.rsplit("/", 1)[0] if "/" in filename else None
 
     context = {
         "lang": lang,
+        "ui": ui_text(lang),
         "filename": base_name,
         "filename_url": _url_path_quote(filename),
         "folder": folder,

@@ -11,6 +11,46 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.4.0] — 2026-08-22
+
+#### Eklenen
+
+- **Açık / koyu tema** — varsayılan olarak işletim sisteminizin ayarını takip eder; **Ayarlar → Görünüm**'den (Sistem / Açık / Koyu) veya başlıktaki düğmeden elle seçilebilir. Seçim ilk boyamadan önce uygulanır, sayfa açılırken tema titremesi olmaz
+- **İndirmeyi iptal etme** — süren bir indirme, panelindeki ✕ ile gerçekten durdurulabiliyor (önceden ✕ yalnızca satırı gizliyor, indirme sunucuda devam ediyordu). Yarım kalan parça dosyaları da temizleniyor
+- **Kanal takibi ayrı sayfaya taşındı** (`/channels`) — Ayarlar sayfası kalabalıklaşmıştı; kanal ekleme ve takip listesi artık kendi sayfasında
+- **ffmpeg / ffprobe sürüm kontrolü** (`/settings`) — kurulu sürümü gösterir; Windows, macOS ve Linux kurulum komutlarını kopyalanabilir şekilde listeler (sizin sisteminiz işaretli)
+- **Python bağımlılık kontrolü** (`/settings`) — sanal ortamdaki paketleri PyPI ile karşılaştırır, güncelleme varsa tek tıkla kurar ve uygulamayı yeniden başlatır
+- **Test paketi** — ağ gerektirmeyen, birkaç saniyede biten 110 test (`pip install -r requirements-dev.txt && pytest`): yol güvenliği, VTT/transkript ayrıştırma, sürüm karşılaştırma, yedekle-geri-yükle, çeviri bütünlüğü ve arayüzdeki HTML kaçışı
+
+#### Kurulum aracı (`MediaGrabSetup.exe`)
+
+- **ffmpeg / ffprobe kontrolü** — gereksinimler listesine eklendi; eksikse platformunuza uygun kurulum komutunu kopyalanabilir şekilde gösterir. Kurulum sonunda da uyarır
+- **Sistem diline göre Türkçe/İngilizce** — uygulamayla aynı mantık; arayüz, günlük ve uyarı metinlerinin tamamı
+- **Python sürüm kontrolü** — sadece "kurulu mu" değil, sürümü de okur; 3.9'dan eskiyse kurulumu engelleyip gereken sürümü söyler
+- **Kurulum klasörü seçilebiliyor** ("Gözat…") — artık exe'yi taşımaya gerek yok
+- **Klasör uyarıları** — bulut senkronizasyon klasörü (OneDrive, Dropbox, Google Drive…) tespit edilip uyarılır; klasör boş değilse onay istenir; sürücü kökü ve kişisel klasörler (Masaüstü, Belgeler, kullanıcı klasörü) reddedilir — kaldırma işlemi klasör içeriğini sildiği için
+- **"MediaGrab'ı Başlat" düğmesi** — kurulum bitince başlatma dosyasını aramaya gerek kalmıyor
+- **Görsel yenileme** — `ttk` ile yerel tema, renkli durum göstergeleri, işlem sırasında ilerleme çubuğu; boş siyah günlük alanının yerinde artık "Kur'a bastığınızda ne olacak" özeti duruyor
+
+#### Düzeltilen
+
+- **Güvenlik: başlıklar üzerinden kod çalıştırma açığı** — arayüzdeki HTML kaçışı tırnak işaretlerini kaçırmıyordu; içinde tırnak geçen bir video başlığı (üçüncü taraf sitelerden gelen, güvenilmeyen veri) HTML özniteliğinden çıkıp sayfada betik çalıştırabiliyordu. Tırnaklı başlıklar ayrıca tooltip'leri de bozuyordu
+- **Var olan dosya artık korunuyor** — aynı videoyu tekrar indirirken yt-dlp eski dosyayı *indirmenin başında* siliyordu; iptal, HTTP 403, bağlantı kopması veya çökme durumunda ne yeni ne eski dosya kalıyordu. Artık eski dosya kenara alınıyor ve indirme tamamlanmazsa aynen geri konuyor (uygulama çökerse bir sonraki açılışta kurtarılıyor)
+- **İndirme panelindeki ✕ düğmesi** — panel her 800 ms'de baştan çiziliyor, düğme yok edilip yeniden yaratılıyordu; tıklama bu araya denk gelirse tarayıcı `click` olayını hiç üretmiyor ve düğme sessizce çalışmıyordu. Ayrıca düğme daire yerine mavi bir elips olarak çiziliyordu (temel `button` dolgusu sıfırlanmamıştı)
+- **11 butonun vurgu (hover) rengi** — temel `button:hover` kuralı özgüllük nedeniyle bileşenlerin kendi renklerini eziyor, hepsi mavi görünüyordu
+- **Mobilde üst menü taşması** — 375 px'te menü kutusundan 33 px taşıyor, "EN" dil düğmesi görünür alanın dışında kalıyordu
+- **İngilizce arayüzde Türkçe metin görünmesi** — sunucu dili bildiği hâlde sayfayı Türkçe basıyor, JS sonradan değiştiriyordu; artık ilk boyama doğru dilde
+- **Tek dosya silme onayı** — "Tümünü Sil" onay soruyordu ama tek bir dosyayı silmek onaysızdı (geri alınamaz bir işlem). Kanal kaldırma için de onay eklendi
+- **Yarım kalan indirme dosyaları** — `.part` / `.ytdl` artıkları birikiyordu; artık iptalde ve uygulama açılışında temizleniyor
+
+#### Değiştirilen
+
+- **Geçmiş sayfası belirgin şekilde hızlandı** — her kapak resmi için her sayfa yüklemesinde yeniden ffprobe+ffmpeg çalıştırılıyordu (ölçüm: istek başına ~590 ms). Artık önbellekleniyor ve `ETag` gönderiliyor (~2 ms); altyazı/transkript dosyaları için hiç istek atılmıyor
+- **Erişilebilirlik** — ikon düğmelerine ve geçmiş kartlarındaki butonlara açıklayıcı etiketler, gezinmeye `aria-current`, hata alanlarına `role="alert"` eklendi
+- Tüm renkler CSS değişkenlerine taşındı (açık temanın ön koşulu); koyu tema görünümü birebir korundu
+- Arayüz metinleri tek kaynaktan (`i18n.py`) sunucuda üretiliyor; JS'teki 27 ölü çeviri anahtarı ve 21 kullanılmayan DOM referansı temizlendi
+- FastAPI'de kullanımdan kalkan `on_event` yerine `lifespan` kullanılıyor
+
 ### [1.3.0] — 2026-08-20
 
 #### Eklenen
@@ -75,6 +115,46 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.4.0] — 2026-08-22
+
+#### Added
+
+- **Light / dark theme** — follows your operating system by default; pick it by hand under **Settings → Appearance** (System / Light / Dark) or with the header toggle. The choice is applied before the first paint, so there's no theme flash on load
+- **Cancel a download** — the ✕ on a running download now actually stops it (previously it only hid the row while the download kept going server-side), and leftover fragment files are cleaned up
+- **Channel following moved to its own page** (`/channels`) — Settings had grown crowded; adding and listing followed channels now lives on a dedicated page
+- **ffmpeg / ffprobe version check** (`/settings`) — shows the installed version and lists the Windows, macOS and Linux install commands with copy buttons (yours is marked)
+- **Python dependency check** (`/settings`) — compares the virtual environment against PyPI and updates everything with one click, restarting the app afterwards
+- **Test suite** — 110 tests that need no network and finish in seconds (`pip install -r requirements-dev.txt && pytest`): path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, and front-end HTML escaping
+
+#### Installer (`MediaGrabSetup.exe`)
+
+- **ffmpeg / ffprobe check** — added to the requirements list; if it's missing, the right install command for your platform is shown with a copy button, and the install log warns about it too
+- **Turkish/English from the system locale** — same logic as the app, covering the interface, log messages and warnings
+- **Python version check** — not just "is it installed" but which version; anything older than 3.9 blocks the install and says what's needed
+- **The install folder can be chosen** ("Browse…") — no need to move the exe around any more
+- **Folder warnings** — cloud-sync folders (OneDrive, Dropbox, Google Drive…) are detected and warned about, a non-empty folder asks for confirmation, and drive roots plus personal folders (Desktop, Documents, your user folder) are refused outright, since removing MediaGrab deletes the folder's contents
+- **"Start MediaGrab" button** — no hunting for the launcher once the install finishes
+- **Visual refresh** — native `ttk` theming, colour-coded requirement rows, a progress indicator while work runs, and the empty black log area replaced with a summary of what Install will do
+
+#### Fixed
+
+- **Security: script injection via titles** — the UI's HTML escaping did not escape quotes, so a video title containing one (untrusted data from third-party sites) could break out of an HTML attribute and run script in the page. Quoted titles also broke tooltips
+- **Existing files are no longer destroyed** — when re-downloading the same video, yt-dlp deleted the existing file *at the start* of the download, so a cancel, an HTTP 403, a dropped connection, or a crash left you with neither the new file nor the old one. The previous file is now moved aside and put back if the download doesn't finish (and recovered on next launch if the app crashed)
+- **The ✕ button in the download panel** — the panel rebuilt itself every 800 ms, destroying and recreating the button; a click landing across a rebuild produced no `click` event at all, so the button silently did nothing. It was also drawn as a blue ellipse instead of a circle (the base `button` padding was never reset)
+- **Hover colour on 11 buttons** — a specificity quirk let the base `button:hover` rule override each component's own hover colour, painting them all accent-blue
+- **Header overflow on mobile** — at 375 px the header's content ran 33 px past its box, pushing the "EN" language button out of view
+- **Turkish text shown in the English UI** — the server knew the language but still rendered the page in Turkish for JS to swap afterwards; the first paint is now in the right language
+- **Confirmation before deleting a single file** — "Clear All" asked for confirmation but deleting one file (an unrecoverable action) did not. Removing a followed channel now asks too
+- **Leftover partial downloads** — `.part` / `.ytdl` debris accumulated; it's now cleared on cancel and at startup
+
+#### Changed
+
+- **The history page is markedly faster** — every cover was re-extracted with ffprobe+ffmpeg on each page load (measured ~590 ms per request). Results are now cached and served with an `ETag` (~2 ms), and subtitle/transcript files no longer trigger a request at all
+- **Accessibility** — descriptive labels on icon buttons and history-card actions, `aria-current` on navigation, `role="alert"` on error areas
+- All colours moved to CSS variables (the prerequisite for the light theme); the dark theme renders identically to before
+- UI strings now come from a single server-side source (`i18n.py`); 27 dead translation keys and 21 unused DOM references were removed from the JS
+- Replaced FastAPI's deprecated `on_event` with `lifespan`
 
 ### [1.3.0] — 2026-08-20
 

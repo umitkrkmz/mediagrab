@@ -6,71 +6,110 @@ const pasteBtn = document.getElementById("paste-btn");
 const probeBtn = document.getElementById("probe-btn");
 const card = document.getElementById("card");
 const downloadDock = document.getElementById("download-dock");
-const heroTitle = document.getElementById("hero-title");
-const heroSub = document.getElementById("hero-sub");
 const recentSection = document.getElementById("recent-section");
-const recentTitle = document.getElementById("recent-title");
-const recentSeeAll = document.getElementById("recent-see-all");
 const recentList = document.getElementById("recent-list");
-const historyPageTitle = document.getElementById("history-page-title");
 const historyList = document.getElementById("history-list");
 const historyError = document.getElementById("history-error");
 const historyClearBtn = document.getElementById("history-clear-btn");
 const historySearchInput = document.getElementById("history-search");
 const historyChannelFilter = document.getElementById("history-channel-filter");
-const navHome = document.getElementById("nav-home");
-const navHistory = document.getElementById("nav-history");
-const navSites = document.getElementById("nav-sites");
-const navSettings = document.getElementById("nav-settings");
-const footerLegal = document.getElementById("footer-legal");
-const footerNote = document.getElementById("footer-note");
 const langSwitch = document.getElementById("lang-switch");
-const itemCard = document.querySelector(".item-card");
+const themeToggle = document.getElementById("theme-toggle");
+const themeChoice = document.getElementById("theme-choice");
 const itemRevealBtn = document.getElementById("item-reveal-btn");
 const itemPreviewBtn = document.getElementById("item-preview-btn");
 const itemPreviewPlayer = document.getElementById("item-preview-player");
-const sitesPage = document.querySelector(".sites-category");
 
 const pendingBanner = document.getElementById("pending-banner");
-const pendingTitleEl = document.getElementById("pending-title");
 const pendingClearBtn = document.getElementById("pending-clear-btn");
 const pendingList = document.getElementById("pending-list");
 
-const settingsPageTitleEl = document.getElementById("settings-page-title");
-const settingsAddTitleEl = document.getElementById("settings-add-title");
-const settingsAddHintEl = document.getElementById("settings-add-hint");
-const settingsListTitleEl = document.getElementById("settings-list-title");
 const channelUrlInput = document.getElementById("channel-url-input");
 const channelChoiceSelect = document.getElementById("channel-choice-select");
 const channelAddBtn = document.getElementById("channel-add-btn");
 const channelError = document.getElementById("channel-error");
 const channelList = document.getElementById("channel-list");
 const channelEmpty = document.getElementById("channel-empty");
-const modeNotifyLabel = document.getElementById("mode-notify-label");
-const modeAutoLabel = document.getElementById("mode-auto-label");
 const channelModeRadios = document.querySelectorAll('input[name="channel-mode"]');
-const settingsYtdlpTitleEl = document.getElementById("settings-ytdlp-title");
 const ytdlpStatus = document.getElementById("ytdlp-status");
 const ytdlpInstructions = document.getElementById("ytdlp-instructions");
 const ytdlpCredit = document.getElementById("ytdlp-credit");
+const ffmpegStatus = document.getElementById("ffmpeg-status");
+const ffmpegInstructions = document.getElementById("ffmpeg-instructions");
+const depsStatus = document.getElementById("deps-status");
+const depsList = document.getElementById("deps-list");
+const depsActions = document.getElementById("deps-actions");
+const depsUpdateBtn = document.getElementById("deps-update-btn");
+const depsUpdateStatus = document.getElementById("deps-update-status");
 
 const LANG_KEY = "mediagrab_lang";
+const THEME_KEY = "mediagrab_theme";
+
+// --- Tema (acik/koyu) ---
+
+// NOTE: three preferences - "system" (the default: no data-theme attribute,
+// so the CSS follows prefers-color-scheme) plus the two explicit overrides.
+// currentTheme() is what's actually on screen, which for "system" depends on
+// the OS right now; themePreference() is what the user chose.
+function themePreference() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch (err) {
+    // NOTE: storage blocked (private mode) - fall through to "system".
+  }
+  return "system";
+}
+
+function currentTheme() {
+  const explicit = document.documentElement.dataset.theme;
+  if (explicit === "light" || explicit === "dark") return explicit;
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function renderThemeControls() {
+  if (themeToggle) {
+    // NOTE: shows where the button will take you, not where you are.
+    themeToggle.textContent = currentTheme() === "dark" ? "☀" : "☾";
+  }
+  const pref = themePreference();
+  themeChoice?.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+    const active = btn.dataset.themeChoice === pref;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", active ? "true" : "false");
+  });
+}
+
+function setThemePreference(pref) {
+  if (pref === "system") {
+    // NOTE: removing the attribute is what hands control back to the
+    // prefers-color-scheme media query in the stylesheet.
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = pref;
+  }
+  try {
+    if (pref === "system") {
+      localStorage.removeItem(THEME_KEY);
+    } else {
+      localStorage.setItem(THEME_KEY, pref);
+    }
+  } catch (err) {
+    // NOTE: storage can be blocked (private mode) - the theme still applies
+    // for this page, it just won't be remembered.
+  }
+  renderThemeControls();
+}
+
+function toggleTheme() {
+  setThemePreference(currentTheme() === "dark" ? "light" : "dark");
+}
 
 // NOTE: error messages from the server (yt-dlp/downloader) are dynamic and
 // mostly already English/technical, so there's no translation layer for
 // them; only the client-side strings defined here change with the language.
 const I18N = {
   tr: {
-    navHome: "Ana Sayfa",
-    navHistory: "Geçmiş",
-    navSites: "Desteklenen Siteler",
-    navSettings: "Ayarlar",
-    footerLegal:
-      "Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz.",
-    footerNote: "MediaGrab, yt-dlp ile çalışır. Veritabanı ve hesap sistemi yoktur — sadece bu bilgisayarda çalışır.",
-    heroTitle: "Link yapıştır, indir",
-    heroSub: "YouTube, YouTube Music ve yt-dlp'nin desteklediği diğer birçok siteden linki yapıştırın; ses veya video olarak indirin.",
-    placeholder: "Video linkini yapıştır...",
     resolveBtn: "Çözümle",
     resolveBtnBusy: "...",
     sectionAudio: "Ses",
@@ -99,11 +138,12 @@ const I18N = {
       isleniyor: "İşleniyor (ffmpeg)...",
       bitti: "Tamamlandı",
       hata: "Hata",
+      iptal: "İptal edildi",
     },
     downloadBtn: "Klasörde göster",
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
-    pasteBtnTitle: "Panodan yapıştır",
+    dockCancel: "İndirmeyi iptal et",
     itemPreviewPlay: "▶ Oynat",
     itemPreviewClose: "✕ Kapat",
     errProbeFailed: "Çözümlenemedi",
@@ -121,31 +161,19 @@ const I18N = {
     errRemoved: "Bu video artık mevcut değil veya kaldırılmış.",
     errUnsupportedSite: "Bu link tanınan bir siteden değil ya da desteklenmiyor.",
     errNetworkIssue: "Ağ bağlantısı sorunu — internet bağlantınızı kontrol edip tekrar deneyin.",
-    historyPageTitle: "İndirme Geçmişi",
     historyEmpty: "Henüz indirme yok",
     historyNoMatches: "Aramayla eşleşen indirme yok",
-    historySearchPlaceholder: "Ara...",
     historyAllChannels: "Tüm kanallar",
     historyDownload: "Klasörde göster",
     historyDelete: "Sil",
     historyDeleteFailed: "Silinemedi",
-    historyClear: "Tümünü Sil",
     historyClearConfirm: "Tüm indirme geçmişi diskten kalıcı olarak silinsin mi?",
+    historyDeleteConfirm: "Bu dosya diskten kalıcı olarak silinsin mi?",
+    channelRemoveConfirm: "Bu kanal takipten çıkarılsın mı?",
     historyClearFailed: "Geçmiş temizlenemedi",
-    recentTitle: "Son İndirilenler",
-    recentSeeAll: "Tümünü gör →",
     videoWord: "video",
     backToPlaylist: "← Playlist'e dön",
     locale: "tr-TR",
-    settingsPageTitle: "Ayarlar",
-    settingsAddTitle: "Kanal Takip Et",
-    settingsAddHint: "Uygulamayı her açtığınızda takip ettiğiniz kanallar yeni video için kontrol edilir.",
-    channelUrlPlaceholder: "Kanal linki yapıştır (ör. youtube.com/@kanaladi)",
-    modeNotify: "Bildir",
-    modeAuto: "Otomatik indir",
-    channelAddBtnLabel: "Ekle",
-    settingsListTitle: "Takip Edilen Kanallar",
-    channelEmpty: "Henüz takip edilen kanal yok.",
     channelCheckNow: "Şimdi kontrol et",
     channelRemove: "Kaldır",
     channelAddFailed: "Kanal eklenemedi",
@@ -153,9 +181,6 @@ const I18N = {
     channelModeNotifyBadge: "BİLDİR",
     channelLastChecked: "Son kontrol",
     channelNeverChecked: "Henüz kontrol edilmedi",
-    pendingTitle: "Takip Edilen Kanallarda Yeni Video",
-    pendingClear: "Temizle",
-    settingsYtdlpTitle: "yt-dlp Sürümü",
     ytdlpChecking: "Kontrol ediliyor...",
     ytdlpCheckFailed: "Sürüm bilgisi alınamadı (internet bağlantınızı kontrol edin)",
     ytdlpUpToDate: "Güncel",
@@ -176,20 +201,19 @@ const I18N = {
     ytdlpStep4: "4. MediaGrab'ı kapatıp yeniden başlatın",
     ytdlpCopyBtn: "Kopyala",
     ytdlpCopied: "Kopyalandı ✓",
+    ffmpegInstalled: "Kurulu",
+    ffmpegNotFound: "Bulunamadı",
+    ffmpegMissing: "yok",
+    ffmpegInstallTitle: "Nasıl kurulur?",
+    ffmpegUpdateTitle: "Nasıl güncellenir?",
+    ffmpegYourSystem: "sisteminiz",
+    ffmpegRestartNote: "Kurulumdan sonra MediaGrab'ı kapatıp yeniden açın (PATH güncellemesi için).",
+    depsUpdatesAvailable: "paket güncellenebilir",
+    depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
     ytdlpCreditLink: "GitHub'da teşekkür edin →",
   },
   en: {
-    navHome: "Home",
-    navHistory: "History",
-    navSites: "Supported Sites",
-    navSettings: "Settings",
-    footerLegal:
-      "This tool is for personal use only. You are solely responsible for the copyright status of downloaded content and compliance with the relevant platform's terms of service.",
-    footerNote: "MediaGrab runs on yt-dlp. No database or account system — it only runs on this computer.",
-    heroTitle: "Paste a link, download",
-    heroSub: "Paste a link from YouTube, YouTube Music, or many other sites supported by yt-dlp; download it as audio or video.",
-    placeholder: "Paste a video link...",
     resolveBtn: "Resolve",
     resolveBtnBusy: "...",
     sectionAudio: "Audio",
@@ -218,11 +242,12 @@ const I18N = {
       isleniyor: "Processing (ffmpeg)...",
       bitti: "Done",
       hata: "Error",
+      iptal: "Cancelled",
     },
     downloadBtn: "Show in folder",
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
-    pasteBtnTitle: "Paste from clipboard",
+    dockCancel: "Cancel download",
     itemPreviewPlay: "▶ Play",
     itemPreviewClose: "✕ Close",
     errProbeFailed: "Could not resolve",
@@ -240,31 +265,19 @@ const I18N = {
     errRemoved: "This video is no longer available or has been removed.",
     errUnsupportedSite: "This link isn't from a recognized or supported site.",
     errNetworkIssue: "Network connection issue — check your internet connection and try again.",
-    historyPageTitle: "Download History",
     historyEmpty: "No downloads yet",
     historyNoMatches: "No downloads match your search",
-    historySearchPlaceholder: "Search...",
     historyAllChannels: "All channels",
     historyDownload: "Show in folder",
     historyDelete: "Delete",
     historyDeleteFailed: "Could not delete",
-    historyClear: "Clear All",
     historyClearConfirm: "Permanently delete all download history from disk?",
+    historyDeleteConfirm: "Permanently delete this file from disk?",
+    channelRemoveConfirm: "Stop following this channel?",
     historyClearFailed: "Could not clear history",
-    recentTitle: "Recent Downloads",
-    recentSeeAll: "View all →",
     videoWord: "videos",
     backToPlaylist: "← Back to playlist",
     locale: "en-US",
-    settingsPageTitle: "Settings",
-    settingsAddTitle: "Follow a Channel",
-    settingsAddHint: "Every time you open the app, followed channels are checked for new videos.",
-    channelUrlPlaceholder: "Paste a channel link (e.g. youtube.com/@channelname)",
-    modeNotify: "Notify",
-    modeAuto: "Auto-download",
-    channelAddBtnLabel: "Add",
-    settingsListTitle: "Followed Channels",
-    channelEmpty: "No followed channels yet.",
     channelCheckNow: "Check now",
     channelRemove: "Remove",
     channelAddFailed: "Could not add channel",
@@ -272,9 +285,6 @@ const I18N = {
     channelModeNotifyBadge: "NOTIFY",
     channelLastChecked: "Last checked",
     channelNeverChecked: "Not checked yet",
-    pendingTitle: "New Videos From Followed Channels",
-    pendingClear: "Clear",
-    settingsYtdlpTitle: "yt-dlp Version",
     ytdlpChecking: "Checking...",
     ytdlpCheckFailed: "Couldn't check the version (check your internet connection)",
     ytdlpUpToDate: "Up to date",
@@ -295,18 +305,26 @@ const I18N = {
     ytdlpStep4: "4. Close and restart MediaGrab",
     ytdlpCopyBtn: "Copy",
     ytdlpCopied: "Copied ✓",
+    ffmpegInstalled: "Installed",
+    ffmpegNotFound: "Not found",
+    ffmpegMissing: "missing",
+    ffmpegInstallTitle: "How to install",
+    ffmpegUpdateTitle: "How to update",
+    ffmpegYourSystem: "your system",
+    ffmpegRestartNote: "Restart MediaGrab after installing, so it picks up the updated PATH.",
+    depsUpdatesAvailable: "packages can be updated",
+    depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
     ytdlpCreditLink: "Say thanks on GitHub →",
   },
 };
 
-// NOTE: defaults to "tr" synchronously (not null) so t() always has a valid
-// dictionary to read from. Any load*() call that reaches t() before
-// initLang()'s own async /api/locale detection resolves (a real race - nothing
-// here awaits initLang() before firing) would otherwise crash on
-// "Cannot read properties of undefined". The system-detected language still
-// applies moments later via applyLang() once initLang() resolves.
-let lang = localStorage.getItem(LANG_KEY) || "tr";
+// NOTE: read straight off the server-rendered <html lang> attribute. The
+// server already resolved the language (?lang= > cookie > system locale) and
+// rendered the page's static text in it, so this is both synchronous - no
+// race with an async /api/locale fetch, which used to leave t() undefined -
+// and guaranteed to agree with what's on screen.
+let lang = document.documentElement.lang === "en" ? "en" : "tr";
 let lastProbe = null; // { url, info } - currently shown single-video detail
 let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
@@ -319,109 +337,22 @@ function t() {
   return I18N[lang];
 }
 
-async function initLang() {
-  if (!localStorage.getItem(LANG_KEY)) {
-    // NOTE: no stored preference yet - detect from the system locale. Until
-    // this resolves, `lang` stays at its safe "tr" default from above.
-    try {
-      const res = await fetch("/api/locale");
-      const data = await res.json();
-      lang = data.lang === "en" ? "en" : "tr";
-    } catch (err) {
-      lang = "tr";
-    }
-  }
-  applyLang();
-}
-
 function setLang(newLang) {
-  lang = newLang;
-  localStorage.setItem(LANG_KEY, lang);
-  if (itemCard || sitesPage) {
-    // NOTE: the metadata labels on /item and the site list on
-    // /supported-sites are rendered server-side (Jinja2); rather than
-    // keeping a second translation layer in JS, we just reload the page in
-    // the correct language when it changes.
-    const url = new URL(window.location.href);
-    url.searchParams.set("lang", lang);
-    window.location.href = url.toString();
-    return;
-  }
-  applyLang();
+  if (newLang === lang) return;
+  // NOTE: every page's static text is rendered server-side now, so switching
+  // language reloads rather than re-translating in place. That keeps ONE copy
+  // of those strings (in i18n.py) instead of a second JS copy that could
+  // drift, and it's what makes the first paint correct - the cookie is what
+  // a later bare-URL visit (bookmark, PWA launch) reads to pick the language
+  // before any JS runs.
+  document.cookie = `${LANG_KEY}=${newLang};path=/;max-age=31536000;samesite=lax`;
+  const url = new URL(window.location.href);
+  url.searchParams.set("lang", newLang);
+  window.location.href = url.toString();
 }
 
 function withLang(path) {
   return `${path}${path.includes("?") ? "&" : "?"}lang=${lang}`;
-}
-
-function applyLang() {
-  // NOTE: if html[lang] stays Turkish, CSS text-transform:uppercase applies
-  // Turkish uppercasing rules (I -> İ) even to English text.
-  document.documentElement.lang = lang;
-  langSwitch?.querySelectorAll("button").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.lang === lang);
-  });
-
-  if (navHome) {
-    navHome.textContent = t().navHome;
-    navHome.href = withLang("/");
-  }
-  if (navHistory) {
-    navHistory.textContent = t().navHistory;
-    navHistory.href = withLang("/history");
-  }
-  if (navSites) {
-    navSites.textContent = t().navSites;
-    navSites.href = withLang("/supported-sites");
-  }
-  if (navSettings) {
-    navSettings.textContent = t().navSettings;
-    navSettings.href = withLang("/settings");
-  }
-  if (footerLegal) footerLegal.textContent = t().footerLegal;
-  if (footerNote) footerNote.textContent = t().footerNote;
-
-  if (heroTitle) heroTitle.textContent = t().heroTitle;
-  if (heroSub) heroSub.textContent = t().heroSub;
-  if (urlInput) urlInput.placeholder = t().placeholder;
-  if (pasteBtn) pasteBtn.title = t().pasteBtnTitle;
-  if (probeBtn) probeBtn.textContent = probeBtn.disabled ? t().resolveBtnBusy : t().resolveBtn;
-  if (recentTitle) recentTitle.textContent = t().recentTitle;
-  if (recentSeeAll) {
-    recentSeeAll.textContent = t().recentSeeAll;
-    recentSeeAll.href = withLang("/history");
-  }
-  if (historyPageTitle) historyPageTitle.textContent = t().historyPageTitle;
-  if (historyClearBtn) historyClearBtn.textContent = t().historyClear;
-  if (historySearchInput) historySearchInput.placeholder = t().historySearchPlaceholder;
-  if (historyChannelFilter) populateChannelFilter();
-  if (historyList) applyHistoryFilters();
-
-  if (settingsPageTitleEl) settingsPageTitleEl.textContent = t().settingsPageTitle;
-  if (settingsAddTitleEl) settingsAddTitleEl.textContent = t().settingsAddTitle;
-  if (settingsAddHintEl) settingsAddHintEl.textContent = t().settingsAddHint;
-  if (settingsListTitleEl) settingsListTitleEl.textContent = t().settingsListTitle;
-  if (channelUrlInput) channelUrlInput.placeholder = t().channelUrlPlaceholder;
-  if (modeNotifyLabel) modeNotifyLabel.textContent = t().modeNotify;
-  if (modeAutoLabel) modeAutoLabel.textContent = t().modeAuto;
-  if (channelAddBtn) channelAddBtn.textContent = t().channelAddBtnLabel;
-  if (channelEmpty) channelEmpty.textContent = t().channelEmpty;
-  if (pendingTitleEl) pendingTitleEl.textContent = t().pendingTitle;
-  if (pendingClearBtn) pendingClearBtn.textContent = t().pendingClear;
-  if (settingsYtdlpTitleEl) settingsYtdlpTitleEl.textContent = t().settingsYtdlpTitle;
-
-  if (channelList) renderChannelList(lastChannels);
-  if (pendingBanner) renderPending();
-  if (ytdlpStatus) renderYtdlpVersion();
-
-  if (card) {
-    if (lastProbe) {
-      renderCard(lastProbe.url, lastProbe.info);
-    } else if (lastPlaylist) {
-      renderPlaylist();
-    }
-  }
-  if (recentList) renderRecent(lastHistory);
 }
 
 function fmtDuration(seconds) {
@@ -494,10 +425,17 @@ function showError(message, raw) {
     }`;
 }
 
+// NOTE: this escapes quotes too, which the previous textContent/innerHTML
+// trick did NOT - innerHTML only escapes & < > when serializing a text node,
+// since quotes are harmless in text. But nearly every caller here interpolates
+// into an ATTRIBUTE (title="...", data-filename="...", src="..."), where an
+// unescaped " closes the attribute early: a video titled 'x" onmouseover="..."'
+// injected a live event handler (confirmed in-browser). Titles come from
+// arbitrary third-party sites, so they're untrusted input.
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
 function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 }
 
 async function revealFile(url) {
@@ -809,7 +747,7 @@ function loadTrackedJobIds() {
 }
 
 function saveTrackedJobIds() {
-  const stillActive = dockJobs.filter((j) => j.state !== "hata" && !(j.state === "bitti" && j.ready));
+  const stillActive = dockJobs.filter((j) => !isJobFinished(j));
   localStorage.setItem(DOCK_JOBS_KEY, JSON.stringify(stillActive.map((j) => ({ jobId: j.jobId, title: j.title }))));
 }
 
@@ -864,7 +802,7 @@ function pollDockJob(jobId) {
         return;
       }
       Object.assign(job, data);
-      if (data.state === "hata" || (data.state === "bitti" && data.ready)) {
+      if (isJobFinished(data)) {
         clearInterval(dockPollTimers[jobId]);
         delete dockPollTimers[jobId];
         saveTrackedJobIds();
@@ -879,12 +817,18 @@ function pollDockJob(jobId) {
   }, 800);
 }
 
+function isJobFinished(job) {
+  return job.state === "hata" || job.state === "iptal" || (job.state === "bitti" && job.ready);
+}
+
 function dockRowHtml(job) {
   const percent = job.percent || 0;
   let statusHtml;
   if (job.state === "hata") {
     const friendly = friendlyError(job.error) || job.error || t().errUnknown;
     statusHtml = `<div class="dock-row-error">${escapeHtml(friendly)}</div>`;
+  } else if (job.state === "iptal") {
+    statusHtml = `<div class="dock-row-meta">${t().states.iptal}</div>`;
   } else if (job.state === "bitti" && job.ready) {
     statusHtml = `<button type="button" class="dock-reveal-btn" data-job-id="${job.jobId}">${t().downloadBtn}</button>`;
   } else {
@@ -892,12 +836,57 @@ function dockRowHtml(job) {
       <div class="dock-row-bar-bg"><div class="dock-row-bar-fg" style="width:${percent}%"></div></div>
       <div class="dock-row-meta">${t().states[job.state] || job.state}${job.speed ? " · " + escapeHtml(job.speed) : ""}</div>`;
   }
+  // NOTE: while a job is still running the ✕ cancels it (and it stays on
+  // screen showing "cancelled"); once it's finished the same ✕ just clears
+  // the row. Previously ✕ only ever hid the row while the download kept
+  // going server-side, which looked like a cancel but wasn't one.
+  const finished = isJobFinished(job);
+  const closeLabel = finished ? t().dockDismiss : t().dockCancel;
   return `
     <div class="dock-row" data-job-id="${job.jobId}">
       <div class="dock-row-title" title="${escapeHtml(job.title)}">${escapeHtml(job.title)}</div>
       <div class="dock-row-status">${statusHtml}</div>
-      <button type="button" class="dock-dismiss-btn" data-job-id="${job.jobId}" title="${t().dockDismiss}">✕</button>
+      <button type="button" class="dock-dismiss-btn" data-job-id="${job.jobId}"
+        data-action="${finished ? "dismiss" : "cancel"}"
+        title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">✕</button>
     </div>`;
+}
+
+async function cancelDockJob(jobId) {
+  const job = dockJobs.find((j) => j.jobId === jobId);
+  if (job) {
+    // NOTE: optimistic - the poll below will confirm it, but the button
+    // shouldn't sit there looking unresponsive while the request is in flight.
+    job.state = "iptal";
+    job.speed = null;
+    renderDock();
+  }
+  try {
+    await fetch(`/api/cancel/${jobId}`, { method: "POST" });
+  } catch (err) {
+    // NOTE: the flag may still have been set server-side; the poll decides.
+  }
+}
+
+// NOTE: identifies what the dock's MARKUP depends on. Progress and speed
+// change constantly but don't alter the structure, so they're deliberately
+// not part of this - see renderDock().
+function dockLayoutSignature() {
+  return dockJobs.map((j) => `${j.jobId}:${j.state}:${j.ready ? 1 : 0}`).join("|");
+}
+
+let dockLayoutKey = "";
+
+function updateDockRowProgress(job) {
+  const row = downloadDock.querySelector(`.dock-row[data-job-id="${job.jobId}"]`);
+  if (!row) return;
+  const bar = row.querySelector(".dock-row-bar-fg");
+  if (bar) bar.style.width = `${job.percent || 0}%`;
+  const meta = row.querySelector(".dock-row-meta");
+  if (meta) {
+    // NOTE: textContent, so no escaping needed (and no HTML re-parse).
+    meta.textContent = `${t().states[job.state] || job.state}${job.speed ? " · " + job.speed : ""}`;
+  }
 }
 
 function renderDock() {
@@ -905,17 +894,25 @@ function renderDock() {
   if (dockJobs.length === 0) {
     downloadDock.classList.add("hidden");
     downloadDock.innerHTML = "";
+    dockLayoutKey = "";
     return;
   }
   downloadDock.classList.remove("hidden");
-  downloadDock.innerHTML = dockJobs.map(dockRowHtml).join("");
 
-  downloadDock.querySelectorAll(".dock-reveal-btn").forEach((btn) => {
-    btn.addEventListener("click", () => revealFile(`/api/file/${btn.dataset.jobId}`));
-  });
-  downloadDock.querySelectorAll(".dock-dismiss-btn").forEach((btn) => {
-    btn.addEventListener("click", () => dismissDockJob(btn.dataset.jobId));
-  });
+  // NOTE: this used to rebuild innerHTML on every 800ms poll tick, which threw
+  // away and recreated the ✕ button ~1.25x/second. A real mouse click needs
+  // mousedown and mouseup on the SAME node - if a rebuild landed in between
+  // (a large chance during an active download), the browser fired no click at
+  // all and the button silently did nothing. Now the markup is only rebuilt
+  // when the rows actually change shape; a plain progress update just patches
+  // the numbers in place, so the button node survives and stays clickable.
+  const key = dockLayoutSignature();
+  if (key !== dockLayoutKey) {
+    dockLayoutKey = key;
+    downloadDock.innerHTML = dockJobs.map(dockRowHtml).join("");
+    return;
+  }
+  dockJobs.forEach(updateDockRowProgress);
 }
 
 function resumeTrackedDockJobs() {
@@ -968,6 +965,10 @@ function applyHistoryFilters() {
 const VIDEO_EXTS = new Set(["mp4"]);
 const SUBTITLE_EXTS = new Set(["srt"]);
 const TRANSCRIPT_EXTS = new Set(["txt"]);
+// NOTE: only media containers can carry an embedded cover. Subtitles and
+// transcripts are plain text, so requesting a thumbnail for them was a
+// guaranteed 404 that still cost the server an ffprobe spawn per card.
+const THUMBNAILABLE_EXTS = new Set(["mp4", "mp3", "m4a", "opus"]);
 
 function encodePath(relPath) {
   // NOTE: encodes each "/"-separated segment individually so the slash stays
@@ -990,15 +991,22 @@ function historyCardHtml(item, withActions) {
         : "♪";
   const encodedPath = encodePath(item.filename);
   const fileUrl = `/api/history/file/${encodedPath}`;
-  const thumbUrl = `/api/history/thumb/${encodedPath}`;
+  const thumbHtml = THUMBNAILABLE_EXTS.has(item.ext)
+    ? `<img src="/api/history/thumb/${encodedPath}" alt="" loading="lazy" onerror="this.remove()">`
+    : "";
   const itemUrl = withLang(`/item/${encodedPath}`);
   const baseName = item.filename.includes("/") ? item.filename.split("/").pop() : item.filename;
   const folderBadge = item.folder ? `<div class="folder-badge">${escapeHtml(item.folder)}</div>` : "";
+  // NOTE: every card repeats the same two button labels, so on their own
+  // ("Delete", "Delete", "Delete"...) they tell a screen reader nothing about
+  // WHICH file they act on - aria-label pins each one to its filename.
   const actions = withActions
     ? `
       <div class="history-actions">
-        <button type="button" class="reveal-btn" data-reveal-url="${fileUrl}">${t().historyDownload}</button>
-        <button type="button" class="delete-btn">${t().historyDelete}</button>
+        <button type="button" class="reveal-btn" data-reveal-url="${fileUrl}"
+          aria-label="${escapeHtml(`${t().historyDownload}: ${baseName}`)}">${t().historyDownload}</button>
+        <button type="button" class="delete-btn"
+          aria-label="${escapeHtml(`${t().historyDelete}: ${baseName}`)}">${t().historyDelete}</button>
       </div>`
     : "";
   return `
@@ -1006,7 +1014,7 @@ function historyCardHtml(item, withActions) {
       <a class="history-card-link" href="${itemUrl}">
         <div class="history-thumb">
           <span class="placeholder">${placeholder}</span>
-          <img src="${thumbUrl}" alt="" loading="lazy" onerror="this.remove()">
+          ${thumbHtml}
         </div>
         <div class="history-body">
           ${folderBadge}
@@ -1051,6 +1059,10 @@ function renderRecent(items) {
 }
 
 async function deleteHistoryItem(filename) {
+  // NOTE: this is an unrecoverable os.remove() on the server (no trash/undo),
+  // and the button sits right next to "show in folder" - "Clear all" has
+  // always asked for confirmation, so a single delete should too.
+  if (!confirm(`${t().historyDeleteConfirm}\n\n${filename}`)) return;
   historyError?.classList.add("hidden");
   try {
     const res = await fetch(`/api/history/${encodePath(filename)}`, { method: "DELETE" });
@@ -1153,6 +1165,8 @@ function renderChannelList(items) {
       }
     });
     row.querySelector(".remove-btn").addEventListener("click", async () => {
+      const name = lastChannels.find((c) => c.id === id)?.name || "";
+      if (!confirm(`${t().channelRemoveConfirm}\n\n${name}`)) return;
       await fetch(`/api/channels/${id}`, { method: "DELETE" });
       loadChannels();
     });
@@ -1403,6 +1417,152 @@ function renderYtdlpVersion() {
   }
 }
 
+// --- Ayarlar: ffmpeg / ffprobe ---
+
+async function loadFfmpegVersion() {
+  if (!ffmpegStatus) return;
+  ffmpegStatus.textContent = t().ytdlpChecking;
+  let info;
+  try {
+    const res = await fetch("/api/ffmpeg-version");
+    info = await res.json();
+  } catch (err) {
+    ffmpegStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
+    return;
+  }
+
+  const versions = [
+    info.ffmpeg ? `ffmpeg ${escapeHtml(info.ffmpeg)}` : `ffmpeg: ${t().ffmpegMissing}`,
+    info.ffprobe ? `ffprobe ${escapeHtml(info.ffprobe)}` : `ffprobe: ${t().ffmpegMissing}`,
+  ].join(" · ");
+
+  ffmpegStatus.innerHTML = `
+    <span class="ytdlp-badge ${info.ok ? "uptodate" : "outdated"}">${info.ok ? t().ffmpegInstalled : t().ffmpegNotFound}</span>
+    <span class="ytdlp-version-row">${versions}</span>`;
+
+  // NOTE: unlike yt-dlp there's no reliable "latest ffmpeg" to compare
+  // against (every platform ships its own build and numbering), so this
+  // offers the install/update command rather than claiming an update exists.
+  // All platforms are listed, with the one you're on marked.
+  if (ffmpegInstructions) {
+    ffmpegInstructions.classList.remove("hidden");
+    const rows = (info.install_commands || [])
+      .map((entry) => {
+        const isCurrent = entry.key === info.platform;
+        return `
+        <div class="ffmpeg-platform${isCurrent ? " current" : ""}">
+          <div class="ffmpeg-platform-label">
+            ${escapeHtml(entry.label)}${isCurrent ? ` <span class="ffmpeg-current-tag">${t().ffmpegYourSystem}</span>` : ""}
+          </div>
+          <div class="ytdlp-cmd-row">
+            <code>${escapeHtml(entry.command)}</code>
+            <button type="button" class="ffmpeg-copy-btn" data-command="${escapeHtml(entry.command)}">${t().ytdlpCopyBtn}</button>
+          </div>
+        </div>`;
+      })
+      .join("");
+
+    ffmpegInstructions.innerHTML = `
+      <div class="ytdlp-instructions-title">${info.ok ? t().ffmpegUpdateTitle : t().ffmpegInstallTitle}</div>
+      ${rows}
+      <p class="settings-hint">${t().ffmpegRestartNote}</p>`;
+
+    ffmpegInstructions.querySelectorAll(".ffmpeg-copy-btn").forEach((copyBtn) => {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(copyBtn.dataset.command);
+          const original = copyBtn.textContent;
+          copyBtn.textContent = t().ytdlpCopied;
+          setTimeout(() => {
+            copyBtn.textContent = original;
+          }, 1500);
+        } catch (err) {
+          // NOTE: clipboard can be blocked - the command is visible to copy by hand.
+        }
+      });
+    });
+  }
+}
+
+// --- Ayarlar: Python bagimliliklari ---
+
+async function loadDependencies() {
+  if (!depsStatus) return;
+  depsStatus.textContent = t().ytdlpChecking;
+  let info;
+  try {
+    const res = await fetch("/api/dependencies");
+    info = await res.json();
+  } catch (err) {
+    depsStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
+    return;
+  }
+
+  if (!info.reachable) {
+    depsStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
+    depsList && (depsList.innerHTML = "");
+    depsActions?.classList.add("hidden");
+    return;
+  }
+
+  const outdated = info.update_count > 0;
+  depsStatus.innerHTML = `
+    <span class="ytdlp-badge ${outdated ? "outdated" : "uptodate"}">
+      ${outdated ? `${info.update_count} ${t().depsUpdatesAvailable}` : t().ytdlpUpToDate}
+    </span>`;
+
+  if (depsList) {
+    depsList.innerHTML = info.packages
+      .map((p) => {
+        const current = p.installed || "-";
+        const right = p.update_available
+          ? `<span class="deps-arrow">${escapeHtml(current)} &rarr; ${escapeHtml(p.latest)}</span>`
+          : `<span class="deps-current">${escapeHtml(current)}</span>`;
+        return `
+        <div class="deps-row${p.update_available ? " outdated" : ""}">
+          <span class="deps-name">${escapeHtml(p.name)}</span>
+          ${right}
+        </div>`;
+      })
+      .join("");
+  }
+
+  depsActions?.classList.toggle("hidden", !outdated);
+}
+
+function wireDepsUpdateBtn() {
+  if (!depsUpdateBtn) return;
+  depsUpdateBtn.addEventListener("click", async () => {
+    depsUpdateBtn.disabled = true;
+    depsUpdateBtn.textContent = t().ytdlpUpdating;
+    depsUpdateStatus?.classList.add("hidden");
+    try {
+      const res = await fetch("/api/dependencies-update", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        if (depsUpdateStatus) {
+          depsUpdateStatus.textContent = t().ytdlpUpdateSuccess;
+          depsUpdateStatus.classList.remove("hidden");
+        }
+        // NOTE: the server restarts itself after a successful update.
+        waitForServerAndReload();
+        return;
+      }
+      if (depsUpdateStatus) {
+        depsUpdateStatus.textContent = `${t().ytdlpUpdateFailed}: ${data.output || ""}`.trim();
+        depsUpdateStatus.classList.remove("hidden");
+      }
+    } catch (err) {
+      if (depsUpdateStatus) {
+        depsUpdateStatus.textContent = t().errNetwork + err.message;
+        depsUpdateStatus.classList.remove("hidden");
+      }
+    }
+    depsUpdateBtn.disabled = false;
+    depsUpdateBtn.textContent = t().depsUpdateBtn;
+  });
+}
+
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") probe();
@@ -1431,6 +1591,33 @@ pasteBtn?.addEventListener("click", async () => {
 langSwitch?.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
 });
+// NOTE: one delegated listener on the dock container, which is never
+// replaced - individual rows are, so per-button listeners would be lost
+// (and re-added) on every rebuild.
+downloadDock?.addEventListener("click", (e) => {
+  const revealBtn = e.target.closest?.(".dock-reveal-btn");
+  if (revealBtn) {
+    revealFile(`/api/file/${revealBtn.dataset.jobId}`);
+    return;
+  }
+  const closeBtn = e.target.closest?.(".dock-dismiss-btn");
+  if (!closeBtn) return;
+  if (closeBtn.dataset.action === "cancel") {
+    cancelDockJob(closeBtn.dataset.jobId);
+  } else {
+    dismissDockJob(closeBtn.dataset.jobId);
+  }
+});
+themeToggle?.addEventListener("click", toggleTheme);
+themeChoice?.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+  btn.addEventListener("click", () => setThemePreference(btn.dataset.themeChoice));
+});
+renderThemeControls();
+// NOTE: while following the OS (no explicit choice), track live changes to it
+// so the icon doesn't go stale if the system flips theme on a schedule.
+window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+  if (!document.documentElement.dataset.theme) renderThemeControls();
+});
 historyClearBtn?.addEventListener("click", clearAllHistory);
 historySearchInput?.addEventListener("input", applyHistoryFilters);
 historyChannelFilter?.addEventListener("change", applyHistoryFilters);
@@ -1453,11 +1640,13 @@ channelModeRadios.forEach((r) => r.addEventListener("change", updateChannelChoic
 pendingClearBtn?.addEventListener("click", clearPending);
 updateChannelChoiceVisibility();
 
-initLang();
 loadHistory();
 loadChannels();
 loadPending();
 loadYtdlpVersion();
+loadFfmpegVersion();
+loadDependencies();
+wireDepsUpdateBtn();
 resumeTrackedDockJobs();
 
 // NOTE: lets an external trigger (e.g. a browser extension/bookmarklet)

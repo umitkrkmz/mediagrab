@@ -1,5 +1,6 @@
 # The yt_dlp import must appear ONLY in this file. Other modules call this
 # file's functions instead of touching the yt-dlp API directly.
+import glob
 import json
 import os
 import re
@@ -487,6 +488,74 @@ def _write_metadata_sidecar(media_path: str, info: dict, kind: str, choice: str)
         pass
 
 
+# NOTE: also read by app.py's startup sweep, which restores backups left
+# behind when the process died before it could put them back itself.
+BACKUP_SUFFIX = ".mediagrab-bak"
+
+
+def _backup_existing_outputs(ydl, url: str) -> list[tuple[str, str]]:
+    """Move files this download is about to replace out of the way.
+
+    Returns (backup_path, original_path) pairs. Failing to work out the name
+    is never fatal - we just lose the safety net and behave as before.
+    """
+    try:
+        # NOTE: a metadata-only resolve (no download) purely to learn the
+        # output path. It costs one extra request, which is small next to the
+        # download itself and buys protection against losing an existing file.
+        pre = ydl.extract_info(url, download=False)
+        if not pre or pre.get("_type") == "playlist":
+            return []
+        stem = os.path.splitext(ydl.prepare_filename(pre))[0]
+    except Exception:
+        return []
+
+    backups: list[tuple[str, str]] = []
+    # NOTE: globbing the stem rather than one exact filename on purpose - the
+    # real extension isn't known yet (merge_output_format and the audio
+    # postprocessors change it), and one download can own several files:
+    # video.mp4, video.tr.srt, video.json, video.webp.
+    for path in glob.glob(glob.escape(stem) + ".*"):
+        name = os.path.basename(path)
+        if not os.path.isfile(path) or name.endswith(BACKUP_SUFFIX):
+            continue
+        if ".part" in name or name.endswith(".ytdl"):
+            continue
+        backup = path + BACKUP_SUFFIX
+        try:
+            if os.path.exists(backup):
+                os.remove(backup)
+            os.replace(path, backup)
+            backups.append((backup, path))
+        except OSError:
+            # NOTE: couldn't move it aside (locked?) - leave it be rather than
+            # blocking the download the user asked for.
+            pass
+    return backups
+
+
+def _restore_backups(backups: list[tuple[str, str]]) -> None:
+    for backup, original in backups:
+        if not os.path.isfile(backup):
+            continue
+        try:
+            # NOTE: whatever the failed attempt left at the target is worthless
+            # - the backup is the file the user actually still has.
+            os.replace(backup, original)
+        except OSError:
+            pass
+
+
+def _discard_backups(backups: list[tuple[str, str]]) -> None:
+    for backup, _original in backups:
+        if not os.path.isfile(backup):
+            continue
+        try:
+            os.remove(backup)
+        except OSError:
+            pass
+
+
 def download(
     url: str,
     kind: str,
@@ -530,7 +599,20 @@ def download(
     )
 
     with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+        # NOTE: "overwrites" makes yt-dlp delete an existing output file at the
+        # START of the download, not at the end (verified). So any failure
+        # afterwards - a cancel, an HTTP 403, a dropped connection, closing the
+        # app - used to leave the user with neither the new file nor the old
+        # one. Resolving the output name up front lets us move anything already
+        # there aside and put it back if this attempt doesn't finish.
+        backups = _backup_existing_outputs(ydl, url)
+        try:
+            info = ydl.extract_info(url, download=True)
+        except Exception:
+            _restore_backups(backups)
+            raise
+
+    _discard_backups(backups)
 
     if kind == "subtitle":
         lang_code, _, _source = choice.partition(":")

@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}MediaGrab{% endblock %}</title>
+<script>
+// NOTE: inline and BEFORE the stylesheet on purpose - an explicitly chosen
+// theme has to be on <html> before the first paint, otherwise a light-theme
+// user sees a dark flash on every page load (the same class of bug the
+// server-rendered language text fixes). No stored choice = no attribute =
+// the CSS follows the OS via prefers-color-scheme.
+(function () {
+  try {
+    var t = localStorage.getItem("mediagrab_theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="manifest" href="/static/manifest.json">
@@ -17,14 +30,16 @@
       <span class="brand-name">MediaGrab</span>
     </a>
     <nav class="site-nav">
-      <a href="/?lang={{ lang }}" id="nav-home" class="{{ 'active' if active == 'home' else '' }}">Ana Sayfa</a>
-      <a href="/history?lang={{ lang }}" id="nav-history" class="{{ 'active' if active == 'history' else '' }}">Geçmiş</a>
-      <a href="/supported-sites?lang={{ lang }}" id="nav-sites" class="{{ 'active' if active == 'sites' else '' }}">Desteklenen Siteler</a>
-      <a href="/settings?lang={{ lang }}" id="nav-settings" class="{{ 'active' if active == 'settings' else '' }}">Ayarlar</a>
+      <a href="/?lang={{ lang }}" id="nav-home" class="{{ 'active' if active == 'home' else '' }}" aria-current="{{ 'page' if active == 'home' else 'false' }}">{{ ui.nav_home }}</a>
+      <a href="/history?lang={{ lang }}" id="nav-history" class="{{ 'active' if active == 'history' else '' }}" aria-current="{{ 'page' if active == 'history' else 'false' }}">{{ ui.nav_history }}</a>
+      <a href="/channels?lang={{ lang }}" id="nav-channels" class="{{ 'active' if active == 'channels' else '' }}" aria-current="{{ 'page' if active == 'channels' else 'false' }}">{{ ui.nav_channels }}</a>
+      <a href="/supported-sites?lang={{ lang }}" id="nav-sites" class="{{ 'active' if active == 'sites' else '' }}" aria-current="{{ 'page' if active == 'sites' else 'false' }}">{{ ui.nav_sites }}</a>
+      <a href="/settings?lang={{ lang }}" id="nav-settings" class="{{ 'active' if active == 'settings' else '' }}" aria-current="{{ 'page' if active == 'settings' else 'false' }}">{{ ui.nav_settings }}</a>
     </nav>
-    <div class="lang-switch" id="lang-switch">
-      <button type="button" data-lang="tr">TR</button>
-      <button type="button" data-lang="en">EN</button>
+    <button type="button" id="theme-toggle" class="theme-toggle" title="{{ ui.theme_toggle }}" aria-label="{{ ui.theme_toggle }}"></button>
+    <div class="lang-switch" id="lang-switch" role="group" aria-label="{{ ui.lang_switch_label }}">
+      <button type="button" data-lang="tr" class="{{ 'active' if lang == 'tr' else '' }}" aria-pressed="{{ 'true' if lang == 'tr' else 'false' }}">TR</button>
+      <button type="button" data-lang="en" class="{{ 'active' if lang == 'en' else '' }}" aria-pressed="{{ 'true' if lang == 'en' else 'false' }}">EN</button>
     </div>
   </div>
 </header>
@@ -33,12 +48,12 @@
 {% block content %}{% endblock %}
 </main>
 
-<div id="download-dock" class="download-dock hidden"></div>
+<div id="download-dock" class="download-dock hidden" role="region" aria-live="polite" aria-label="{{ ui.downloads_panel }}"></div>
 
 <footer class="site-footer">
   <div class="site-footer-inner">
-    <p id="footer-legal">Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz.</p>
-    <p class="footer-meta"><span id="footer-note">MediaGrab, yt-dlp ile çalışır. Veritabanı ve hesap sistemi yoktur — sadece bu bilgisayarda çalışır.</span></p>
+    <p id="footer-legal">{{ ui.footer_legal }}</p>
+    <p class="footer-meta"><span id="footer-note">{{ ui.footer_note }}</span></p>
   </div>
 </footer>
 

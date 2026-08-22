@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}İndirme Geçmişi — MediaGrab{% endblock %}
+{% block title %}{{ ui.title_history }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 {% block content %}
 
 <div class="page-title-row">
-  <h1 id="history-page-title">İndirme Geçmişi</h1>
-  <button type="button" id="history-clear-btn" class="clear-history-btn hidden">Tümünü Sil</button>
+  <h1 id="history-page-title">{{ ui.history_page_title }}</h1>
+  <button type="button" id="history-clear-btn" class="clear-history-btn hidden">{{ ui.history_clear }}</button>
 </div>
 <div class="history-filter-row">
-  <input type="text" id="history-search" placeholder="Ara..." autocomplete="off">
-  <select id="history-channel-filter">
-    <option value="">Tüm kanallar</option>
+  <input type="text" id="history-search" placeholder="{{ ui.history_search_placeholder }}" autocomplete="off" aria-label="{{ ui.history_search_placeholder }}">
+  <select id="history-channel-filter" aria-label="{{ ui.history_all_channels }}">
+    <option value="">{{ ui.history_all_channels }}</option>
   </select>
 </div>
-<div id="history-error" class="error hidden"></div>
+<div id="history-error" class="error hidden" role="alert"></div>
 <div id="history-list" class="history-grid"></div>
 
 {% endblock %}

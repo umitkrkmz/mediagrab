@@ -1,0 +1,7 @@
+# Development-only dependencies. Deliberately NOT in requirements.txt: the app
+# reads that file to show the dependency list in Settings, and a test runner
+# has no business showing up there (or being installed by end users).
+#
+#   pip install -r requirements-dev.txt
+#   pytest
+pytest>=8.0

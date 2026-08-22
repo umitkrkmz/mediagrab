@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ ui.title_channels }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+
+<div class="page-title-row">
+  <h1>{{ ui.channels_page_title }}</h1>
+</div>
+
+<p class="settings-hint">{{ ui.channels_page_intro }}</p>
+
+<div class="settings-section">
+  <div class="section-title">{{ ui.settings_add_title }}</div>
+  <p class="settings-hint">{{ ui.settings_add_hint }}</p>
+
+  <div class="settings-add-form">
+    <input id="channel-url-input" type="text" placeholder="{{ ui.channel_url_placeholder }}" autocomplete="off" aria-label="{{ ui.channel_url_placeholder }}">
+
+    <div class="settings-mode-row">
+      <label class="settings-radio">
+        <input type="radio" name="channel-mode" value="notify" checked>
+        <span>{{ ui.mode_notify }}</span>
+      </label>
+      <label class="settings-radio">
+        <input type="radio" name="channel-mode" value="auto">
+        <span>{{ ui.mode_auto }}</span>
+      </label>
+    </div>
+
+    <select id="channel-choice-select" class="hidden" aria-label="{{ ui.mode_auto }}">
+      <option value="audio:opus">Opus</option>
+      <option value="audio:m4a">M4A</option>
+      <option value="audio:mp3">MP3</option>
+      <option value="video:best">{{ ui.choice_best_video }}</option>
+    </select>
+
+    <button type="button" id="channel-add-btn">{{ ui.channel_add_btn }}</button>
+  </div>
+  <div id="channel-error" class="error hidden" role="alert"></div>
+</div>
+
+<div class="settings-section">
+  <div class="section-title">{{ ui.settings_list_title }}</div>
+  <div id="channel-empty" class="history-empty hidden">{{ ui.channel_empty }}</div>
+  <div id="channel-list" class="channel-list"></div>
+</div>
+
+{% endblock %}
