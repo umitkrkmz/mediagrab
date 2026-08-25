@@ -172,6 +172,56 @@ def test_sweep_leaves_normal_files_alone(download_dir):
     assert len(list(download_dir.iterdir())) == 5
 
 
+def test_unmerged_streams_are_removed_once_the_merge_landed(download_dir):
+    """The reported case: 11 stream files left beside a finished episode."""
+    # NOTE: yt-dlp names the pre-merge streams "<stem>.f<id>.<ext>" and deletes
+    # them itself after ffmpeg merges. When the merge never runs they survive,
+    # and they carry neither ".part" nor ".ytdl" - so nothing used to collect
+    # them and they piled up, hundreds of MB at a time.
+    folder = download_dir / "Kanal"
+    folder.mkdir()
+    for fmt in (616, 617, 251):
+        (folder / f"Bolum.f{fmt}.mp4").write_bytes(b"stream")
+    merged = folder / "Bolum.mp4"
+    merged.write_bytes(b"finished")
+    sidecar = folder / "Bolum.json"
+    sidecar.write_text("{}", encoding="utf-8")
+
+    app_module._sweep_orphaned_parts()
+
+    assert merged.exists()
+    assert sidecar.exists()
+    assert sorted(p.name for p in folder.iterdir()) == ["Bolum.json", "Bolum.mp4"]
+
+
+def test_unmerged_streams_survive_when_nothing_proves_them_stale(download_dir):
+    # NOTE: with no merged output beside them these cannot be shown to be
+    # debris, and they are the only copy of a download that did finish
+    # fetching. Deleting on a guess would be worse than leaving them.
+    folder = download_dir / "Kanal"
+    folder.mkdir()
+    (folder / "Bolum.f616.mp4").write_bytes(b"stream")
+    (folder / "Bolum.f251.webm").write_bytes(b"stream")
+
+    app_module._sweep_orphaned_parts()
+
+    assert len(list(folder.iterdir())) == 2
+
+
+def test_a_title_that_merely_looks_like_a_stream_is_left_alone(download_dir):
+    # NOTE: a video actually called "Test.f616" produces "Test.f616.mp4",
+    # which matches the stream pattern exactly. Its sidecars carry the same
+    # infix, so no plain sibling exists - which is what saves it.
+    folder = download_dir / "Kanal"
+    folder.mkdir()
+    (folder / "Test.f616.mp4").write_bytes(b"the user's video")
+    (folder / "Test.f616.json").write_text("{}", encoding="utf-8")
+
+    app_module._sweep_orphaned_parts()
+
+    assert sorted(p.name for p in folder.iterdir()) == ["Test.f616.json", "Test.f616.mp4"]
+
+
 # --- _cleanup_partial_download ----------------------------------------------
 
 
@@ -196,6 +246,31 @@ def test_cancel_cleans_fragments_but_not_the_finished_file(download_dir):
 
     assert unrelated.exists()
     assert sorted(p.name for p in download_dir.iterdir()) == ["other.mp4"]
+
+
+def test_cancel_removes_a_stream_that_had_already_finished(download_dir):
+    # NOTE: a stream that finished downloading has lost its ".part" suffix, so
+    # the glob on tmpfilename never names it - it has to be derived. Cancelling
+    # between "streams done" and "merge done" is exactly when this happens.
+    tmp = download_dir / "v.f616.mp4.part"
+    tmp.write_bytes(b"partial")
+    finished_stream = download_dir / "v.f616.mp4"
+    finished_stream.write_bytes(b"a whole video stream")
+    unrelated = download_dir / "other.mp4"
+    unrelated.write_bytes(b"keep me")
+
+    job_id = "job-3"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = app_module._new_job_record()
+        app_module.jobs[job_id]["tmpfile"] = str(tmp)
+    try:
+        app_module._cleanup_partial_download(job_id)
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)
+
+    assert not finished_stream.exists()
+    assert unrelated.exists()
 
 
 def test_cleanup_without_a_recorded_tmpfile_does_nothing(download_dir):

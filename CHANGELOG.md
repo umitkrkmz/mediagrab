@@ -11,6 +11,14 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.6.1] — 2026-08-25
+
+#### Düzeltilen
+
+- **Kurulum aracı, açıkken kurulan araçları görmüyordu** — Windows'ta bir programın PATH'i açılış anında dondurulur. Kurulum penceresi açıkken Git veya Python kurarsanız yeni PATH kayıt defterine yazılır ama pencereye hiç ulaşmaz; **"Durumu yenile" düğmesi de aynı donmuş listeye tekrar baktığı için hiçbir zaman işe yaramıyordu.** Tek çare uygulamayı kapatıp açmaktı. Artık PATH kayıt defterinden yeniden okunuyor. (Python'un "kurulu" görünüp Git ve ffmpeg'in görünmemesi de bundandı: Python'un başlatıcısı açılıştan beri PATH'te olan bir klasörde durur, diğer ikisi ise PATH'e yeni eklenen klasörlerde.)
+- **Birleştirilmemiş akış dosyaları birikiyordu** — yt-dlp videoyu ve sesi ayrı ayrı indirip (`video.f616.mp4`, `video.f251.webm`) ffmpeg ile birleştirdikten sonra siler. Birleştirme çalışmazsa (iptal, hata, süreç öldürülmesi) bu dosyalar kalıyordu; üzerlerinde `.part` veya `.ytdl` işareti olmadığı için mevcut temizlik onları hiç görmüyordu. Tek bir 1080p video akışı yüzlerce MB olabildiğinden sessizce disk doluyordu. Artık hem iptalde hem açılışta temizleniyorlar — yalnızca birleştirilmiş dosya yanlarında duruyorsa, yani artık oldukları kanıtlıysa
+- **Çerez ayarı güncellemede siliniyordu** — v1.6.0'da eklenen `settings.json` kurulum aracının koruma listesinde değildi; **Onar** veya **Kaldır** işlemi çerez ayarınızı siliyordu. Listeye eklendi ve bir daha atlanmaması için koruma listesi artık uygulamanın kendi kodundan türetiliyor
+
 ### [1.6.0] — 2026-08-25
 
 #### Eklenen
@@ -139,6 +147,14 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.6.1] — 2026-08-25
+
+#### Fixed
+
+- **The installer could not see tools installed while it was open** — on Windows a process's PATH is frozen at startup. Install Git or Python with the setup window open and the new PATH goes to the registry but never reaches the window; **the "Refresh" button re-checked that same frozen list, so it could never help.** Closing and reopening was the only cure. PATH is now re-read from the registry. (It also explains why Python looked "installed" while Git and ffmpeg did not: Python's launcher sits in a directory that has been on PATH since boot, the other two land in directories newly added to it.)
+- **Unmerged stream files piled up** — yt-dlp downloads video and audio separately (`video.f616.mp4`, `video.f251.webm`) and deletes them once ffmpeg has merged the two. When the merge never runs — cancelled, failed, process killed — they survived, and since they carry neither `.part` nor `.ytdl` the existing cleanup never saw them. A single 1080p video stream runs to hundreds of MB, so disks filled up quietly. They are now cleared on cancel and at startup — but only when the merged file is sitting beside them, which is what proves them redundant
+- **The cookie setting was wiped by an update** — `settings.json`, added in v1.6.0, was missing from the installer's keep list, so **Repair** or **Remove** deleted your cookie configuration. It is on the list now, and the list is derived from the app's own code so the next such file cannot be forgotten
 
 ### [1.6.0] — 2026-08-25
 

@@ -1,4 +1,5 @@
 import glob
+import re
 import locale
 import os
 import sys
@@ -224,6 +225,17 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
             _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
 
 
+# NOTE: yt-dlp downloads video and audio as separate streams named
+# "<stem>.f<format_id>.<ext>" and deletes them once ffmpeg has merged the two.
+# If the merge never runs - cancelled, ffmpeg failed, process killed - they
+# survive, and the ".part"/".ytdl" sweep below never sees them because a
+# finished stream carries neither marker. They are large (a 1080p video stream
+# runs to hundreds of MB), so they are worth deleting rather than hiding.
+# OUTTMPL has no %(format_id)s in it, so a file MediaGrab finished writing can
+# never carry this infix.
+_FORMAT_STREAM_RE = re.compile(r"^(?P<stem>.+)\.f\d+\.[^.]+$")
+
+
 def _cleanup_partial_download(job_id: str) -> None:
     with jobs_lock:
         tmp = (jobs.get(job_id) or {}).get("tmpfile")
@@ -239,6 +251,11 @@ def _cleanup_partial_download(job_id: str) -> None:
     candidates = set(glob.glob(glob.escape(tmp) + "*"))
     base = tmp[: -len(".part")] if tmp.endswith(".part") else tmp
     candidates.add(base + ".ytdl")
+    # NOTE: a stream that finished downloading has already lost its ".part"
+    # suffix, so nothing above would ever name it. This is not guesswork - the
+    # name comes from the tmpfilename yt-dlp reported for THIS job.
+    if _FORMAT_STREAM_RE.match(os.path.basename(base)):
+        candidates.add(base)
 
     stale = []
     for candidate in candidates:
@@ -246,7 +263,11 @@ def _cleanup_partial_download(job_id: str) -> None:
         name = os.path.basename(path)
         if not path.startswith(download_dir + os.sep):
             continue
-        if ".part" not in name and not name.endswith(".ytdl"):
+        if (
+            ".part" not in name
+            and not name.endswith(".ytdl")
+            and not _FORMAT_STREAM_RE.match(name)
+        ):
             continue
         stale.append(path)
 
@@ -279,6 +300,16 @@ def _sweep_orphaned_parts() -> None:
     removed = 0
     restored = 0
     for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+        # NOTE: worked out per directory - an unmerged stream is only provably
+        # debris once the merged output is sitting right there beside it, and
+        # then it is redundant by definition. This is also what protects the
+        # one title that could otherwise be mistaken for a stream (a video
+        # genuinely called "something.f616"): its own sidecars carry the same
+        # infix, so no plain sibling exists and the file is left alone.
+        merged_stems = {
+            os.path.splitext(name)[0] for name in files if not _FORMAT_STREAM_RE.match(name)
+        }
+
         for name in files:
             path = os.path.join(root, name)
 
@@ -296,6 +327,15 @@ def _sweep_orphaned_parts() -> None:
                     else:
                         os.replace(path, original)
                         restored += 1
+                except OSError:
+                    pass
+                continue
+
+            stream = _FORMAT_STREAM_RE.match(name)
+            if stream and stream.group("stem") in merged_stems:
+                try:
+                    os.remove(path)
+                    removed += 1
                 except OSError:
                     pass
                 continue

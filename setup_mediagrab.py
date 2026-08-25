@@ -30,7 +30,7 @@ REPO_URL = "https://github.com/umitkrkmz/mediagrab.git"
 GIT_DOWNLOAD_URL = "https://git-scm.com/downloads"
 PYTHON_DOWNLOAD_URL = "https://www.python.org/downloads/"
 FFMPEG_DOWNLOAD_URL = "https://www.ffmpeg.org/download.html"
-USER_DATA_ENTRIES = ("indirilenler", "channels.json")
+USER_DATA_ENTRIES = ("indirilenler", "channels.json", "settings.json")
 
 # NOTE: the app's own code uses list[dict] (3.9+) but no 3.10-only syntax, so
 # 3.9 is the real floor. Checked here rather than left to fail later with a
@@ -254,6 +254,45 @@ def this_exe_name() -> str:
     if getattr(sys, "frozen", False):
         return os.path.basename(sys.executable)
     return os.path.basename(os.path.abspath(__file__))
+
+
+def refresh_path_from_registry() -> None:
+    """Re-read PATH from the registry so just-installed tools become visible."""
+    # NOTE: os.environ["PATH"] is a snapshot taken when this process started.
+    # Installing Git or Python writes their new PATH entries to the registry,
+    # but a window that was already open never learns about it - so "Refresh"
+    # kept re-checking the same stale list and closing/reopening the app was
+    # the only cure. Entries are only ever ADDED: whatever this process was
+    # handed stays put, so PyInstaller's own temp directory can't be dropped.
+    if os.name != "nt":
+        return
+    import winreg
+
+    found = []
+    for root, key in (
+        (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        (winreg.HKEY_CURRENT_USER, "Environment"),
+    ):
+        try:
+            with winreg.OpenKey(root, key) as handle:
+                value, _ = winreg.QueryValueEx(handle, "Path")
+        except OSError:
+            # NOTE: HKCU\Environment has no Path until the user gets one, and
+            # a locked-down machine can refuse the read. Neither is fatal -
+            # we just keep whichever scopes did answer.
+            continue
+        # NOTE: PATH is normally REG_EXPAND_SZ, so "%SystemRoot%\system32"
+        # arrives unexpanded and resolves to nothing until expanded.
+        found.append(os.path.expandvars(value))
+
+    merged = []
+    for chunk in found + [os.environ.get("PATH", "")]:
+        for entry in chunk.split(os.pathsep):
+            entry = entry.strip()
+            if entry and entry not in merged:
+                merged.append(entry)
+    if merged:
+        os.environ["PATH"] = os.pathsep.join(merged)
 
 
 def find_tool(*candidates: str):
@@ -575,6 +614,10 @@ class SetupApp(tk.Tk):
         self.after(1500, lambda: self.ffmpeg_copy_btn.config(text=original))
 
     def _refresh_status(self):
+        # NOTE: before probing anything - the whole point of the Refresh button
+        # is to notice a tool the user installed while this window was open.
+        refresh_path_from_registry()
+
         self.git_path = find_tool("git")
         self.python_path = find_tool("python", "python3", "py")
         self.python_ver = python_version(self.python_path) if self.python_path else None

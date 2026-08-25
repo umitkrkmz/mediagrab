@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.6.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.6.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.6.1](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.6.1)** · **[Changelog](CHANGELOG.md)**
 
 ---
 

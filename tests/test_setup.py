@@ -7,7 +7,9 @@ Tk window is exercised.
 """
 
 import importlib.util
+import inspect
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -145,6 +147,56 @@ def test_user_data_is_on_the_keep_list(setup_mod):
     # is data the user permanently loses.
     assert "indirilenler" in setup_mod.USER_DATA_ENTRIES
     assert "channels.json" in setup_mod.USER_DATA_ENTRIES
+
+
+def test_every_file_the_app_persists_is_kept(setup_mod):
+    """Whatever store.py writes beside the app must survive Remove/Repair."""
+    # NOTE: derived from store.py rather than listed here, because a hand-kept
+    # list is exactly what let settings.json ship unprotected in v1.6.0 - the
+    # file was added to the app and nobody thought to update the installer.
+    store_py = SETUP_PY.parent / "mediagrab" / "store.py"
+    persisted = set(re.findall(r'app_dir\(\),\s*"([^"]+)"', store_py.read_text(encoding="utf-8")))
+    assert persisted, "no persisted files found - has store.py been restructured?"
+    missing = persisted - set(setup_mod.USER_DATA_ENTRIES)
+    assert not missing, f"the installer would delete: {sorted(missing)}"
+
+
+def test_refreshing_the_path_only_ever_adds_entries(setup_mod, monkeypatch):
+    # NOTE: the process is handed a PATH it may genuinely need (PyInstaller
+    # adds its own unpack directory), so refreshing must never drop entries.
+    marker = os.path.join("Z:" + os.sep, "mediagrab-test-marker")
+    monkeypatch.setenv("PATH", marker)
+    setup_mod.refresh_path_from_registry()
+    assert marker in os.environ["PATH"].split(os.pathsep)
+
+
+def test_the_refresh_button_actually_rereads_the_path(setup_mod):
+    """Refresh must re-read PATH, not just re-probe the stale one."""
+    # NOTE: asserted against the source because _refresh_status needs a live Tk
+    # window. Without this the helper could sit there fully tested and simply
+    # never be wired up - which is the whole bug it was written to fix.
+    source = inspect.getsource(setup_mod.SetupApp._refresh_status)
+    assert "refresh_path_from_registry()" in source, "Refresh never re-reads PATH"
+    assert source.index("refresh_path_from_registry()") < source.index('find_tool("git")'),         "PATH must be refreshed BEFORE the tools are probed"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PATH lives in the registry only on Windows")
+def test_refreshing_the_path_recovers_a_tool_a_stale_path_hides(setup_mod, monkeypatch):
+    """The reported bug: the window was open before the tool was installed."""
+    # NOTE: os.environ["PATH"] is frozen at process start, so a tool installed
+    # while the window is open stays invisible and "Refresh" can never help.
+    # Dropping git's directory reproduces exactly that starting state.
+    if not setup_mod.find_tool("git"):
+        pytest.skip("git isn't on PATH here, so there is nothing to hide")
+
+    stale = os.pathsep.join(
+        entry for entry in os.environ["PATH"].split(os.pathsep) if "git" not in entry.lower()
+    )
+    monkeypatch.setenv("PATH", stale)
+    assert setup_mod.find_tool("git") is None, "the stale PATH should not find git"
+
+    setup_mod.refresh_path_from_registry()
+    assert setup_mod.find_tool("git") is not None, "Refresh should have found git again"
 
 
 def test_is_installed_needs_both_markers(setup_mod, tmp_path):
