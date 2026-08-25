@@ -144,6 +144,7 @@ const I18N = {
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
     dockCancel: "İndirmeyi iptal et",
+    queuePosition: "Sırada {n}. — diğer indirmeler bekleniyor",
     itemPreviewPlay: "▶ Oynat",
     itemPreviewClose: "✕ Kapat",
     errProbeFailed: "Çözümlenemedi",
@@ -172,6 +173,10 @@ const I18N = {
     channelRemoveConfirm: "Bu kanal takipten çıkarılsın mı?",
     historyClearFailed: "Geçmiş temizlenemedi",
     videoWord: "video",
+    playlistRange: "Aralık:",
+    playlistBulkHint: "Toplu indirmede her video için en iyi kalite seçilir; tek tek tıklayarak kalite seçebilirsiniz.",
+    playlistConfirm: "{n} video kuyruğa eklenecek. Devam edilsin mi?",
+    playlistQueued: "{n} video kuyruğa eklendi — altta ilerlemelerini takip edebilirsiniz.",
     backToPlaylist: "← Playlist'e dön",
     locale: "tr-TR",
     channelCheckNow: "Şimdi kontrol et",
@@ -181,6 +186,7 @@ const I18N = {
     channelModeNotifyBadge: "BİLDİR",
     channelLastChecked: "Son kontrol",
     channelNeverChecked: "Henüz kontrol edilmedi",
+    channelCheckFailed: "Son kontrol başarısız",
     ytdlpChecking: "Kontrol ediliyor...",
     ytdlpCheckFailed: "Sürüm bilgisi alınamadı (internet bağlantınızı kontrol edin)",
     ytdlpUpToDate: "Güncel",
@@ -248,6 +254,7 @@ const I18N = {
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
     dockCancel: "Cancel download",
+    queuePosition: "{n}. in queue — waiting for other downloads",
     itemPreviewPlay: "▶ Play",
     itemPreviewClose: "✕ Close",
     errProbeFailed: "Could not resolve",
@@ -276,6 +283,10 @@ const I18N = {
     channelRemoveConfirm: "Stop following this channel?",
     historyClearFailed: "Could not clear history",
     videoWord: "videos",
+    playlistRange: "Range:",
+    playlistBulkHint: "Bulk downloads always take the best quality; click a single video to choose a specific one.",
+    playlistConfirm: "{n} video(s) will be queued. Continue?",
+    playlistQueued: "Queued {n} video(s) — follow their progress below.",
     backToPlaylist: "← Back to playlist",
     locale: "en-US",
     channelCheckNow: "Check now",
@@ -285,6 +296,7 @@ const I18N = {
     channelModeNotifyBadge: "NOTIFY",
     channelLastChecked: "Last checked",
     channelNeverChecked: "Not checked yet",
+    channelCheckFailed: "Last check failed",
     ytdlpChecking: "Checking...",
     ytdlpCheckFailed: "Couldn't check the version (check your internet connection)",
     ytdlpUpToDate: "Up to date",
@@ -695,9 +707,30 @@ function renderPlaylist() {
     })
     .join("");
 
+  // NOTE: without this, a playlist meant clicking every video one at a time
+  // and re-picking the format for each - 50 videos, 50 round trips. "best
+  // audio"/"best video" are the only formats offered in bulk on purpose: the
+  // per-video format ids differ between videos, so there is no single
+  // resolution that can be promised across a whole playlist.
+  const bulkHtml = `
+    <div class="playlist-bulk">
+      <div class="playlist-bulk-row">
+        <label class="playlist-range-label">${t().playlistRange}</label>
+        <input type="number" id="playlist-from" min="1" max="${data.entries.length}" value="1">
+        <span class="playlist-range-dash">–</span>
+        <input type="number" id="playlist-to" min="1" max="${data.entries.length}" value="${data.entries.length}">
+      </div>
+      <div class="playlist-bulk-row">
+        <button type="button" class="quick-btn" id="playlist-all-audio">${t().quickBestAudio}</button>
+        <button type="button" class="quick-btn" id="playlist-all-video">${t().quickBestVideo}</button>
+      </div>
+      <div class="playlist-bulk-hint">${t().playlistBulkHint}</div>
+    </div>`;
+
   card.innerHTML = `
     <div class="playlist-title">${escapeHtml(data.title)}</div>
     <div class="playlist-count">${data.entries.length} ${t().videoWord}</div>
+    ${bulkHtml}
     <div class="playlist-list">${itemsHtml}</div>
   `;
 
@@ -706,6 +739,41 @@ function renderPlaylist() {
       selectPlaylistEntry(data.entries[Number(btn.dataset.index)]);
     });
   });
+
+  document
+    .getElementById("playlist-all-audio")
+    ?.addEventListener("click", () => queuePlaylistRange("audio", "opus"));
+  document
+    .getElementById("playlist-all-video")
+    ?.addEventListener("click", () => queuePlaylistRange("video", "best"));
+}
+
+function queuePlaylistRange(kind, choice) {
+  if (!lastPlaylist) return;
+  const entries = lastPlaylist.data.entries;
+  const fromInput = document.getElementById("playlist-from");
+  const toInput = document.getElementById("playlist-to");
+
+  // NOTE: clamped rather than validated-and-rejected - a range the user typed
+  // slightly wrong should still do the obvious thing.
+  let from = parseInt(fromInput?.value, 10) || 1;
+  let to = parseInt(toInput?.value, 10) || entries.length;
+  from = Math.max(1, Math.min(from, entries.length));
+  to = Math.max(1, Math.min(to, entries.length));
+  if (from > to) [from, to] = [to, from];
+
+  const selected = entries.slice(from - 1, to);
+  if (selected.length === 0) return;
+  if (!confirm(t().playlistConfirm.replace("{n}", selected.length))) return;
+
+  // NOTE: "best" for video is a sentinel the downloader maps to a generic
+  // bestvideo+bestaudio selector - the same one channel auto-download uses.
+  // Per-video format ids can't be reused across a playlist.
+  selected.forEach((entry) => startDownload(entry.url, kind, choice, [], entry.title));
+
+  if (card) {
+    card.innerHTML = `<div class="progress-status">${t().playlistQueued.replace("{n}", selected.length)}</div>`;
+  }
 }
 
 async function startDownload(url, kind, choice, subtitleLangs, title) {
@@ -821,6 +889,19 @@ function isJobFinished(job) {
   return job.state === "hata" || job.state === "iptal" || (job.state === "bitti" && job.ready);
 }
 
+function dockMetaText(job) {
+  // NOTE: only 3 downloads run at once. A queued job used to sit on
+  // "Starting..." forever, looking stuck - showing its place in the queue
+  // makes the wait explainable.
+  // NOTE: position 1 counts too - it still means "waiting for a free slot",
+  // not "running". It just happens to be next in line.
+  if (job.state === "basliyor" && job.queue_position >= 1) {
+    return `${t().queuePosition.replace("{n}", job.queue_position)}`;
+  }
+  const label = t().states[job.state] || job.state;
+  return `${label}${job.speed ? " · " + job.speed : ""}`;
+}
+
 function dockRowHtml(job) {
   const percent = job.percent || 0;
   let statusHtml;
@@ -834,7 +915,7 @@ function dockRowHtml(job) {
   } else {
     statusHtml = `
       <div class="dock-row-bar-bg"><div class="dock-row-bar-fg" style="width:${percent}%"></div></div>
-      <div class="dock-row-meta">${t().states[job.state] || job.state}${job.speed ? " · " + escapeHtml(job.speed) : ""}</div>`;
+      <div class="dock-row-meta">${dockMetaText(job)}</div>`;
   }
   // NOTE: while a job is still running the ✕ cancels it (and it stays on
   // screen showing "cancelled"); once it's finished the same ✕ just clears
@@ -885,7 +966,7 @@ function updateDockRowProgress(job) {
   const meta = row.querySelector(".dock-row-meta");
   if (meta) {
     // NOTE: textContent, so no escaping needed (and no HTML re-parse).
-    meta.textContent = `${t().states[job.state] || job.state}${job.speed ? " · " + job.speed : ""}`;
+    meta.textContent = dockMetaText(job);
   }
 }
 
@@ -1142,6 +1223,11 @@ function renderChannelList(items) {
       <div class="channel-info">
         <div class="name">${escapeHtml(c.name)}</div>
         <div class="meta">${t().channelLastChecked}: ${lastChecked}</div>
+        ${
+          c.last_error
+            ? `<div class="channel-error" title="${escapeHtml(c.last_error)}">${t().channelCheckFailed}: ${escapeHtml(friendlyError(c.last_error) || c.last_error)}</div>`
+            : ""
+        }
       </div>
       <span class="channel-mode-badge ${c.mode}">${modeLabel}</span>
       <div class="channel-actions">

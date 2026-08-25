@@ -162,6 +162,33 @@ def test_headers_and_cue_numbers_are_skipped(tmp_path):
     assert downloader._vtt_to_text(_write(tmp_path, vtt)) == "sadece bu"
 
 
+# --- audio options ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("choice", ["opus", "m4a", "mp3"])
+def test_every_audio_format_embeds_a_cover(choice):
+    # NOTE: the cover is what the history grid shows as a thumbnail, so losing
+    # it would quietly turn every audio download into a placeholder icon.
+    opts = downloader._audio_opts(choice)
+    keys = [p["key"] for p in opts["postprocessors"]]
+    assert "EmbedThumbnail" in keys
+    assert opts["writethumbnail"] is True
+
+
+@pytest.mark.parametrize("choice", ["opus", "m4a", "mp3"])
+def test_metadata_is_written_after_the_container_is_settled(choice):
+    # NOTE: order matters - EmbedThumbnail must run after the remux/extract
+    # step, otherwise it hits an unsupported container like webm.
+    keys = [p["key"] for p in downloader._audio_opts(choice)["postprocessors"]]
+    converter = next(i for i, k in enumerate(keys) if k.startswith("FFmpeg") and k != "FFmpegMetadata")
+    assert converter < keys.index("EmbedThumbnail")
+
+
+def test_unknown_audio_choice_is_rejected():
+    with pytest.raises(downloader.ProbeError):
+        downloader._audio_opts("flac")
+
+
 # --- _parse_version ---------------------------------------------------------
 
 

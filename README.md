@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.4.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.4.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.5.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.5.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -22,7 +22,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
 - **Sayfa içi önizleme** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın
 - **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
-- **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir, birine tıklayınca normal indirme akışı açılır
+- **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir; birine tıklayıp tek tek indirebilir ya da aralık seçip (ör. 1–19) **tümünü tek tıkla** kuyruğa atabilirsiniz
 - **Çoklu platform** — YouTube'a özel değil; yt-dlp'nin desteklediği 1700'den fazla site (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb.) aynı arayüzden çalışır
 - **Meta veri (JSON) dışa aktarma** — her indirmeyle birlikte aynı dosya adıyla (`video.mp4` + `video.json`) başlık, kanal, yükleme tarihi, açıklama, etiketler ve kaynak linki gibi bilgileri içeren bir JSON dosyası kaydedilir; indirme detay sayfasından ayrıca indirilebilir
 - **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir; disk üzerinde dosya gezgininde veya medya kitaplığı uygulamalarında düzenli görünür
@@ -52,11 +52,15 @@ Windows'ta iki yol var: **kolay kurulum** (hazır `.exe`, terminal komutu yazmad
 
 **2. Kurulum programını indirin**
 
-[GitHub Release sayfasından](https://github.com/umitkrkmz/mediagrab/releases/latest) `MediaGrabSetup.exe`'yi indirin. İsterseniz dosyanın bozulmadığını SHA256 ile doğrulayın (PowerShell'de `certutil -hashfile MediaGrabSetup.exe SHA256`):
+[GitHub Release sayfasından](https://github.com/umitkrkmz/mediagrab/releases/latest) `MediaGrabSetup.exe`'yi indirin.
 
+İsterseniz dosyanın bozulmadığını doğrulayın — **o sürüme ait SHA256, release notlarının içinde yazar** (her sürümde farklıdır, çünkü exe her seferinde yeniden derlenir). PowerShell'de:
+
+```powershell
+certutil -hashfile MediaGrabSetup.exe SHA256
 ```
-1bca6ad3e2d3ec3f7576b6f5b9d7b3f5b2fe523e06ad1fe4e5a181d71f015590  MediaGrabSetup.exe
-```
+
+Çıkan değeri release sayfasındaki ile karşılaştırın.
 
 **3. Kurulum klasörünü seçin**
 
@@ -271,9 +275,12 @@ MediaGrab'ın kendi kaynak kodu **MIT** lisansı ile lisanslanmıştır (bkz. [L
 | [`uvicorn`](https://github.com/encode/uvicorn) | [BSD-3-Clause](https://github.com/encode/uvicorn/blob/master/LICENSE.md) | ASGI sunucusu |
 | [`pydantic`](https://github.com/pydantic/pydantic) | [MIT](https://github.com/pydantic/pydantic/blob/main/LICENSE) | veri doğrulama |
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML şablonlama |
+| [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **MediaGrab bunu import etmez** — yt-dlp, Opus dosyalarına kapak resmi gömmek için kullanır |
 | [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ veya GPL-2+](https://www.ffmpeg.org/legal.html) (derlemeye göre değişir) | projeye dahil DEĞİL — kullanıcı kendi sistemine ayrıca kurar; etiket/kapak okuma ve süre hesaplama da subprocess ile buradan yapılır |
 
-Tüm doğrudan Python bağımlılıkları izin verici (MIT/BSD) veya kamu malı lisanslıdır — GPL'li bir Python bağımlılığı yoktur. ffmpeg dağıtıma dahil edilmediği, yalnızca ayrı bir program olarak `subprocess` ile çağrıldığı için kendi lisansı MediaGrab'ı bağlamaz.
+MediaGrab'ın kendi kodu yalnızca izin verici (MIT/BSD) veya kamu malı lisanslı paketleri import eder.
+
+**`mutagen` hakkında (GPL):** MediaGrab'ın kaynak kodunda `mutagen` importu **yoktur**; onu yt-dlp kendi içinde kullanır ve `pip` kullanıcının kendi ortamına indirir. Biz mutagen'i paketlemiyor, dağıtmıyoruz — bu nedenle GPL'in copyleft yükümlülüğü (birleşik eseri dağıtmak) devreye girmez ve MediaGrab MIT olarak kalır. Aynı şey `ffmpeg` için de geçerli: dağıtıma dahil değildir, yalnızca ayrı bir program olarak `subprocess` ile çağrılır.
 
 ### Yasal Uyarı
 
@@ -307,7 +314,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **Persistent download panel** — track multiple downloads at once; progress survives page navigation and even closing and reopening the app
 - **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
 - **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
-- **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to open the normal download flow
+- **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to download it individually, or pick a range (e.g. 1–19) and **queue them all with one click**
 - **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more)
 - **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL; also downloadable from the item detail page
 - **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`), so files stay organized in your file explorer or media library apps
@@ -337,11 +344,15 @@ On Windows there are two paths: **easy install** (a ready-made `.exe`, no typing
 
 **2. Download the installer**
 
-Grab `MediaGrabSetup.exe` from the [GitHub Releases page](https://github.com/umitkrkmz/mediagrab/releases/latest). Optionally verify it's intact with SHA256 (in PowerShell: `certutil -hashfile MediaGrabSetup.exe SHA256`):
+Grab `MediaGrabSetup.exe` from the [GitHub Releases page](https://github.com/umitkrkmz/mediagrab/releases/latest).
 
+Optionally verify it's intact — **that release's SHA256 is printed in its release notes** (it differs per release, since the exe is rebuilt each time). In PowerShell:
+
+```powershell
+certutil -hashfile MediaGrabSetup.exe SHA256
 ```
-1bca6ad3e2d3ec3f7576b6f5b9d7b3f5b2fe523e06ad1fe4e5a181d71f015590  MediaGrabSetup.exe
-```
+
+Compare the output against the value on the release page.
 
 **3. Choose the install folder**
 
@@ -556,9 +567,12 @@ MediaGrab's own source code is licensed under **MIT** (see [LICENSE](LICENSE)).
 | [`uvicorn`](https://github.com/encode/uvicorn) | [BSD-3-Clause](https://github.com/encode/uvicorn/blob/master/LICENSE.md) | ASGI server |
 | [`pydantic`](https://github.com/pydantic/pydantic) | [MIT](https://github.com/pydantic/pydantic/blob/main/LICENSE) | data validation |
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML templating |
+| [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **not imported by MediaGrab** — yt-dlp uses it to embed cover art into Opus files |
 | [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ or GPL-2+](https://www.ffmpeg.org/legal.html) (depends on the build) | NOT bundled — the user installs it separately on their own system; tag/cover-art reading and duration are also done through it via subprocess |
 
-All direct Python dependencies are permissively licensed (MIT/BSD) or public domain — there is no GPL Python dependency. ffmpeg is never redistributed and is only invoked as a separate program via `subprocess`, so its own license does not attach to MediaGrab.
+MediaGrab's own code only imports permissively licensed (MIT/BSD) or public-domain packages.
+
+**About `mutagen` (GPL):** MediaGrab's source contains no `import mutagen` — yt-dlp uses it internally, and `pip` fetches it into your own environment. We neither bundle nor redistribute it, so GPL's copyleft obligation (which attaches to distributing a combined work) is not triggered and MediaGrab stays MIT. The same holds for `ffmpeg`: never redistributed, only invoked as a separate program via `subprocess`.
 
 ### Legal Notice
 

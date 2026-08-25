@@ -1885,3 +1885,67 @@ button:disabled {
 .ytdlp-credit a:hover {
   text-decoration: underline;
 }
+
+.channel-error {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--danger-text);
+}
+
+/* --- Playlist toplu indirme --- */
+
+.playlist-bulk {
+  margin: 14px 0 18px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.playlist-bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.playlist-bulk-row + .playlist-bulk-row {
+  margin-top: 10px;
+}
+
+.playlist-bulk-row .quick-btn {
+  flex: 1;
+}
+
+.playlist-range-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.playlist-bulk input[type="number"] {
+  width: 72px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.playlist-bulk input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.playlist-range-dash {
+  color: var(--text-dim);
+}
+
+.playlist-bulk-hint {
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}

@@ -718,6 +718,18 @@ def get_metadata(path: str) -> dict:
     # casing varies by container, so keys are lowercased before lookup).
     data = _ffprobe_json(path, "format_tags=title,artist")
     tags = {k.lower(): v for k, v in (data.get("format", {}).get("tags") or {}).items()}
+
+    # NOTE: mp4/mp3 keep tags at container level, but Ogg-based formats (.opus)
+    # keep them per STREAM instead - reading only format_tags left every Opus
+    # download with no title or artist on its detail page.
+    if not tags.get("title") and not tags.get("artist"):
+        stream_data = _ffprobe_json(path, "stream_tags=title,artist")
+        for stream in stream_data.get("streams", []):
+            stream_tags = {k.lower(): v for k, v in (stream.get("tags") or {}).items()}
+            if stream_tags.get("title") or stream_tags.get("artist"):
+                tags = stream_tags
+                break
+
     return {"title": tags.get("title"), "artist": tags.get("artist"), "duration": _ffprobe_duration(path)}
 
 

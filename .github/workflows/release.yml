@@ -1,0 +1,93 @@
+# Builds MediaGrabSetup.exe and publishes it whenever a version tag is pushed.
+#
+# NOTE: PyInstaller output is not byte-reproducible (build time and paths are
+# embedded), so the SHA256 changes on every build and CANNOT be hard-coded in
+# the README ahead of time. That's why this workflow computes the hash and
+# writes it into the release notes instead - the README points readers at the
+# release page for it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # NOTE: lets the build be exercised from the Actions tab without cutting a
+  # release, so a broken workflow is found before tag day.
+  workflow_dispatch:
+
+permissions:
+  contents: write # required to create the release and upload the exe
+
+jobs:
+  build:
+    # NOTE: a Windows .exe can only be produced on a Windows runner -
+    # PyInstaller bundles the host platform's interpreter, it doesn't
+    # cross-compile.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # NOTE: unrelated to MIN_PYTHON in setup_mediagrab.py. That floor is
+          # about the user's own Python, which runs MediaGrab itself; this exe
+          # bundles its own interpreter, so the build version constrains
+          # nothing for end users. A current release is the better choice here.
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt pyinstaller
+
+      - name: Run tests
+        # NOTE: no release goes out on a red suite. The tests need no network,
+        # so this is fast and can't fail for connectivity reasons.
+        run: pytest
+
+      - name: Build the installer
+        run: pyinstaller --noconfirm setup_mediagrab.spec
+
+      - name: Compute SHA256
+        id: hash
+        shell: pwsh
+        run: |
+          $sha = (Get-FileHash dist/MediaGrabSetup.exe -Algorithm SHA256).Hash.ToLower()
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          Write-Host "SHA256: $sha"
+
+      - name: Smoke-test the exe
+        # NOTE: PyInstaller can produce a binary that fails at startup (a
+        # missing hidden import surfaces only at runtime). Launching it and
+        # checking it's still alive a few seconds later catches that here
+        # rather than in a user's download.
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist/MediaGrabSetup.exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "installer exited immediately (code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "installer started and stayed running"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MediaGrabSetup.exe
+          generate_release_notes: true
+          body: |
+            ## MediaGrabSetup.exe
+
+            Download the installer below, put it in a folder dedicated to MediaGrab and run it.
+            Full instructions: [README](https://github.com/umitkrkmz/mediagrab#installation)
+
+            **SHA256**
+            ```
+            ${{ steps.hash.outputs.sha }}  MediaGrabSetup.exe
+            ```
+
+            Verify on Windows with:
+            ```
+            certutil -hashfile MediaGrabSetup.exe SHA256
+            ```
+
+            See the [changelog](https://github.com/umitkrkmz/mediagrab/blob/master/CHANGELOG.md) for what changed.

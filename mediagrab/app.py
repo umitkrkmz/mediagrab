@@ -68,6 +68,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # NOTE: job records live in memory only and are lost on server restart.
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
+_job_counter = 0
 
 # NOTE: at most 3 concurrent downloads; the rest queue up.
 executor = ThreadPoolExecutor(max_workers=3)
@@ -311,11 +312,20 @@ def _sweep_orphaned_parts() -> None:
 
 
 def _check_channel(channel: dict) -> None:
+    checked_at = datetime.now().isoformat(timespec="seconds")
     try:
         new_videos = downloader.check_channel_new_videos(channel["url"], channel.get("last_video_id"))
-    except Exception:
-        # NOTE: a channel being temporarily unreachable (network hiccup, video
-        # taken down, etc.) shouldn't block checking the other channels.
+    except Exception as exc:
+        # NOTE: one unreachable channel must not stop the others from being
+        # checked, so this still swallows the exception - but it no longer
+        # returns before recording the attempt. It used to, which meant a
+        # channel that had started failing kept showing its old "last checked"
+        # time forever, looking exactly like a channel with no new uploads.
+        store.update_channel(
+            channel["id"],
+            last_checked_at=checked_at,
+            last_error=downloader.strip_ansi_codes(str(exc))[:300],
+        )
         return
 
     if new_videos:
@@ -339,7 +349,9 @@ def _check_channel(channel: dict) -> None:
             )
         store.update_channel(channel["id"], last_video_id=newest_id)
 
-    store.update_channel(channel["id"], last_checked_at=datetime.now().isoformat(timespec="seconds"))
+    # NOTE: last_error is cleared here, so a channel that recovers stops
+    # showing the warning without the user having to do anything.
+    store.update_channel(channel["id"], last_checked_at=checked_at, last_error=None)
 
 
 def _check_all_channels() -> None:
@@ -385,6 +397,11 @@ def probe(req: ProbeRequest) -> dict:
 
 
 def _new_job_record() -> dict:
+    global _job_counter
+    # NOTE: a submission order is needed to work out queue position later -
+    # the executor's own queue isn't introspectable, and dict order alone
+    # breaks once finished jobs are interleaved.
+    _job_counter += 1
     return {
         "state": "basliyor",
         "percent": 0.0,
@@ -394,7 +411,19 @@ def _new_job_record() -> dict:
         "filepath": None,
         "cancel_requested": False,
         "tmpfile": None,
+        "seq": _job_counter,
     }
+
+
+def _queue_position(job: dict) -> Optional[int]:
+    """1-based place in the waiting queue, or None if it isn't waiting."""
+    # NOTE: only 3 downloads run at once; the rest sat at "Starting..."
+    # indefinitely, which was indistinguishable from a stuck download. This
+    # turns that into "3rd in queue".
+    if job["state"] != "basliyor":
+        return None
+    ahead = sum(1 for other in jobs.values() if other["state"] == "basliyor" and other["seq"] < job["seq"])
+    return ahead + 1
 
 
 @app.post("/api/download", response_model=DownloadStartResponse)
@@ -427,7 +456,7 @@ def status(job_id: str) -> dict:
         job = jobs.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Is bulunamadi")
-        return dict(job)
+        return {**job, "queue_position": _queue_position(job)}
 
 
 @app.get("/api/file/{job_id}")

@@ -59,6 +59,29 @@ def test_requirement_names_drop_specifiers_and_extras():
     assert all("[" not in n and ">" not in n and "=" not in n for n in names)
 
 
+def test_mutagen_is_declared():
+    # NOTE: regression guard. MediaGrab's own code doesn't import mutagen, so
+    # nothing here fails loudly without it - but yt-dlp needs it to embed cover
+    # art into Opus, and Opus is the default audio format. Dropping it in
+    # v1.2.0 silently broke every Opus download until v1.5.0.
+    assert "mutagen" in deps._requirement_names()
+
+
+def test_every_declared_requirement_is_actually_installed():
+    # NOTE: catches the other half of the same class of bug - a package listed
+    # in requirements.txt that nobody ever installed into the environment.
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as installed_version
+
+    missing = []
+    for name in deps._requirement_names():
+        try:
+            installed_version(name)
+        except PackageNotFoundError:
+            missing.append(name)
+    assert not missing, f"declared but not installed: {missing}"
+
+
 def test_dev_only_packages_are_not_reported_to_the_user():
     # NOTE: pytest lives in requirements-dev.txt on purpose - the Settings page
     # lists whatever requirements.txt contains, and a test runner has no place

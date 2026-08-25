@@ -27,6 +27,10 @@ def setup_mod():
 # --- the installer must stay dependency-free ---------------------------------
 
 
+@pytest.mark.skipif(
+    not hasattr(sys, "stdlib_module_names"),
+    reason="sys.stdlib_module_names needs Python 3.10+",
+)
 def test_installer_imports_only_the_standard_library():
     # NOTE: this is a licensing guarantee, not just tidiness - the README
     # states the built exe bundles no third-party code, and that only holds

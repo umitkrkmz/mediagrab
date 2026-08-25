@@ -11,6 +11,20 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.5.0] — 2026-08-25
+
+#### Düzeltilen
+
+- **Opus ses indirme v1.2.0'dan beri bozuktu** — indirme tamamlanıyor, ardından son işleme adımında `module mutagen was not found` hatasıyla düşüyordu. v1.2.0'da `mutagen` bağımlılığı kaldırılmıştı; gözden kaçan nokta şuydu: MediaGrab'ın kendi kodu mutagen'i kullanmıyor ama **yt-dlp**, Opus dosyalarına kapak resmi gömmek için ona ihtiyaç duyuyor. Opus varsayılan ses formatı olduğu için ("En İyi Ses" düğmesi, ses listesindeki ilk seçenek, kanal otomatik indirmesi) en görünür ses yolu üç sürüm boyunca çalışmıyordu. M4A ve MP3 etkilenmemişti. Bağımlılık geri eklendi ve bir daha sessizce düşmemesi için test yazıldı
+- **Opus dosyalarında başlık ve sanatçı görünmüyordu** — Ogg tabanlı formatlar etiketleri *akış* düzeyinde tutuyor, biz yalnızca *kapsayıcı* düzeyini okuyorduk; artık ikisine de bakılıyor
+- **Kanal kontrolü başarısız olunca "son kontrol" tarihi hiç güncellenmiyordu** — hata durumunda tarihi yazan satıra ulaşılmadan çıkılıyordu, bu yüzden bozulmuş bir kanal (silinmiş, adı değişmiş, gizlenmiş) yeni videosu olmayan bir kanaldan ayırt edilemiyordu. Artık deneme her hâlükârda kaydediliyor ve kanal kartında "Son kontrol başarısız: [sebep]" görünüyor
+
+#### Eklenen
+
+- **Playlist'te toplu indirme** — playlist listesinin üstünde aralık seçimi (ör. `1 – 19`) ve tek tıkla "En İyi Ses" / "En İyi Video". Önceden her videoya tek tek tıklayıp formatı yeniden seçmek gerekiyordu. Yanlış yazılmış aralıklar düzeltilir (`5-3` ters çevrilir, sınır dışı değerler kırpılır)
+- **Kuyruk sırası** — aynı anda 3 indirme çalışıyor; bekleyenler artık "Sırada 2." diyor. Önceden belirsiz şekilde "Başlıyor..." yazıyor ve takılmış bir indirmeden ayırt edilemiyordu
+- **Otomatik sürüm yayınlama** (GitHub Actions) — sürüm etiketi push edildiğinde exe otomatik derlenir, testler çalıştırılır, exe'nin gerçekten açıldığı doğrulanır, SHA256 hesaplanıp release notlarına yazılır ve dosya release'e eklenir. PyInstaller çıktısı her derlemede farklı olduğu için hash artık README'ye sabitlenmiyor; README okuyucuyu release sayfasına yönlendiriyor
+
 ### [1.4.0] — 2026-08-22
 
 #### Eklenen
@@ -115,6 +129,20 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.5.0] — 2026-08-25
+
+#### Fixed
+
+- **Opus audio downloads had been broken since v1.2.0** — the download completed and then died in postprocessing with `module mutagen was not found`. The `mutagen` dependency was dropped in v1.2.0; what was missed is that while MediaGrab's own code doesn't use it, **yt-dlp** needs it to embed cover art into Opus files. Since Opus is the default audio format (the "Best Audio" button, the first option in the list, channel auto-download), the most visible audio path was dead for three releases. M4A and MP3 were unaffected. The dependency is back, with a test so it can't disappear quietly again
+- **Opus files showed no title or artist** — Ogg-based formats keep tags at *stream* level while we only read the *container* level; both are checked now
+- **A failed channel check never updated the "last checked" time** — the failure path returned before the line that records it, so a broken channel (deleted, renamed, made private) was indistinguishable from one with no new uploads. The attempt is now always recorded, and the channel card shows "Last check failed: [reason]"
+
+#### Added
+
+- **Bulk download for playlists** — a range selector (e.g. `1 – 19`) and one-click "Best Audio" / "Best Video" above the playlist. Previously every video had to be clicked and its format re-chosen individually. Mistyped ranges are corrected (`5-3` is swapped, out-of-range values are clamped)
+- **Queue position** — three downloads run at once; the ones waiting now say "2nd in queue" instead of an indefinite "Starting…" that looked identical to a stuck download
+- **Automated releases** (GitHub Actions) — pushing a version tag builds the exe, runs the tests, verifies the exe actually starts, computes the SHA256 into the release notes, and attaches the file. Since PyInstaller output differs on every build, the hash is no longer hard-coded in the README - it points readers at the release page instead
 
 ### [1.4.0] — 2026-08-22
 
