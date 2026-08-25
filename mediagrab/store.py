@@ -13,6 +13,55 @@ from .paths import app_dir
 STORE_PATH = os.path.join(app_dir(), "channels.json")
 _lock = threading.Lock()
 
+# NOTE: kept in its own file rather than inside channels.json - these are
+# unrelated concerns, and a corrupt settings file shouldn't take the followed
+# channel list down with it. Neither file is committed (see .gitignore).
+SETTINGS_PATH = os.path.join(app_dir(), "settings.json")
+_settings_lock = threading.Lock()
+
+# NOTE: only the cookie SOURCE is stored - a browser name or a path to a
+# cookies.txt the user exported themselves. The cookies never pass through
+# MediaGrab and are never written here; yt-dlp reads them directly.
+DEFAULT_SETTINGS = {
+    "cookie_mode": "off",  # "off" | "browser" | "file"
+    "cookie_browser": "firefox",
+    "cookie_file": "",
+}
+
+
+def get_settings() -> dict:
+    with _settings_lock:
+        settings = dict(DEFAULT_SETTINGS)
+        if not os.path.isfile(SETTINGS_PATH):
+            return settings
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                stored = json.load(f)
+        except Exception:
+            # NOTE: a hand-edited or truncated file falls back to defaults
+            # rather than breaking every download.
+            return settings
+        if isinstance(stored, dict):
+            settings.update({k: v for k, v in stored.items() if k in DEFAULT_SETTINGS})
+        return settings
+
+
+def save_settings(**fields) -> dict:
+    with _settings_lock:
+        current = dict(DEFAULT_SETTINGS)
+        if os.path.isfile(SETTINGS_PATH):
+            try:
+                with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                    stored = json.load(f)
+                if isinstance(stored, dict):
+                    current.update({k: v for k, v in stored.items() if k in DEFAULT_SETTINGS})
+            except Exception:
+                pass
+        current.update({k: v for k, v in fields.items() if k in DEFAULT_SETTINGS})
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(current, f, ensure_ascii=False, indent=2)
+        return current
+
 
 def _load() -> dict:
     if not os.path.isfile(STORE_PATH):

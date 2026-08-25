@@ -27,6 +27,8 @@ from .models import (
     LocaleResponse,
     PendingVideo,
     ProbeRequest,
+    SettingsResponse,
+    SettingsUpdateRequest,
     StatusResponse,
     YtdlpVersionResponse,
 )
@@ -501,6 +503,39 @@ def ytdlp_update() -> dict:
     if result["ok"]:
         threading.Thread(target=_delayed_restart, daemon=True).start()
     return result
+
+
+@app.get("/api/settings", response_model=SettingsResponse)
+def get_settings() -> dict:
+    return store.get_settings()
+
+
+@app.post("/api/settings", response_model=SettingsResponse)
+def update_settings(req: SettingsUpdateRequest) -> dict:
+    if req.cookie_mode == "browser" and req.cookie_browser not in downloader.SUPPORTED_COOKIE_BROWSERS:
+        raise HTTPException(status_code=400, detail="Desteklenmeyen tarayici")
+    # NOTE: a path that doesn't exist is rejected here rather than silently
+    # ignored later - "cookies are on but nothing happens" is the worst
+    # possible outcome for the user.
+    if req.cookie_mode == "file":
+        path = (req.cookie_file or "").strip()
+        if not path or not os.path.isfile(path):
+            raise HTTPException(status_code=400, detail="Cerez dosyasi bulunamadi")
+    return store.save_settings(
+        cookie_mode=req.cookie_mode,
+        cookie_browser=req.cookie_browser,
+        cookie_file=(req.cookie_file or "").strip(),
+    )
+
+
+@app.post("/api/settings/test-cookies")
+def test_cookies() -> dict:
+    return downloader.test_cookie_source()
+
+
+@app.get("/api/cookie-browsers")
+def cookie_browsers() -> dict:
+    return {"browsers": list(downloader.SUPPORTED_COOKIE_BROWSERS), "platform": sys.platform}
 
 
 @app.get("/api/ffmpeg-version")

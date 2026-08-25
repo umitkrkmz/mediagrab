@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.5.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.5.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.6.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.6.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -33,6 +33,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **Açık / koyu tema** — sistem ayarını takip eder, `/settings` sayfasından veya başlıktaki düğmeyle elle de seçilebilir
 - **İndirmeyi iptal etme** — süren bir indirmeyi panelden durdurun; yarım kalan dosyalar otomatik temizlenir
 - **Var olan dosyayı koruma** — aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
+- **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için tarayıcı oturumunuzun çerezlerini kullanın: `cookies.txt` dosyası (her yerde çalışır) veya doğrudan tarayıcıdan. Çerezleriniz kopyalanmaz, yalnızca kaynağın adı saklanır
 - **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
 - **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
 - **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
@@ -250,6 +251,7 @@ indirilenler/       # indirilen dosyalar, kanal adına göre alt klasörlenir (g
         Video.mp4
         Video.json  # meta veri sidecar dosyası
 channels.json       # takip edilen kanallar (git'e dahil değil)
+settings.json       # çerez kaynağı ayarı (git'e dahil değil)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
 setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı)
 tests/              # pytest paketi (ağ gerektirmez)
@@ -325,6 +327,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **Light / dark theme** — follows your system setting, or pick it by hand from `/settings` or the header toggle
 - **Cancel a download** — stop a running download from the panel; partial files are cleaned up automatically
 - **Existing files are protected** — if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
+- **Cookie support** (`/settings`) — use your browser session's cookies for age-restricted, members-only or sign-in-required content: either a `cookies.txt` file (works everywhere) or straight from the browser. Your cookies are never copied; only the source name is stored
 - **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
 - **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
 - **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
@@ -542,6 +545,7 @@ indirilenler/       # downloaded files, auto-organized into per-channel subfolde
         Video.mp4
         Video.json  # metadata sidecar
 channels.json       # followed channels (not in git)
+settings.json       # cookie source setting (not in git)
 run.py              # entry point for `python run.py`
 setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases)
 tests/              # pytest suite (no network required)

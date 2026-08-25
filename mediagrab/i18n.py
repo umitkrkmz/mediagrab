@@ -28,6 +28,38 @@ UI = {
             "Birleştirme, dönüştürme ve kapak/süre okuma için gereklidir. "
             "MediaGrab ile birlikte gelmez, sisteminize ayrıca kurulur."
         ),
+        "settings_cookies_title": "Çerezler",
+        "settings_cookies_hint": (
+            "Yaş sınırlı, üyelere özel veya giriş gerektiren içerikler için tarayıcı "
+            "oturumunuzun çerezleri kullanılabilir. Yalnızca kendi erişim hakkınız olan "
+            "içerik için kullanın."
+        ),
+        "cookie_off": "Kapalı",
+        "cookie_file": "cookies.txt dosyası",
+        "cookie_browser": "Tarayıcıdan",
+        "cookie_file_label": "Dosya yolu",
+        "cookie_file_help": (
+            "Tarayıcınıza bir \"cookies.txt export\" eklentisi kurup çerezleri Netscape "
+            "biçiminde dışa aktarın, sonra dosyanın tam yolunu buraya yazın. Bu yöntem "
+            "her tarayıcıda ve her işletim sisteminde çalışır."
+        ),
+        "cookie_browser_label": "Tarayıcı",
+        "cookie_chrome_warning": (
+            "Dikkat: Chrome 127'den itibaren Windows'ta çerezler yalnızca Chrome'un kendi "
+            "süreci tarafından çözülebiliyor (app-bound encryption). Chrome, Edge, Brave gibi "
+            "Chromium tabanlı tarayıcılarda bu yöntem Windows'ta çalışmaz — Firefox çalışır. "
+            "Chromium kullanıyorsanız \"cookies.txt dosyası\" seçeneğini kullanın."
+        ),
+        "cookie_save": "Kaydet",
+        "cookie_test": "Bağlantıyı sına",
+        "cookie_saved": "Kaydedildi.",
+        "cookie_test_ok": "Çalışıyor — {n} çerez okundu.",
+        "cookie_test_none": "Çerez kaynağı ayarlanmamış.",
+        "cookie_test_failed": "Çerezler okunamadı",
+        "cookie_privacy": (
+            "Çerezleriniz MediaGrab'a kopyalanmaz veya hiçbir yere gönderilmez; yalnızca "
+            "kaynağın adı (tarayıcı adı ya da dosya yolu) bu bilgisayarda saklanır."
+        ),
         "settings_deps_title": "Python Bağımlılıkları",
         "settings_deps_hint": (
             "Sanal ortamdaki paketler PyPI'daki güncel sürümlerle karşılaştırılır."
@@ -95,6 +127,38 @@ UI = {
         "settings_ffmpeg_hint": (
             "Required for merging, converting, and reading cover art/duration. "
             "Not bundled with MediaGrab - you install it on your system separately."
+        ),
+        "settings_cookies_title": "Cookies",
+        "settings_cookies_hint": (
+            "Your browser session's cookies can be used for age-restricted, members-only "
+            "or sign-in-required content. Only use this for content you already have "
+            "access to."
+        ),
+        "cookie_off": "Off",
+        "cookie_file": "cookies.txt file",
+        "cookie_browser": "From browser",
+        "cookie_file_label": "File path",
+        "cookie_file_help": (
+            "Install a \"cookies.txt export\" extension in your browser, export your cookies "
+            "in Netscape format, then put the full path to that file here. This method works "
+            "in every browser and on every operating system."
+        ),
+        "cookie_browser_label": "Browser",
+        "cookie_chrome_warning": (
+            "Note: since Chrome 127, cookies on Windows can only be decrypted by Chrome's own "
+            "process (app-bound encryption). This method therefore does NOT work on Windows for "
+            "Chromium-based browsers such as Chrome, Edge or Brave — Firefox does work. If you "
+            "use a Chromium browser, choose the \"cookies.txt file\" option instead."
+        ),
+        "cookie_save": "Save",
+        "cookie_test": "Test",
+        "cookie_saved": "Saved.",
+        "cookie_test_ok": "Working — {n} cookie(s) loaded.",
+        "cookie_test_none": "No cookie source configured.",
+        "cookie_test_failed": "Could not read cookies",
+        "cookie_privacy": (
+            "Your cookies are never copied into MediaGrab or sent anywhere; only the name of "
+            "the source (a browser name or a file path) is stored on this computer."
         ),
         "settings_deps_title": "Python Dependencies",
         "settings_deps_hint": "Packages in the virtual environment, compared against the latest on PyPI.",

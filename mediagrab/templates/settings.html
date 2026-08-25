@@ -18,6 +18,37 @@
 </div>
 
 <div class="settings-section">
+  <div class="section-title">{{ ui.settings_cookies_title }}</div>
+  <p class="settings-hint">{{ ui.settings_cookies_hint }}</p>
+
+  <div class="cookie-modes" id="cookie-modes" role="radiogroup" aria-label="{{ ui.settings_cookies_title }}">
+    <button type="button" data-cookie-mode="off" role="radio" aria-checked="false">{{ ui.cookie_off }}</button>
+    <button type="button" data-cookie-mode="file" role="radio" aria-checked="false">{{ ui.cookie_file }}</button>
+    <button type="button" data-cookie-mode="browser" role="radio" aria-checked="false">{{ ui.cookie_browser }}</button>
+  </div>
+
+  <div id="cookie-file-panel" class="cookie-panel hidden">
+    <label class="cookie-label" for="cookie-file-input">{{ ui.cookie_file_label }}</label>
+    <input type="text" id="cookie-file-input" placeholder="C:\...\cookies.txt" autocomplete="off">
+    <p class="settings-hint">{{ ui.cookie_file_help }}</p>
+  </div>
+
+  <div id="cookie-browser-panel" class="cookie-panel hidden">
+    <label class="cookie-label" for="cookie-browser-select">{{ ui.cookie_browser_label }}</label>
+    <select id="cookie-browser-select"></select>
+    <p class="cookie-warning">{{ ui.cookie_chrome_warning }}</p>
+  </div>
+
+  <div class="cookie-actions">
+    <button type="button" id="cookie-save-btn">{{ ui.cookie_save }}</button>
+    <button type="button" id="cookie-test-btn" class="btn-secondary">{{ ui.cookie_test }}</button>
+  </div>
+  <div id="cookie-status" class="cookie-status hidden" role="status"></div>
+
+  <p class="settings-hint cookie-privacy">{{ ui.cookie_privacy }}</p>
+</div>
+
+<div class="settings-section">
   <div class="section-title" id="settings-ytdlp-title">{{ ui.settings_ytdlp_title }}</div>
   <div id="ytdlp-status" class="ytdlp-status"></div>
   <div id="ytdlp-instructions" class="ytdlp-instructions hidden"></div>

@@ -48,6 +48,57 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
 
 
+# NOTE: the browsers yt-dlp can read cookies from. Firefox is listed first and
+# is the default on purpose - see the warning in cookie_support_note().
+SUPPORTED_COOKIE_BROWSERS = ("firefox", "chrome", "chromium", "edge", "brave", "opera", "vivaldi", "safari")
+
+
+def cookie_opts() -> dict:
+    """yt-dlp options for the configured cookie source (empty when off)."""
+    # NOTE: imported here rather than at module scope to keep the dependency
+    # one-directional - store.py has no business importing the downloader.
+    from . import store
+
+    settings = store.get_settings()
+    mode = settings.get("cookie_mode", "off")
+
+    if mode == "browser":
+        browser = settings.get("cookie_browser") or "firefox"
+        if browser not in SUPPORTED_COOKIE_BROWSERS:
+            return {}
+        # NOTE: the tuple is (browser, profile, keyring, container) - only the
+        # browser name is set, letting yt-dlp find the default profile.
+        return {"cookiesfrombrowser": (browser, None, None, None)}
+
+    if mode == "file":
+        path = settings.get("cookie_file") or ""
+        # NOTE: a missing file makes yt-dlp fail the whole download with a
+        # confusing error, so a bad path simply means "no cookies" instead.
+        # The Settings page validates and reports it properly.
+        if path and os.path.isfile(path):
+            return {"cookiefile": path}
+        return {}
+
+    return {}
+
+
+def test_cookie_source() -> dict:
+    """Check the configured cookie source actually loads, without downloading."""
+    # NOTE: worth its own endpoint because a broken cookie source otherwise
+    # only shows up as a failed download much later, with a message that
+    # doesn't obviously point at cookies. Chrome on Windows is the common
+    # case: it fails here rather than silently doing nothing.
+    opts = cookie_opts()
+    if not opts:
+        return {"ok": False, "reason": "not_configured"}
+    try:
+        with YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, **opts}) as ydl:
+            jar = ydl.cookiejar
+        return {"ok": True, "count": len(jar)}
+    except Exception as exc:
+        return {"ok": False, "reason": "error", "detail": strip_ansi_codes(str(exc))[:300]}
+
+
 def human_size(num_bytes: Optional[float]) -> str:
     if not num_bytes:
         return "?"
@@ -180,6 +231,7 @@ def resolve_channel(url: str) -> dict:
         "skip_download": True,
         "extract_flat": "in_playlist",
         "playlistend": 1,
+        **cookie_opts(),
     }
     try:
         with YoutubeDL(opts) as ydl:
@@ -215,6 +267,7 @@ def check_channel_new_videos(url: str, last_video_id: Optional[str], limit: int 
         "skip_download": True,
         "extract_flat": "in_playlist",
         "playlistend": limit,
+        **cookie_opts(),
     }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -248,6 +301,7 @@ def probe(url: str) -> dict:
         # playlist (very slow). "in_playlist" gives a fast listing (id/title/
         # duration/thumbnail); format resolution happens once the user picks a video.
         "extract_flat": "in_playlist",
+        **cookie_opts(),
     }
     try:
         with YoutubeDL(opts) as ydl:
@@ -588,6 +642,9 @@ def download(
             "retries": 10,
             "fragment_retries": 10,
             "concurrent_fragment_downloads": 4,
+            # NOTE: cookies apply to the download too, not just the probe -
+            # age-gated or members-only media needs them at both stages.
+            **cookie_opts(),
             "progress_hooks": [progress_hook],
             "postprocessor_hooks": [postprocessor_hook],
             # NOTE: since the filename has no ID, re-requesting the same video

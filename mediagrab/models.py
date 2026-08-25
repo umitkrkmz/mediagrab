@@ -67,6 +67,20 @@ class StatusResponse(BaseModel):
     queue_position: Optional[int] = None
 
 
+class SettingsResponse(BaseModel):
+    cookie_mode: Literal["off", "browser", "file"]
+    cookie_browser: str
+    # NOTE: only the PATH is ever exposed - the cookie contents never leave
+    # the file, yt-dlp reads them directly from disk.
+    cookie_file: str
+
+
+class SettingsUpdateRequest(BaseModel):
+    cookie_mode: Literal["off", "browser", "file"] = "off"
+    cookie_browser: str = "firefox"
+    cookie_file: str = ""
+
+
 class HistoryItem(BaseModel):
     filename: str
     folder: Optional[str] = None

@@ -144,6 +144,10 @@ const I18N = {
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
     dockCancel: "İndirmeyi iptal et",
+    cookieSaved: "Kaydedildi.",
+    cookieTestOk: "Çalışıyor — {n} çerez okundu.",
+    cookieTestNone: "Çerez kaynağı ayarlanmamış.",
+    cookieTestFailed: "Çerezler okunamadı",
     queuePosition: "Sırada {n}. — diğer indirmeler bekleniyor",
     itemPreviewPlay: "▶ Oynat",
     itemPreviewClose: "✕ Kapat",
@@ -254,6 +258,10 @@ const I18N = {
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
     dockCancel: "Cancel download",
+    cookieSaved: "Saved.",
+    cookieTestOk: "Working — {n} cookie(s) loaded.",
+    cookieTestNone: "No cookie source configured.",
+    cookieTestFailed: "Could not read cookies",
     queuePosition: "{n}. in queue — waiting for other downloads",
     itemPreviewPlay: "▶ Play",
     itemPreviewClose: "✕ Close",
@@ -1649,6 +1657,117 @@ function wireDepsUpdateBtn() {
   });
 }
 
+// --- Ayarlar: cerezler ---
+
+const cookieModes = document.getElementById("cookie-modes");
+const cookieFilePanel = document.getElementById("cookie-file-panel");
+const cookieBrowserPanel = document.getElementById("cookie-browser-panel");
+const cookieFileInput = document.getElementById("cookie-file-input");
+const cookieBrowserSelect = document.getElementById("cookie-browser-select");
+const cookieSaveBtn = document.getElementById("cookie-save-btn");
+const cookieTestBtn = document.getElementById("cookie-test-btn");
+const cookieStatus = document.getElementById("cookie-status");
+
+let cookieMode = "off";
+
+function renderCookieMode() {
+  cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
+    const active = btn.dataset.cookieMode === cookieMode;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", active ? "true" : "false");
+  });
+  cookieFilePanel?.classList.toggle("hidden", cookieMode !== "file");
+  cookieBrowserPanel?.classList.toggle("hidden", cookieMode !== "browser");
+}
+
+function showCookieStatus(text, kind) {
+  if (!cookieStatus) return;
+  cookieStatus.textContent = text;
+  cookieStatus.classList.remove("hidden", "ok", "bad");
+  cookieStatus.classList.add(kind);
+}
+
+async function loadCookieSettings() {
+  if (!cookieModes) return;
+  try {
+    const [settingsRes, browsersRes] = await Promise.all([
+      fetch("/api/settings"),
+      fetch("/api/cookie-browsers"),
+    ]);
+    const settings = await settingsRes.json();
+    const browsers = await browsersRes.json();
+
+    if (cookieBrowserSelect) {
+      cookieBrowserSelect.innerHTML = (browsers.browsers || [])
+        .map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`)
+        .join("");
+      cookieBrowserSelect.value = settings.cookie_browser || "firefox";
+    }
+    if (cookieFileInput) cookieFileInput.value = settings.cookie_file || "";
+    cookieMode = settings.cookie_mode || "off";
+    renderCookieMode();
+  } catch (err) {
+    // NOTE: settings are optional - a failure here shouldn't break the page.
+  }
+}
+
+async function saveCookieSettings() {
+  if (!cookieSaveBtn) return;
+  cookieSaveBtn.disabled = true;
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cookie_mode: cookieMode,
+        cookie_browser: cookieBrowserSelect?.value || "firefox",
+        cookie_file: cookieFileInput?.value || "",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showCookieStatus(data.detail || t().cookieTestFailed, "bad");
+      return;
+    }
+    showCookieStatus(t().cookieSaved, "ok");
+  } catch (err) {
+    showCookieStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    cookieSaveBtn.disabled = false;
+  }
+}
+
+async function testCookieSettings() {
+  if (!cookieTestBtn) return;
+  cookieTestBtn.disabled = true;
+  try {
+    const res = await fetch("/api/settings/test-cookies", { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      showCookieStatus(t().cookieTestOk.replace("{n}", data.count), "ok");
+    } else if (data.reason === "not_configured") {
+      showCookieStatus(t().cookieTestNone, "bad");
+    } else {
+      // NOTE: yt-dlp's own message is shown verbatim - for the Chrome/Windows
+      // case it names the real cause, which no summary of ours would beat.
+      showCookieStatus(`${t().cookieTestFailed}: ${data.detail || ""}`.trim(), "bad");
+    }
+  } catch (err) {
+    showCookieStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    cookieTestBtn.disabled = false;
+  }
+}
+
+cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    cookieMode = btn.dataset.cookieMode;
+    renderCookieMode();
+  });
+});
+cookieSaveBtn?.addEventListener("click", saveCookieSettings);
+cookieTestBtn?.addEventListener("click", testCookieSettings);
+
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") probe();
@@ -1733,6 +1852,7 @@ loadYtdlpVersion();
 loadFfmpegVersion();
 loadDependencies();
 wireDepsUpdateBtn();
+loadCookieSettings();
 resumeTrackedDockJobs();
 
 // NOTE: lets an external trigger (e.g. a browser extension/bookmarklet)

@@ -11,6 +11,16 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.6.0] — 2026-08-25
+
+#### Eklenen
+
+- **Çerez desteği geri geldi** (`/settings` → Çerezler) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için iki yol sunuluyor:
+  - **`cookies.txt` dosyası** — tarayıcınızdan bir eklentiyle dışa aktardığınız dosyanın yolunu verirsiniz. Her tarayıcıda, her işletim sisteminde çalışır
+  - **Doğrudan tarayıcıdan** — Firefox'ta çalışır. Chrome 127'den beri Windows'ta çerezler yalnızca Chrome'un kendi süreci tarafından çözülebildiği için (app-bound encryption) Chromium tabanlı tarayıcılarda bu yöntem Windows'ta çalışmaz; arayüz bunu açıkça uyarıyor. İlk denememizin (v1.1.0) başarısız olma sebebi tam olarak buydu
+  - **"Bağlantıyı sına" düğmesi** — ayarın gerçekten çalışıp çalışmadığını indirme başlatmadan söyler; başarısızsa sebebini gösterir
+  - Çerezleriniz MediaGrab'a kopyalanmaz veya hiçbir yere gönderilmez; yalnızca kaynağın adı (tarayıcı adı ya da dosya yolu) `settings.json` içinde bu bilgisayarda saklanır
+
 ### [1.5.0] — 2026-08-25
 
 #### Düzeltilen
@@ -129,6 +139,16 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.6.0] — 2026-08-25
+
+#### Added
+
+- **Cookie support is back** (`/settings` → Cookies) — two routes for age-restricted, members-only or sign-in-required content:
+  - **`cookies.txt` file** — point MediaGrab at a file you exported from your browser with an extension. Works in every browser, on every OS
+  - **Straight from the browser** — works with Firefox. Since Chrome 127, cookies on Windows can only be decrypted by Chrome's own process (app-bound encryption), so this route does not work there for Chromium-based browsers; the UI says so plainly. That is exactly why our first attempt (v1.1.0) failed
+  - **A "Test" button** — tells you whether the setting actually works without starting a download, and shows the reason when it doesn't
+  - Your cookies are never copied into MediaGrab or sent anywhere; only the source name (a browser name or a file path) is stored in `settings.json` on this machine
 
 ### [1.5.0] — 2026-08-25
 
