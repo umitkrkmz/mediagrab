@@ -1,0 +1,61 @@
+name: Hata bildirimi / Bug report
+description: MediaGrab'de karşılaştığınız bir sorunu bildirin. / Report a problem you ran into with MediaGrab.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Önce kontrol edin / Check first:** Ayarlar → yt-dlp Sürümü'nden güncelleme var mı bakın. Bu projedeki sorunların büyük kısmı eski yt-dlp'den kaynaklanır (siteler sık değişir).
+        Please check Settings → yt-dlp Version for an update first — most issues here come from an outdated yt-dlp (sites change often).
+
+  - type: checkboxes
+    id: checked-update
+    attributes:
+      label: yt-dlp güncel mi? / Is yt-dlp up to date?
+      options:
+        - label: Ayarlar sayfasından güncel olduğunu doğruladım. / I confirmed it's current from the Settings page.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Ne oldu? / What happened?
+      description: Beklediğiniz ile gerçekte olan arasındaki farkı anlatın. / Describe what you expected versus what actually happened.
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Hangi link/site? (varsa) / Which link/site? (if applicable)
+      description: Videonun kendisi değil, hangi SİTE olduğu yeterli (ör. YouTube, SoundCloud). / The site is enough (e.g. YouTube, SoundCloud) — not the video itself.
+
+  - type: textarea
+    id: error-text
+    attributes:
+      label: Tam hata mesajı / Full error message
+      description: Arayüzde görünen kırmızı hata metnini olduğu gibi yapıştırın. / Paste the red error text shown in the UI, verbatim.
+      render: text
+
+  - type: input
+    id: os
+    attributes:
+      label: İşletim sistemi / OS
+      placeholder: "Windows 11, macOS 14, Ubuntu 24.04 ..."
+    validations:
+      required: true
+
+  - type: input
+    id: install-method
+    attributes:
+      label: Kurulum yöntemi / Install method
+      placeholder: "MediaGrabSetup.exe veya git clone + pip / MediaGrabSetup.exe or git clone + pip"
+    validations:
+      required: true
+
+  - type: input
+    id: ytdlp-version
+    attributes:
+      label: yt-dlp sürümü / yt-dlp version
+      description: Ayarlar sayfasında yazıyor. / Shown on the Settings page.
+    validations:
+      required: true

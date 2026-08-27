@@ -284,6 +284,8 @@ MediaGrab'ın kendi kodu yalnızca izin verici (MIT/BSD) veya kamu malı lisansl
 
 **`mutagen` hakkında (GPL):** MediaGrab'ın kaynak kodunda `mutagen` importu **yoktur**; onu yt-dlp kendi içinde kullanır ve `pip` kullanıcının kendi ortamına indirir. Biz mutagen'i paketlemiyor, dağıtmıyoruz — bu nedenle GPL'in copyleft yükümlülüğü (birleşik eseri dağıtmak) devreye girmez ve MediaGrab MIT olarak kalır. Aynı şey `ffmpeg` için de geçerli: dağıtıma dahil değildir, yalnızca ayrı bir program olarak `subprocess` ile çağrılır.
 
+Projeyi faydalı bulduysanız ⭐ vermeniz, başkalarının da bulmasına yardımcı olur.
+
 ### Yasal Uyarı
 
 Bu araç yalnızca **kişisel kullanım** içindir. İndirdiğiniz içeriğin telif durumundan ve ilgili platformun (YouTube dahil) kullanım şartlarına uyumdan tamamen siz sorumlusunuz. MediaGrab bir platformu atlatma veya DRM kırma aracı değildir; yalnızca herkese açık, indirilebilir medyayı yt-dlp aracılığıyla indirir.
@@ -577,6 +579,8 @@ MediaGrab's own source code is licensed under **MIT** (see [LICENSE](LICENSE)).
 MediaGrab's own code only imports permissively licensed (MIT/BSD) or public-domain packages.
 
 **About `mutagen` (GPL):** MediaGrab's source contains no `import mutagen` — yt-dlp uses it internally, and `pip` fetches it into your own environment. We neither bundle nor redistribute it, so GPL's copyleft obligation (which attaches to distributing a combined work) is not triggered and MediaGrab stays MIT. The same holds for `ffmpeg`: never redistributed, only invoked as a separate program via `subprocess`.
+
+If you find MediaGrab useful, a ⭐ helps other people find it.
 
 ### Legal Notice
 
