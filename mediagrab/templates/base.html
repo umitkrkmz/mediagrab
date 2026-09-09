@@ -17,7 +17,7 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version('style.css') }}">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#5b8def">
@@ -57,6 +57,6 @@
   </div>
 </footer>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v={{ asset_version('app.js') }}"></script>
 </body>
 </html>

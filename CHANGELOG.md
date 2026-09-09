@@ -11,6 +11,19 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.8.0] — 2026-09-09
+
+#### Eklenen
+
+- **İndirmede kalan süre (ETA)** — dock'taki ilerleme artık "İndiriliyor · 2.7 MB/s · kalan 0:13" şeklinde tahmini süreyi de gösteriyor. yt-dlp bu bilgiyi zaten hesaplıyordu, sadece arayüze hiç yansıtılmıyordu
+- **Ayarlara Geri Bildirim düğmesi** — bir hata bulduğunuzda veya özellik önereceğinizde GitHub'daki hazır şablonlara (hata bildirimi / özellik önerisi) tek tıkla gidiyor
+- **Varsayılan ses parçası ayarı** (`/settings`) — birden fazla dilde dublajı olan videolar için tercih ettiğiniz dili bir kere kaydedin, sonraki her indirmede (chip'e tıklamadan) o dil otomatik seçili gelsin. Kanal otomatik indirmesi de bu ayarı kullanıyor — takip ettiğiniz bir kanal kendiliğinden indirirken de tercih ettiğiniz dilde iniyor
+- **Video kalitesi boyut tahmini** — YouTube'un pek çok video akışı için gerçek dosya boyutunu hiç vermediği durumlarda (`?` görünürdü), artık ortalama bit hızından tahmini bir boyut (`~1.2 GB` gibi) hesaplanıp gösteriliyor. `~` işareti bunun bir tahmin olduğunu, kesin değer olmadığını belirtiyor
+
+#### Düzeltilen
+
+- **Güncelleme sonrası tarayıcı eski sürümü göstermeye devam edebiliyordu** — `app.js`/`style.css` her zaman aynı adresten (`/static/app.js`) geldiği için, sunucuyu yeniden başlatmak açık bir sekmenin tarayıcı önbelleğini temizlemiyordu; yeni özellikler sert yenileme (Ctrl+Shift+R) yapılana kadar hiç görünmüyordu. Artık bu dosyalar `?v=<değişim-zamanı>` taşıyor — dosya gerçekten değiştiğinde adres de değişiyor, tarayıcı otomatik olarak tazesini çekiyor
+
 ### [1.7.0] — 2026-09-09
 
 #### Eklenen
@@ -153,6 +166,19 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.8.0] — 2026-09-09
+
+#### Added
+
+- **Download ETA** — the dock's progress now shows an estimated time remaining too, e.g. "Downloading · 2.7 MB/s · ETA 0:13". yt-dlp already computed this; it just never reached the UI
+- **A Feedback button in Settings** — found a bug or have a feature idea? One click takes you to GitHub's ready-made templates (bug report / feature request)
+- **A default audio track setting** (`/settings`) — save your preferred language once for videos with more than one dub, and it's preselected on every future download without clicking a chip. Channel auto-download uses this setting too - a channel you follow downloads in your preferred language on its own
+- **Estimated file size for video qualities** — YouTube often reports no real filesize at all for a video stream (it showed `?`), so now an estimate (`~1.2 GB`) is computed from the average bitrate instead. The `~` makes clear it's an estimate, not a reported fact
+
+#### Fixed
+
+- **The browser could keep showing an old version after an update** — `app.js`/`style.css` always loaded from the same URL (`/static/app.js`), so restarting the server never cleared an already-open tab's cache; a shipped feature could stay invisible until a hard refresh (Ctrl+Shift+R). These files now carry `?v=<mtime>` - the URL changes exactly when the file actually does, so the browser fetches a fresh copy automatically
 
 ### [1.7.0] — 2026-09-09
 

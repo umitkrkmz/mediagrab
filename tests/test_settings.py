@@ -1,0 +1,47 @@
+"""Tests for the general settings store (mediagrab/store.py).
+
+NOTE: cookie-specific option-building lives in test_cookies.py; this file
+covers the settings mechanism itself - defaults, persistence, and the
+cross-field independence that matters once more than one settings panel
+writes to the same settings.json.
+"""
+
+import pytest
+
+from mediagrab import store
+
+
+@pytest.fixture
+def settings_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "SETTINGS_PATH", str(tmp_path / "settings.json"))
+    return tmp_path
+
+
+def test_default_audio_lang_defaults_to_empty(settings_file):
+    # NOTE: empty means "no preference" - the video's original audio plays,
+    # same as before this setting existed.
+    assert store.get_settings()["default_audio_lang"] == ""
+
+
+def test_default_audio_lang_round_trips(settings_file):
+    store.save_settings(default_audio_lang="tr")
+    assert store.get_settings()["default_audio_lang"] == "tr"
+
+
+def test_saving_cookies_does_not_reset_the_default_audio_lang(settings_file):
+    # NOTE: the reason this matters - /api/settings replaces the whole
+    # object, so two independent Settings panels writing to it must each
+    # resend the other panel's current value or they'll clobber each other.
+    # This test is about store.py's merge behaviour; app.js's
+    # collectSettingsPayload() is what supplies that value on the way in.
+    store.save_settings(default_audio_lang="tr")
+    store.save_settings(cookie_mode="file", cookie_file="/some/path/cookies.txt")
+    assert store.get_settings()["default_audio_lang"] == "tr"
+
+
+def test_saving_the_default_audio_lang_does_not_reset_cookies(settings_file):
+    store.save_settings(cookie_mode="file", cookie_file="/some/path/cookies.txt")
+    store.save_settings(default_audio_lang="tr")
+    settings = store.get_settings()
+    assert settings["cookie_mode"] == "file"
+    assert settings["cookie_file"] == "/some/path/cookies.txt"

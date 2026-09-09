@@ -112,7 +112,7 @@ def human_size(num_bytes: Optional[float]) -> str:
     return "?"
 
 
-def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
+def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
     # NOTE: keep only the highest-tbr variant per height. Only "none" (the
     # explicit "no video track" marker YouTube uses for audio-only formats)
     # is excluded - many non-YouTube extractors just leave vcodec unset
@@ -135,6 +135,17 @@ def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
     for height in sorted(best_by_height.keys(), reverse=True):
         f = best_by_height[height]
         size = f.get("filesize") or f.get("filesize_approx")
+        size_label = human_size(size)
+        if not size:
+            # NOTE: YouTube's DASH video-only formats routinely report neither
+            # filesize nor filesize_approx at all (confirmed on a real 1080p
+            # stream) - tbr (average kbps) times the video's duration gives a
+            # rough total. Prefixed with "~" so it reads as a rough estimate,
+            # not a reported fact - a genuinely variable bitrate can be off.
+            tbr = f.get("tbr")
+            if tbr and duration:
+                estimate = tbr * 1000 / 8 * duration
+                size_label = f"~{human_size(estimate)}"
         vcodec = (f.get("vcodec") or "?").split(".")[0]
         result.append(
             {
@@ -142,7 +153,7 @@ def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
                 "label": f"{height}p",
                 "ext": f.get("ext", "?"),
                 "vcodec": vcodec,
-                "size": human_size(size),
+                "size": size_label,
             }
         )
     return result
@@ -362,7 +373,7 @@ def probe(url: str) -> dict:
         "uploader": info.get("uploader") or "?",
         "duration": int(info.get("duration") or 0),
         "thumbnail": info.get("thumbnail"),
-        "video": _dedupe_video_formats(formats),
+        "video": _dedupe_video_formats(formats, int(info.get("duration") or 0)),
         "subtitles": _subtitle_list(info),
         "transcript": _transcript_language(info),
         "audio_tracks": _audio_track_list(formats),

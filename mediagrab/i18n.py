@@ -28,6 +28,14 @@ UI = {
             "Birleştirme, dönüştürme ve kapak/süre okuma için gereklidir. "
             "MediaGrab ile birlikte gelmez, sisteminize ayrıca kurulur."
         ),
+        "settings_audio_lang_title": "Varsayılan Ses Parçası",
+        "settings_audio_lang_hint": (
+            "Birden fazla dilde dublajı olan bir video indirdiğinizde, mevcutsa bu dil otomatik "
+            "seçili gelir. Boş bırakırsanız videonun orijinal dili kullanılır. Kanal otomatik "
+            "indirmesi de bu ayarı kullanır."
+        ),
+        "settings_audio_lang_label": "Dil kodu",
+        "settings_audio_lang_placeholder": "örn. tr, en, de",
         "settings_cookies_title": "Çerezler",
         "settings_cookies_hint": (
             "Yaş sınırlı, üyelere özel veya giriş gerektiren içerikler için tarayıcı "
@@ -65,6 +73,11 @@ UI = {
             "Sanal ortamdaki paketler PyPI'daki güncel sürümlerle karşılaştırılır."
         ),
         "deps_update_btn": "Tümünü Güncelle",
+        "settings_feedback_title": "Geri Bildirim",
+        "settings_feedback_hint": (
+            "Bir hata mı buldunuz, yoksa bir özellik mi önereceksiniz? GitHub üzerinden bildirin."
+        ),
+        "settings_feedback_btn": "Hata Bildir / Özellik Öner",
         "footer_legal": (
             "Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan "
             "ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz."
@@ -128,6 +141,14 @@ UI = {
             "Required for merging, converting, and reading cover art/duration. "
             "Not bundled with MediaGrab - you install it on your system separately."
         ),
+        "settings_audio_lang_title": "Default Audio Track",
+        "settings_audio_lang_hint": (
+            "When you download a video that has more than one dub, this language is preselected "
+            "if it's available. Leave it blank to use the video's original language. Channel "
+            "auto-download uses this setting too."
+        ),
+        "settings_audio_lang_label": "Language code",
+        "settings_audio_lang_placeholder": "e.g. tr, en, de",
         "settings_cookies_title": "Cookies",
         "settings_cookies_hint": (
             "Your browser session's cookies can be used for age-restricted, members-only "
@@ -163,6 +184,9 @@ UI = {
         "settings_deps_title": "Python Dependencies",
         "settings_deps_hint": "Packages in the virtual environment, compared against the latest on PyPI.",
         "deps_update_btn": "Update All",
+        "settings_feedback_title": "Feedback",
+        "settings_feedback_hint": "Found a bug, or have a feature to suggest? Report it on GitHub.",
+        "settings_feedback_btn": "Report a Bug / Suggest a Feature",
         "footer_legal": (
             "This tool is for personal use only. You are solely responsible for the copyright "
             "status of downloaded content and compliance with the relevant platform's terms of service."

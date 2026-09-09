@@ -26,6 +26,11 @@ DEFAULT_SETTINGS = {
     "cookie_mode": "off",  # "off" | "browser" | "file"
     "cookie_browser": "firefox",
     "cookie_file": "",
+    # NOTE: empty means "no preference" - the video's own original audio
+    # plays, same as before this setting existed. Not validated against a
+    # known language list on purpose: which codes are valid depends on the
+    # video being downloaded, not on anything MediaGrab can check up front.
+    "default_audio_lang": "",
 }
 
 

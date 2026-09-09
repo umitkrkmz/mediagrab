@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.7.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.7.0)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.8.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.8.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -15,12 +15,12 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 ### Özellikler
 
 - **Ses** — Opus / M4A (yeniden kodlanmadan, kalite kaybı yok) veya MP3 (evrensel uyumluluk için yeniden kodlanır)
-- **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak
-- **Ses parçası (dublaj) seçimi** — birden fazla dilde seslendirilmiş bir video için hangi dili istediğinizi seçin; sadece o dilde dublaj varsa görünür, seçmezseniz orijinal dil iner
+- **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak; YouTube gerçek dosya boyutunu vermediğinde ortalama bit hızından tahmini boyut (`~1.2 GB`) gösterilir
+- **Ses parçası (dublaj) seçimi** — birden fazla dilde seslendirilmiş bir video için hangi dili istediğinizi seçin; sadece o dilde dublaj varsa görünür, seçmezseniz orijinal dil iner. `/settings`'ten bir varsayılan dil kaydedebilirsiniz, böylece her seferinde chip'e tıklamanıza gerek kalmaz — kanal otomatik indirmesi de bu ayarı kullanır
 - **Altyazı** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir
 - **Transkript indirme** — altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkripti (`.txt`) ayrıca indirebilirsiniz
 - **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu; en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
-- **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
+- **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; hız yanında kalan tahmini süre de gösterilir; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
 - **Sayfa içi önizleme** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın
 - **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
 - **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir; birine tıklayıp tek tek indirebilir ya da aralık seçip (ör. 1–19) **tümünü tek tıkla** kuyruğa atabilirsiniz
@@ -36,6 +36,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **Var olan dosyayı koruma** — aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
 - **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için tarayıcı oturumunuzun çerezlerini kullanın: `cookies.txt` dosyası (her yerde çalışır) veya doğrudan tarayıcıdan. Çerezleriniz kopyalanmaz, yalnızca kaynağın adı saklanır
 - **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
+- **Geri bildirim** (`/settings`) — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin
 - **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
 - **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
 - **Türkçe / İngilizce arayüz** — sistem diline göre otomatik, elle de değiştirilebilir
@@ -312,12 +313,12 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 ### Features
 
 - **Audio** — Opus / M4A (remuxed, no re-encoding, no quality loss) or MP3 (re-encoded for universal compatibility)
-- **Video** — every available resolution, auto-merged with audio into an mp4
-- **Audio track (dub) selection** — pick which language you want when a video has more than one dub; only shows up when there actually is one, and picking nothing gets you the original
+- **Video** — every available resolution, auto-merged with audio into an mp4; when YouTube reports no real filesize, an estimate (`~1.2 GB`) is computed from the average bitrate
+- **Audio track (dub) selection** — pick which language you want when a video has more than one dub; only shows up when there actually is one, and picking nothing gets you the original. Save a default language in `/settings` so you don't have to click a chip every time — channel auto-download uses it too
 - **Subtitles** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them
 - **Transcript download** — for videos with subtitles (manual or auto-generated), you can separately download a plain-text transcript (`.txt`)
 - **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link; one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
-- **Persistent download panel** — track multiple downloads at once; progress survives page navigation and even closing and reopening the app
+- **Persistent download panel** — track multiple downloads at once, with an estimated time remaining alongside the speed; progress survives page navigation and even closing and reopening the app
 - **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
 - **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
 - **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to download it individually, or pick a range (e.g. 1–19) and **queue them all with one click**
@@ -333,6 +334,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **Existing files are protected** — if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
 - **Cookie support** (`/settings`) — use your browser session's cookies for age-restricted, members-only or sign-in-required content: either a `cookies.txt` file (works everywhere) or straight from the browser. Your cookies are never copied; only the source name is stored
 - **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
+- **Feedback** (`/settings`) — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature
 - **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
 - **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
 - **Turkish / English UI** — follows your system locale by default, switchable by hand

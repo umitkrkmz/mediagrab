@@ -63,6 +63,7 @@ class StatusResponse(BaseModel):
     state: Literal["basliyor", "indiriliyor", "isleniyor", "bitti", "hata", "iptal"]
     percent: float = 0.0
     speed: Optional[str] = None
+    eta: Optional[str] = None
     ready: bool = False
     error: Optional[str] = None
     # NOTE: 1-based place in the queue while waiting for a free worker slot;
@@ -76,12 +77,14 @@ class SettingsResponse(BaseModel):
     # NOTE: only the PATH is ever exposed - the cookie contents never leave
     # the file, yt-dlp reads them directly from disk.
     cookie_file: str
+    default_audio_lang: str = ""
 
 
 class SettingsUpdateRequest(BaseModel):
     cookie_mode: Literal["off", "browser", "file"] = "off"
     cookie_browser: str = "firefox"
     cookie_file: str = ""
+    default_audio_lang: str = ""
 
 
 class HistoryItem(BaseModel):

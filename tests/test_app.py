@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from mediagrab import app as app_module
 from mediagrab import downloader
+from mediagrab import store
 
 
 @pytest.fixture
@@ -69,6 +70,29 @@ def test_slashes_stay_separators_but_the_rest_is_escaped():
     assert app_module._url_path_quote("Kanal Adi/Video #1.mp4") == "Kanal%20Adi/Video%20%231.mp4"
 
 
+# --- _asset_version -----------------------------------------------------------
+
+
+def test_asset_version_changes_when_the_file_is_touched(tmp_path, monkeypatch):
+    # NOTE: this is the whole point of the cache-buster - a browser that
+    # already cached an old app.js/style.css must see a new URL once the
+    # file actually changes, or a shipped fix can look like it never landed.
+    asset = tmp_path / "app.js"
+    asset.write_text("first version", encoding="utf-8")
+    monkeypatch.setattr(app_module, "STATIC_DIR", str(tmp_path))
+    first = app_module._asset_version("app.js")
+
+    os.utime(asset, (first + 10, first + 10))
+    second = app_module._asset_version("app.js")
+
+    assert second != first
+
+
+def test_asset_version_of_a_missing_file_does_not_raise(tmp_path, monkeypatch):
+    monkeypatch.setattr(app_module, "STATIC_DIR", str(tmp_path))
+    assert app_module._asset_version("does-not-exist.js") == 0
+
+
 # --- _format_speed ----------------------------------------------------------
 
 
@@ -78,6 +102,24 @@ def test_slashes_stay_separators_but_the_rest_is_escaped():
 )
 def test_format_speed(value, expected):
     assert app_module._format_speed(value) == expected
+
+
+# --- _format_eta --------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (None, None),
+        (-1, None),  # NOTE: yt-dlp can report a negative eta before it has enough data to estimate
+        (0, "0:00"),
+        (5, "0:05"),
+        (75, "1:15"),
+        (3661, "1:01:01"),
+    ],
+)
+def test_format_eta(value, expected):
+    assert app_module._format_eta(value) == expected
 
 
 # --- _guess_image_mime ------------------------------------------------------
@@ -298,3 +340,83 @@ def test_transcripts_and_subtitles_show_up_in_history():
 def test_backups_and_partials_never_show_up_in_history():
     for junk in ("part", "ytdl", "mediagrab-bak", "webp"):
         assert junk not in app_module.HISTORY_EXTS
+
+
+# --- _check_channel auto-download -------------------------------------------
+
+
+class _FakeExecutor:
+    """Captures submit() calls instead of actually running them."""
+
+    def __init__(self):
+        self.calls = []
+
+    def submit(self, fn, *args):
+        self.calls.append(args)
+
+
+def test_auto_download_uses_the_saved_default_audio_lang(tmp_path, monkeypatch):
+    # NOTE: this is the case the setting exists for - a channel with mode
+    # "auto" downloads with no user interaction at all, so it's the ONE path
+    # that can't rely on the chip UI pre-selecting anything. Without this
+    # wiring the setting would silently do nothing for auto-downloaded videos.
+    monkeypatch.setattr(store, "SETTINGS_PATH", str(tmp_path / "settings.json"))
+    store.save_settings(default_audio_lang="tr")
+
+    monkeypatch.setattr(
+        downloader,
+        "check_channel_new_videos",
+        lambda url, last_id, limit=15: [{"id": "abc123", "title": "Yeni Bolum", "url": "https://example.com/abc123"}],
+    )
+    monkeypatch.setattr(store, "update_channel", lambda *a, **k: None)
+    fake_executor = _FakeExecutor()
+    monkeypatch.setattr(app_module, "executor", fake_executor)
+
+    channel = {
+        "id": "chan1",
+        "url": "https://example.com/channel",
+        "name": "Test Kanali",
+        "mode": "auto",
+        "choice_kind": "video",
+        "choice": "best",
+        "last_video_id": None,
+    }
+    try:
+        app_module._check_channel(channel)
+        assert len(fake_executor.calls) == 1
+        submitted_args = fake_executor.calls[0]
+        assert submitted_args[-1] == "tr"  # audio_lang is the last positional argument
+    finally:
+        for call in fake_executor.calls:
+            with app_module.jobs_lock:
+                app_module.jobs.pop(call[0], None)
+
+
+def test_auto_download_with_no_saved_default_behaves_as_before(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "SETTINGS_PATH", str(tmp_path / "settings.json"))
+
+    monkeypatch.setattr(
+        downloader,
+        "check_channel_new_videos",
+        lambda url, last_id, limit=15: [{"id": "abc123", "title": "Yeni Bolum", "url": "https://example.com/abc123"}],
+    )
+    monkeypatch.setattr(store, "update_channel", lambda *a, **k: None)
+    fake_executor = _FakeExecutor()
+    monkeypatch.setattr(app_module, "executor", fake_executor)
+
+    channel = {
+        "id": "chan1",
+        "url": "https://example.com/channel",
+        "name": "Test Kanali",
+        "mode": "auto",
+        "choice_kind": "video",
+        "choice": "best",
+        "last_video_id": None,
+    }
+    try:
+        app_module._check_channel(channel)
+        assert fake_executor.calls[0][-1] == ""
+    finally:
+        for call in fake_executor.calls:
+            with app_module.jobs_lock:
+                app_module.jobs.pop(call[0], None)

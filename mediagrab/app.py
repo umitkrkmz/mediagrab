@@ -68,6 +68,21 @@ def service_worker() -> FileResponse:
 TEMPLATES_DIR = resource_dir("templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+
+def _asset_version(filename: str) -> int:
+    # NOTE: browsers were caching app.js/style.css across updates - restarting
+    # the server changes nothing for a tab that never re-fetches them, so a
+    # shipped feature could look entirely missing until a hard refresh. The
+    # file's own mtime as a query string forces a fresh fetch exactly when the
+    # file actually changed, and lets the browser cache it normally otherwise.
+    try:
+        return int(os.path.getmtime(os.path.join(STATIC_DIR, filename)))
+    except OSError:
+        return 0
+
+
+templates.env.globals["asset_version"] = _asset_version
+
 # NOTE: job records live in memory only and are lost on server restart.
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
@@ -156,6 +171,21 @@ def _format_speed(bytes_per_sec) -> Optional[str]:
     return None
 
 
+def _format_eta(seconds) -> Optional[str]:
+    # NOTE: yt-dlp gives this for free in the same progress dict as speed -
+    # None while it hasn't estimated one yet (e.g. right at the start).
+    if seconds is None:
+        return None
+    seconds = int(seconds)
+    if seconds < 0:
+        return None
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 class JobCancelled(Exception):
     """Raised inside a download's progress hook to abort it on request."""
 
@@ -188,11 +218,12 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
                 state="indiriliyor",
                 percent=round(percent, 1),
                 speed=_format_speed(d.get("speed")),
+                eta=_format_eta(d.get("eta")),
             )
         elif status == "finished":
             # NOTE: yt-dlp says "finished" here, but ffmpeg (merge/remux/encode)
             # may not have run yet; we don't count the job as "done" here.
-            _set_job(job_id, state="isleniyor", percent=100.0, speed=None)
+            _set_job(job_id, state="isleniyor", percent=100.0, speed=None, eta=None)
 
     def on_postprocess(d: dict) -> None:
         if d.get("status") == "started":
@@ -201,7 +232,7 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
     # NOTE: a job can be cancelled while it's still queued behind the
     # executor's 3 worker slots, so check once more before starting any work.
     if _job_cancelled(job_id):
-        _set_job(job_id, state="iptal", speed=None)
+        _set_job(job_id, state="iptal", speed=None, eta=None)
         return
 
     try:
@@ -214,14 +245,14 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
         # NOTE: mark it cancelled BEFORE cleaning up - the cleanup waits for
         # the download's file handles to close, and the UI shouldn't sit on
         # "downloading" for those extra seconds.
-        _set_job(job_id, state="iptal", speed=None)
+        _set_job(job_id, state="iptal", speed=None, eta=None)
         _cleanup_partial_download(job_id)
     except Exception as exc:
         # NOTE: yt-dlp wraps hook exceptions, so a cancel can surface here as a
         # generic DownloadError instead of JobCancelled - trust the flag, not
         # the exception type, or a cancelled job would be reported as failed.
         if _job_cancelled(job_id):
-            _set_job(job_id, state="iptal", speed=None)
+            _set_job(job_id, state="iptal", speed=None, eta=None)
             _cleanup_partial_download(job_id)
         else:
             _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
@@ -375,11 +406,17 @@ def _check_channel(channel: dict) -> None:
     if new_videos:
         newest_id = new_videos[0]["id"]
         if channel["mode"] == "auto":
+            # NOTE: read fresh rather than once per batch - a setting changed
+            # mid-run should apply to the next channel checked, not wait for
+            # the next full sweep.
+            audio_lang = store.get_settings()["default_audio_lang"]
             for v in new_videos:
                 job_id = uuid.uuid4().hex
                 with jobs_lock:
                     jobs[job_id] = _new_job_record()
-                executor.submit(_run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [])
+                executor.submit(
+                    _run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [], audio_lang
+                )
         else:
             store.add_pending(
                 [
@@ -450,6 +487,7 @@ def _new_job_record() -> dict:
         "state": "basliyor",
         "percent": 0.0,
         "speed": None,
+        "eta": None,
         "ready": False,
         "error": None,
         "filepath": None,
@@ -567,6 +605,7 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
         cookie_mode=req.cookie_mode,
         cookie_browser=req.cookie_browser,
         cookie_file=(req.cookie_file or "").strip(),
+        default_audio_lang=(req.default_audio_lang or "").strip().lower(),
     )
 
 

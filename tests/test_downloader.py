@@ -70,6 +70,33 @@ def test_unset_vcodec_still_counts_as_video():
     assert result[0]["vcodec"] == "?"
 
 
+def test_size_is_estimated_from_bitrate_when_filesize_is_missing():
+    # NOTE: real numbers from an actual 1080p YouTube DASH stream that reports
+    # neither filesize nor filesize_approx at all - tbr is all there is.
+    formats = [{"format_id": "x", "height": 1080, "tbr": 6463.92, "vcodec": "vp09", "ext": "mp4"}]
+    result = downloader._dedupe_video_formats(formats, duration=2398)
+    expected = downloader.human_size(6463.92 * 1000 / 8 * 2398)
+    assert result[0]["size"] == f"~{expected}"
+
+
+def test_a_real_filesize_is_shown_without_the_estimate_prefix():
+    # NOTE: when yt-dlp DOES report a real filesize, it must win outright -
+    # never overwritten by a guess, and never carry the "~" that would wrongly
+    # imply it's not a reported fact.
+    formats = [{"format_id": "x", "height": 720, "tbr": 900, "filesize": 50_000_000, "vcodec": "avc1", "ext": "mp4"}]
+    result = downloader._dedupe_video_formats(formats, duration=600)
+    assert result[0]["size"] == downloader.human_size(50_000_000)
+    assert "~" not in result[0]["size"]
+
+
+def test_size_is_unknown_without_enough_data_to_estimate():
+    no_tbr = [{"format_id": "x", "height": 480, "vcodec": "vp9", "ext": "webm"}]
+    assert downloader._dedupe_video_formats(no_tbr, duration=600)[0]["size"] == "?"
+
+    no_duration = [{"format_id": "y", "height": 480, "tbr": 700, "vcodec": "vp9", "ext": "webm"}]
+    assert downloader._dedupe_video_formats(no_duration, duration=0)[0]["size"] == "?"
+
+
 # --- _audio_track_list -------------------------------------------------------
 
 

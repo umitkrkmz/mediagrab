@@ -147,6 +147,7 @@ const I18N = {
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
     dockCancel: "İndirmeyi iptal et",
+    etaLabel: "kalan",
     cookieSaved: "Kaydedildi.",
     cookieTestOk: "Çalışıyor — {n} çerez okundu.",
     cookieTestNone: "Çerez kaynağı ayarlanmamış.",
@@ -264,6 +265,7 @@ const I18N = {
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
     dockCancel: "Cancel download",
+    etaLabel: "ETA",
     cookieSaved: "Saved.",
     cookieTestOk: "Working — {n} cookie(s) loaded.",
     cookieTestNone: "No cookie source configured.",
@@ -356,6 +358,7 @@ let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
 let selectedSubtitles = new Set(); // checked subtitle language codes - go along with the next video download
 let selectedAudioLang = ""; // chosen audio-track language code - "" means yt-dlp's own default (the original track)
+let defaultAudioLang = ""; // the user's saved preference from /settings - applied when a video actually has that language
 let transcriptBundleSelected = false; // whether the transcript should also download alongside the next audio/video download
 let lastPending = [];
 let lastChannels = [];
@@ -489,6 +492,15 @@ async function fetchProbe(url) {
   return data;
 }
 
+function applyDefaultAudioLang(info) {
+  // NOTE: only pre-selects when the video actually HAS the saved language -
+  // otherwise selectedAudioLang stays "" and the original plays, exactly as
+  // if no default were configured at all.
+  if (defaultAudioLang && info.audio_tracks?.some((t) => t.code === defaultAudioLang)) {
+    selectedAudioLang = defaultAudioLang;
+  }
+}
+
 async function probe() {
   const url = urlInput.value.trim();
   if (!url) return;
@@ -507,6 +519,7 @@ async function probe() {
       lastPlaylist = { url, data };
       renderPlaylist();
     } else {
+      applyDefaultAudioLang(data);
       lastProbe = { url, info: data };
       renderCard(url, data);
     }
@@ -526,6 +539,7 @@ async function selectPlaylistEntry(entry) {
   transcriptBundleSelected = false;
   try {
     const data = await fetchProbe(entry.url);
+    applyDefaultAudioLang(data);
     lastProbe = { url: entry.url, info: data };
     renderCard(entry.url, data);
   } catch (err) {
@@ -945,7 +959,9 @@ function dockMetaText(job) {
     return `${t().queuePosition.replace("{n}", job.queue_position)}`;
   }
   const label = t().states[job.state] || job.state;
-  return `${label}${job.speed ? " · " + job.speed : ""}`;
+  const speedPart = job.speed ? ` · ${job.speed}` : "";
+  const etaPart = job.eta ? ` · ${t().etaLabel} ${job.eta}` : "";
+  return `${label}${speedPart}${etaPart}`;
 }
 
 function dockRowHtml(job) {
@@ -986,6 +1002,7 @@ async function cancelDockJob(jobId) {
     // shouldn't sit there looking unresponsive while the request is in flight.
     job.state = "iptal";
     job.speed = null;
+    job.eta = null;
     renderDock();
   }
   try {
@@ -1705,6 +1722,9 @@ const cookieBrowserSelect = document.getElementById("cookie-browser-select");
 const cookieSaveBtn = document.getElementById("cookie-save-btn");
 const cookieTestBtn = document.getElementById("cookie-test-btn");
 const cookieStatus = document.getElementById("cookie-status");
+const defaultAudioLangInput = document.getElementById("default-audio-lang-input");
+const defaultAudioLangSaveBtn = document.getElementById("default-audio-lang-save-btn");
+const defaultAudioLangStatus = document.getElementById("default-audio-lang-status");
 
 let cookieMode = "off";
 
@@ -1725,16 +1745,18 @@ function showCookieStatus(text, kind) {
   cookieStatus.classList.add(kind);
 }
 
-async function loadCookieSettings() {
-  if (!cookieModes) return;
+async function loadSettings() {
+  // NOTE: fetched on every page (not just /settings) - defaultAudioLang is
+  // needed wherever a video gets probed, which is the home page, not here.
   try {
-    const [settingsRes, browsersRes] = await Promise.all([
-      fetch("/api/settings"),
-      fetch("/api/cookie-browsers"),
-    ]);
-    const settings = await settingsRes.json();
-    const browsers = await browsersRes.json();
+    const res = await fetch("/api/settings");
+    const settings = await res.json();
+    defaultAudioLang = settings.default_audio_lang || "";
+    if (defaultAudioLangInput) defaultAudioLangInput.value = defaultAudioLang;
 
+    if (!cookieModes) return;
+    const browsersRes = await fetch("/api/cookie-browsers");
+    const browsers = await browsersRes.json();
     if (cookieBrowserSelect) {
       cookieBrowserSelect.innerHTML = (browsers.browsers || [])
         .map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`)
@@ -1749,6 +1771,19 @@ async function loadCookieSettings() {
   }
 }
 
+// NOTE: POST /api/settings replaces the whole settings object, not just the
+// field being changed - so every save action (cookies here, the default
+// audio language below) must resend every field's CURRENT value, or saving
+// one would silently wipe out the other.
+function collectSettingsPayload() {
+  return {
+    cookie_mode: cookieMode,
+    cookie_browser: cookieBrowserSelect?.value || "firefox",
+    cookie_file: cookieFileInput?.value || "",
+    default_audio_lang: defaultAudioLangInput?.value || "",
+  };
+}
+
 async function saveCookieSettings() {
   if (!cookieSaveBtn) return;
   cookieSaveBtn.disabled = true;
@@ -1756,11 +1791,7 @@ async function saveCookieSettings() {
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cookie_mode: cookieMode,
-        cookie_browser: cookieBrowserSelect?.value || "firefox",
-        cookie_file: cookieFileInput?.value || "",
-      }),
+      body: JSON.stringify(collectSettingsPayload()),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1772,6 +1803,37 @@ async function saveCookieSettings() {
     showCookieStatus(t().errNetwork + err.message, "bad");
   } finally {
     cookieSaveBtn.disabled = false;
+  }
+}
+
+function showDefaultAudioLangStatus(text, kind) {
+  if (!defaultAudioLangStatus) return;
+  defaultAudioLangStatus.textContent = text;
+  defaultAudioLangStatus.classList.remove("hidden", "ok", "bad");
+  defaultAudioLangStatus.classList.add(kind);
+}
+
+async function saveDefaultAudioLang() {
+  if (!defaultAudioLangSaveBtn) return;
+  defaultAudioLangSaveBtn.disabled = true;
+  try {
+    const payload = collectSettingsPayload();
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showDefaultAudioLangStatus(data.detail || t().cookieTestFailed, "bad");
+      return;
+    }
+    defaultAudioLang = payload.default_audio_lang;
+    showDefaultAudioLangStatus(t().cookieSaved, "ok");
+  } catch (err) {
+    showDefaultAudioLangStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    defaultAudioLangSaveBtn.disabled = false;
   }
 }
 
@@ -1805,6 +1867,7 @@ cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
 });
 cookieSaveBtn?.addEventListener("click", saveCookieSettings);
 cookieTestBtn?.addEventListener("click", testCookieSettings);
+defaultAudioLangSaveBtn?.addEventListener("click", saveDefaultAudioLang);
 
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
@@ -1890,7 +1953,7 @@ loadYtdlpVersion();
 loadFfmpegVersion();
 loadDependencies();
 wireDepsUpdateBtn();
-loadCookieSettings();
+loadSettings();
 resumeTrackedDockJobs();
 
 // NOTE: lets an external trigger (e.g. a browser extension/bookmarklet)
