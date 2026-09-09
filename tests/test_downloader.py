@@ -70,6 +70,92 @@ def test_unset_vcodec_still_counts_as_video():
     assert result[0]["vcodec"] == "?"
 
 
+# --- _audio_track_list -------------------------------------------------------
+
+
+def test_no_chips_when_there_is_only_one_audio_language():
+    # NOTE: this is the common case (almost every video) - no point showing a
+    # single-option chip row.
+    formats = [{"vcodec": "none", "language": "en", "language_preference": 10}]
+    assert downloader._audio_track_list(formats) == []
+
+
+def test_original_track_is_flagged_by_the_highest_language_preference():
+    # NOTE: mirrors a real 18-language video - yt-dlp marked the original
+    # English track pref=10 and every dub -1.
+    formats = [
+        {"vcodec": "none", "language": "en", "language_preference": 10},
+        {"vcodec": "none", "language": "tr", "language_preference": -1},
+        {"vcodec": "none", "language": "de", "language_preference": -1},
+    ]
+    assert downloader._audio_track_list(formats) == [
+        {"code": "de", "is_default": False},
+        {"code": "en", "is_default": True},
+        {"code": "tr", "is_default": False},
+    ]
+
+
+def test_video_formats_and_storyboards_are_not_languages():
+    formats = [
+        {"vcodec": "avc1", "acodec": "none", "language": "en"},
+        {"vcodec": "none", "format_note": "storyboard", "language": "en"},
+        {"vcodec": "none", "language": "en", "language_preference": 10},
+        {"vcodec": "none", "language": "tr", "language_preference": -1},
+    ]
+    assert downloader._audio_track_list(formats) == [
+        {"code": "en", "is_default": True},
+        {"code": "tr", "is_default": False},
+    ]
+
+
+def test_formats_without_a_language_tag_are_ignored():
+    formats = [
+        {"vcodec": "none", "language": None},
+        {"vcodec": "none", "language": "en", "language_preference": 10},
+        {"vcodec": "none", "language": "tr", "language_preference": -1},
+    ]
+    assert downloader._audio_track_list(formats) == [
+        {"code": "en", "is_default": True},
+        {"code": "tr", "is_default": False},
+    ]
+
+
+# --- audio_lang wired into the format selector -------------------------------
+
+
+@pytest.mark.parametrize("choice", ["opus", "m4a", "mp3"])
+def test_no_audio_lang_leaves_the_selector_untouched(choice):
+    # NOTE: byte-for-byte the same string as before this feature existed -
+    # the regression guard for "no dub requested, nothing should change".
+    with_lang_support = downloader._audio_opts(choice, audio_lang="")
+    assert with_lang_support["format"] == downloader._audio_opts(choice)["format"]
+
+
+@pytest.mark.parametrize("choice", ["opus", "m4a", "mp3"])
+def test_audio_lang_is_tried_before_falling_back(choice):
+    opts = downloader._audio_opts(choice, audio_lang="tr")
+    fmt = opts["format"]
+    assert "[language=tr]" in fmt
+    # NOTE: the original, language-agnostic chain must still be there at the
+    # end - an unavailable dub should degrade to "best audio", not fail.
+    assert fmt.endswith(downloader._audio_opts(choice)["format"])
+
+
+def test_video_opts_without_audio_lang_is_unchanged():
+    assert downloader._video_opts("617")["format"] == downloader._video_opts("617", audio_lang="")["format"]
+    assert downloader._video_opts("617")["format"] == "617+bestaudio/617"
+
+
+def test_video_opts_with_audio_lang_falls_back_to_default_audio():
+    fmt = downloader._video_opts("617", audio_lang="tr")["format"]
+    assert fmt == "617+bestaudio[language=tr]/bestaudio/617"
+
+
+def test_video_opts_best_sentinel_also_respects_audio_lang():
+    fmt = downloader._video_opts("best", audio_lang="tr")["format"]
+    assert fmt == "bestvideo+bestaudio[language=tr]/bestaudio/best"
+
+
 # --- _subtitle_list / _transcript_language ----------------------------------
 
 

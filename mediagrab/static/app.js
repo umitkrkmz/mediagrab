@@ -113,6 +113,9 @@ const I18N = {
     resolveBtn: "Çözümle",
     resolveBtnBusy: "...",
     sectionAudio: "Ses",
+    sectionAudioTrack: "Ses Parçası",
+    audioTrackHint: "Bu videoda birden fazla dil/dublaj var — ses veya video indirirken uygulanır",
+    audioTrackDefaultSuffix: "(orijinal)",
     sectionVideo: "Video",
     sectionSubtitle: "Altyazı",
     subtitleHint: "Seçtiğiniz video ile birlikte, aynı dosya adıyla iner",
@@ -227,6 +230,9 @@ const I18N = {
     resolveBtn: "Resolve",
     resolveBtnBusy: "...",
     sectionAudio: "Audio",
+    sectionAudioTrack: "Audio Track",
+    audioTrackHint: "This video has more than one language/dub — applies when you download audio or video",
+    audioTrackDefaultSuffix: "(original)",
     sectionVideo: "Video",
     sectionSubtitle: "Subtitles",
     subtitleHint: "Downloads together with the video you pick, using the same filename",
@@ -349,6 +355,7 @@ let lastProbe = null; // { url, info } - currently shown single-video detail
 let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
 let selectedSubtitles = new Set(); // checked subtitle language codes - go along with the next video download
+let selectedAudioLang = ""; // chosen audio-track language code - "" means yt-dlp's own default (the original track)
 let transcriptBundleSelected = false; // whether the transcript should also download alongside the next audio/video download
 let lastPending = [];
 let lastChannels = [];
@@ -491,6 +498,7 @@ async function probe() {
   lastProbe = null;
   lastPlaylist = null;
   selectedSubtitles = new Set();
+  selectedAudioLang = "";
   transcriptBundleSelected = false;
 
   try {
@@ -514,6 +522,7 @@ async function selectPlaylistEntry(entry) {
   card.classList.remove("hidden");
   card.innerHTML = `<div class="progress-status">${t().resolveBtnBusy}</div>`;
   selectedSubtitles = new Set();
+  selectedAudioLang = "";
   transcriptBundleSelected = false;
   try {
     const data = await fetchProbe(entry.url);
@@ -548,6 +557,24 @@ function renderCard(url, info) {
     </button>`;
     })
     .join("");
+
+  let audioTrackHtml = "";
+  if (info.audio_tracks && info.audio_tracks.length > 0) {
+    const chipsHtml = info.audio_tracks
+      .map((track) => {
+        // NOTE: single-choice, unlike the subtitle chips - "" (nothing picked
+        // yet) is visually shown as the default track being selected, since
+        // that's exactly what happens on the backend when nothing is chosen.
+        const isSelected = selectedAudioLang ? selectedAudioLang === track.code : track.is_default;
+        const suffix = track.is_default ? ` ${t().audioTrackDefaultSuffix}` : "";
+        return `<button type="button" class="subtitle-chip audio-track-chip${isSelected ? " selected" : ""}" data-lang="${escapeHtml(track.code)}">${escapeHtml(track.code.toUpperCase())}${suffix}</button>`;
+      })
+      .join("");
+    audioTrackHtml = `
+    <div class="section-title">${t().sectionAudioTrack}</div>
+    <div class="subtitle-hint">${t().audioTrackHint}</div>
+    <div class="subtitle-grid" id="audio-track-grid">${chipsHtml}</div>`;
+  }
 
   let videoHtml = info.video
     .map(
@@ -629,6 +656,7 @@ function renderCard(url, info) {
       <summary>${t().advancedOptions}</summary>
       <div class="section-title">${t().sectionAudio}</div>
       ${audioHtml}
+      ${audioTrackHtml}
       <div class="section-title">${t().sectionVideo}</div>
       ${videoHtml}
       ${subtitleHtml}
@@ -639,12 +667,13 @@ function renderCard(url, info) {
   card.querySelectorAll(".option, .quick-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const subs = btn.dataset.kind === "video" ? Array.from(selectedSubtitles) : [];
+      const audioLang = btn.dataset.kind === "video" || btn.dataset.kind === "audio" ? selectedAudioLang : "";
       let choice = btn.dataset.choice;
       if (btn.dataset.kind === "transcript") {
         const tsCheck = document.getElementById("transcript-timestamps");
         choice = `${choice}:${tsCheck && tsCheck.checked ? "ts" : "plain"}`;
       }
-      startDownload(url, btn.dataset.kind, choice, subs, info.title);
+      startDownload(url, btn.dataset.kind, choice, subs, info.title, audioLang);
 
       // NOTE: transcript has no yt-dlp-level way to bundle into the same
       // download as audio/video (it needs skip_download: True, the opposite
@@ -660,7 +689,7 @@ function renderCard(url, info) {
     });
   });
 
-  card.querySelectorAll(".subtitle-chip:not(.transcript-bundle-chip)").forEach((chip) => {
+  card.querySelectorAll(".subtitle-chip:not(.transcript-bundle-chip):not(.audio-track-chip)").forEach((chip) => {
     chip.addEventListener("click", () => {
       const code = chip.dataset.choice;
       if (selectedSubtitles.has(code)) {
@@ -670,6 +699,15 @@ function renderCard(url, info) {
         selectedSubtitles.add(code);
         chip.classList.add("selected");
       }
+    });
+  });
+
+  // NOTE: single-choice unlike the subtitle chips above - picking one clears
+  // any other selection instead of toggling independently.
+  card.querySelectorAll(".audio-track-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      selectedAudioLang = chip.dataset.lang;
+      card.querySelectorAll(".audio-track-chip").forEach((c) => c.classList.toggle("selected", c === chip));
     });
   });
 
@@ -784,12 +822,12 @@ function queuePlaylistRange(kind, choice) {
   }
 }
 
-async function startDownload(url, kind, choice, subtitleLangs, title) {
+async function startDownload(url, kind, choice, subtitleLangs, title, audioLang) {
   try {
     const res = await fetch("/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, kind, choice, subtitle_langs: subtitleLangs || [] }),
+      body: JSON.stringify({ url, kind, choice, subtitle_langs: subtitleLangs || [], audio_lang: audioLang || "" }),
     });
     const data = await res.json();
     if (!res.ok) {

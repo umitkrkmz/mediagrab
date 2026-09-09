@@ -11,6 +11,12 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.7.0] — 2026-09-09
+
+#### Eklenen
+
+- **Ses parçası (dublaj) seçimi** — bir video birden fazla dilde seslendirilmişse (ör. 18 dile dublajlı bir belgesel), artık hangisini istediğinizi seçebilirsiniz. Video ile birlikte "Ses Parçası" bölümünde diller chip olarak listelenir; hiçbirini seçmezseniz videonun orijinal dili iner — önceki davranış aynen korunuyor. Aynı seçim tek başına ses indirirken (Opus/M4A/MP3) de geçerli. Bölüm yalnızca videoda gerçekten birden fazla dil varsa görünür, çoğu videoda hiç çıkmaz. Seçtiğiniz dil o indirme için mevcut değilse hata vermez, videonun orijinal sesine sessizce döner
+
 ### [1.6.1] — 2026-08-25
 
 #### Düzeltilen
@@ -147,6 +153,12 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.7.0] — 2026-09-09
+
+#### Added
+
+- **Audio track (dub) selection** — when a video carries more than one language track (e.g. a documentary dubbed into 18 languages), you can now pick which one you want. A new "Audio Track" section lists the available languages as chips alongside the video; pick nothing and you get the video's original language, exactly as before. The same choice applies to a standalone audio download (Opus/M4A/MP3) too. The section only appears when a video actually has more than one language — most videos won't show it at all. If your chosen language isn't available for a given download, it quietly falls back to the video's original audio instead of failing
 
 ### [1.6.1] — 2026-08-25
 

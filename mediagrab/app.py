@@ -166,7 +166,7 @@ def _job_cancelled(job_id: str) -> bool:
         return bool(job and job.get("cancel_requested"))
 
 
-def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str]) -> None:
+def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str], audio_lang: str = "") -> None:
     def on_progress(d: dict) -> None:
         # NOTE: this hook is the only place we get to interrupt yt-dlp - it
         # runs between chunks, and an exception raised here aborts the
@@ -206,7 +206,9 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
 
     try:
         _set_job(job_id, state="indiriliyor")
-        filepath = downloader.download(url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs)
+        filepath = downloader.download(
+            url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs, audio_lang=audio_lang
+        )
         _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
     except JobCancelled:
         # NOTE: mark it cancelled BEFORE cleaning up - the cleanup waits for
@@ -473,7 +475,7 @@ def start_download(req: DownloadRequest) -> dict:
     job_id = uuid.uuid4().hex
     with jobs_lock:
         jobs[job_id] = _new_job_record()
-    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs)
+    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_lang)
     return {"job_id": job_id}
 
 

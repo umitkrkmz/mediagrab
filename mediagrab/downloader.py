@@ -148,6 +148,31 @@ def _dedupe_video_formats(formats: list[dict]) -> list[dict]:
     return result
 
 
+def _audio_track_list(formats: list[dict]) -> list[dict]:
+    # NOTE: only meaningful when a video ships more than one language dub
+    # (YouTube exposes each as a separate audio-only format sharing a
+    # "language" code). yt-dlp marks the original with a higher
+    # language_preference than any dub - confirmed on a real 18-language
+    # video, where English (the original) carried pref=10 and every dub -1.
+    langs: dict[str, float] = {}
+    for f in formats:
+        if f.get("vcodec") != "none" or f.get("format_note") == "storyboard":
+            continue
+        lang = f.get("language")
+        if not lang:
+            continue
+        pref = f.get("language_preference") or -1
+        langs[lang] = max(pref, langs.get(lang, pref))
+
+    if len(langs) < 2:
+        return []
+    default_lang = max(langs, key=langs.get)
+    return sorted(
+        [{"code": code, "is_default": code == default_lang} for code in langs],
+        key=lambda t: t["code"],
+    )
+
+
 def _subtitle_list(info: dict) -> list[dict]:
     # NOTE: manually-provided subtitles are listed first when present.
     # Automatic captions (automatic_captions) are deliberately NOT listed
@@ -340,26 +365,42 @@ def probe(url: str) -> dict:
         "video": _dedupe_video_formats(formats),
         "subtitles": _subtitle_list(info),
         "transcript": _transcript_language(info),
+        "audio_tracks": _audio_track_list(formats),
     }
 
 
-def _audio_opts(choice: str) -> dict:
+def _audio_opts(choice: str, audio_lang: str = "") -> dict:
     # NOTE: "remux_video" only works as the --remux-video CLI argument; when
     # using yt-dlp as a library the postprocessor must be added manually,
     # otherwise it silently does nothing and the file stays in its original
     # container (e.g. webm).
     opts: dict = {"postprocessors": []}
+    # NOTE: when a language is requested, it's tried WITH the preferred codec
+    # first, then alone (any codec), before falling back to the original,
+    # language-agnostic chain - so an unavailable dub degrades to "best audio
+    # in some language" rather than failing the whole download. Left out
+    # entirely when audio_lang is empty, so the selector string here is
+    # byte-for-byte the same as before this feature existed.
+    lang = f"[language={audio_lang}]" if audio_lang else ""
     if choice == "opus":
         # NOTE: YouTube's audio is already Opus; remuxing only changes the
         # container, no re-encoding. Do NOT use
         # FFmpegExtractAudio(preferredcodec="opus").
-        opts["format"] = "bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio"
+        opts["format"] = (
+            f"bestaudio[acodec=opus]{lang}/bestaudio{lang}/bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio"
+            if lang
+            else "bestaudio[acodec=opus]/bestaudio[ext=webm]/bestaudio"
+        )
         opts["postprocessors"].append({"key": "FFmpegVideoRemuxer", "preferedformat": "opus"})
     elif choice == "m4a":
-        opts["format"] = "bestaudio[ext=m4a]/bestaudio[acodec^=mp4a]/bestaudio"
+        opts["format"] = (
+            f"bestaudio[ext=m4a]{lang}/bestaudio{lang}/bestaudio[ext=m4a]/bestaudio[acodec^=mp4a]/bestaudio"
+            if lang
+            else "bestaudio[ext=m4a]/bestaudio[acodec^=mp4a]/bestaudio"
+        )
         opts["postprocessors"].append({"key": "FFmpegVideoRemuxer", "preferedformat": "m4a"})
     elif choice == "mp3":
-        opts["format"] = "bestaudio/best"
+        opts["format"] = f"bestaudio{lang}/bestaudio/best" if lang else "bestaudio/best"
         opts["postprocessors"].append(
             {
                 "key": "FFmpegExtractAudio",
@@ -459,11 +500,14 @@ def _vtt_to_text(vtt_path: str, timestamps: bool = False) -> str:
     return "\n".join(f"[{ts}] {text}" for ts, text in deduped)
 
 
-def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None) -> dict:
+def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None, audio_lang: str = "") -> dict:
     # NOTE: "best" is a sentinel (not a real yt-dlp format_id) used by channel
     # auto-download, where we can't probe a specific format_id per-video ahead
     # of time - it maps to a generic, always-valid selector instead.
-    fmt = "bestvideo+bestaudio/best" if format_id == "best" else f"{format_id}+bestaudio/{format_id}"
+    # NOTE: falls back to plain "bestaudio" if the requested dub isn't there,
+    # rather than failing the download over a missing language track.
+    audio_sel = f"bestaudio[language={audio_lang}]/bestaudio" if audio_lang else "bestaudio"
+    fmt = f"bestvideo+{audio_sel}/best" if format_id == "best" else f"{format_id}+{audio_sel}/{format_id}"
     opts = {
         "format": fmt,
         "merge_output_format": "mp4",
@@ -617,11 +661,12 @@ def download(
     progress_hook: Callable[[dict], None],
     postprocessor_hook: Callable[[dict], None],
     subtitle_langs: Optional[list[str]] = None,
+    audio_lang: str = "",
 ) -> str:
     if kind == "audio":
-        opts = _audio_opts(choice)
+        opts = _audio_opts(choice, audio_lang)
     elif kind == "video":
-        opts = _video_opts(choice, subtitle_langs)
+        opts = _video_opts(choice, subtitle_langs, audio_lang)
     elif kind == "subtitle":
         opts = _subtitle_opts(choice)
     elif kind == "transcript":

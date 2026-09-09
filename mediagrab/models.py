@@ -50,6 +50,9 @@ class DownloadRequest(BaseModel):
     kind: Literal["audio", "video", "subtitle", "transcript"]
     choice: str
     subtitle_langs: list[str] = []
+    # NOTE: empty means "no preference" - yt-dlp's own default (the original
+    # audio track) applies, same as before this field existed.
+    audio_lang: str = ""
 
 
 class DownloadStartResponse(BaseModel):

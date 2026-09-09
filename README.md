@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.6.1](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.6.1)** · **[Changelog](CHANGELOG.md)**
+**[🇹🇷 Türkçe](#türkçe) · [🇬🇧 English](#english)** · **[Latest Release: v1.7.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v1.7.0)** · **[Changelog](CHANGELOG.md)**
 
 ---
 
@@ -16,6 +16,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 
 - **Ses** — Opus / M4A (yeniden kodlanmadan, kalite kaybı yok) veya MP3 (evrensel uyumluluk için yeniden kodlanır)
 - **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak
+- **Ses parçası (dublaj) seçimi** — birden fazla dilde seslendirilmiş bir video için hangi dili istediğinizi seçin; sadece o dilde dublaj varsa görünür, seçmezseniz orijinal dil iner
 - **Altyazı** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir
 - **Transkript indirme** — altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkripti (`.txt`) ayrıca indirebilirsiniz
 - **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu; en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
@@ -312,6 +313,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 
 - **Audio** — Opus / M4A (remuxed, no re-encoding, no quality loss) or MP3 (re-encoded for universal compatibility)
 - **Video** — every available resolution, auto-merged with audio into an mp4
+- **Audio track (dub) selection** — pick which language you want when a video has more than one dub; only shows up when there actually is one, and picking nothing gets you the original
 - **Subtitles** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them
 - **Transcript download** — for videos with subtitles (manual or auto-generated), you can separately download a plain-text transcript (`.txt`)
 - **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link; one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
