@@ -10,7 +10,7 @@ MediaGrab tek kişilik, gönüllü bakım altında bir proje. PR'lar memnuniyetl
 
 ### Geliştirme ortamı
 
-Kurulum ve test komutları için [README → Elle Kurulum](README.md#yöntem-b-elle-kurulum-kaynak-koddan-her-platform) ve [README → Testler](README.md#testler) bölümlerine bakın. Özetle: sanal ortam, `pip install -r requirements-dev.txt`, `pytest`.
+Kurulum ve test komutları için [Kılavuz → Elle Kurulum](docs/README.tr.md#yöntem-b-elle-kurulum-kaynak-koddan-her-platform) ve [Kılavuz → Testler](docs/README.tr.md#testler) bölümlerine bakın. Özetle: sanal ortam, `pip install -r requirements-dev.txt`, `pytest`.
 
 ### Mimari kurallar (PR'lar bunlara uymalı)
 
@@ -38,7 +38,7 @@ MediaGrab is a one-person, volunteer-maintained project. PRs are welcome; for an
 
 ### Development setup
 
-See [README → Manual Install](README.md#method-b-manual-install-from-source-any-platform) and [README → Tests](README.md#tests) for setup and test commands. In short: a virtualenv, `pip install -r requirements-dev.txt`, `pytest`.
+See [Guide → Manual Install](docs/README.en.md#method-b-manual-install-from-source-any-platform) and [Guide → Tests](docs/README.en.md#tests) for setup and test commands. In short: a virtualenv, `pip install -r requirements-dev.txt`, `pytest`.
 
 ### Architectural rules (PRs need to follow these)
 

@@ -51,8 +51,10 @@ class DownloadRequest(BaseModel):
     choice: str
     subtitle_langs: list[str] = []
     # NOTE: empty means "no preference" - yt-dlp's own default (the original
-    # audio track) applies, same as before this field existed.
-    audio_lang: str = ""
+    # audio track) applies. One entry behaves as before this field existed;
+    # two or more requests a single file with all of them as separate,
+    # selectable audio tracks (video downloads only - see downloader.py).
+    audio_langs: list[str] = []
 
 
 class DownloadStartResponse(BaseModel):

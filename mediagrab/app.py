@@ -94,7 +94,7 @@ executor = ThreadPoolExecutor(max_workers=3)
 # NOTE: we don't keep a separate DB for download history; the indirilenler/
 # folder already holds the actual files, so the history list is built by
 # reading that folder.
-HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "srt", "txt"}
+HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "mkv", "srt", "txt"}
 
 
 def _detect_system_lang() -> str:
@@ -196,7 +196,9 @@ def _job_cancelled(job_id: str) -> bool:
         return bool(job and job.get("cancel_requested"))
 
 
-def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str], audio_lang: str = "") -> None:
+def _run_job(
+    job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str], audio_langs: Optional[list[str]] = None
+) -> None:
     def on_progress(d: dict) -> None:
         # NOTE: this hook is the only place we get to interrupt yt-dlp - it
         # runs between chunks, and an exception raised here aborts the
@@ -238,7 +240,7 @@ def _run_job(job_id: str, url: str, kind: str, choice: str, subtitle_langs: list
     try:
         _set_job(job_id, state="indiriliyor")
         filepath = downloader.download(
-            url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs, audio_lang=audio_lang
+            url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs, audio_langs=audio_langs
         )
         _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
     except JobCancelled:
@@ -409,13 +411,16 @@ def _check_channel(channel: dict) -> None:
             # NOTE: read fresh rather than once per batch - a setting changed
             # mid-run should apply to the next channel checked, not wait for
             # the next full sweep.
+            # NOTE: multi-track download is manual-only (see downloader.py) -
+            # auto-download always gets at most this one saved language.
             audio_lang = store.get_settings()["default_audio_lang"]
+            audio_langs = [audio_lang] if audio_lang else []
             for v in new_videos:
                 job_id = uuid.uuid4().hex
                 with jobs_lock:
                     jobs[job_id] = _new_job_record()
                 executor.submit(
-                    _run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [], audio_lang
+                    _run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [], audio_langs
                 )
         else:
             store.add_pending(
@@ -463,6 +468,11 @@ def channels_page(request: Request, lang: Optional[str] = None):
 @app.get("/supported-sites")
 def supported_sites_page(request: Request, lang: Optional[str] = None):
     return templates.TemplateResponse(request, "supported_sites.html", _page_context(request, lang, "sites"))
+
+
+@app.get("/about")
+def about_page(request: Request, lang: Optional[str] = None):
+    return templates.TemplateResponse(request, "about.html", _page_context(request, lang, "about"))
 
 
 @app.post("/api/probe")
@@ -513,7 +523,7 @@ def start_download(req: DownloadRequest) -> dict:
     job_id = uuid.uuid4().hex
     with jobs_lock:
         jobs[job_id] = _new_job_record()
-    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_lang)
+    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs)
     return {"job_id": job_id}
 
 

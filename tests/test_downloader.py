@@ -97,6 +97,50 @@ def test_size_is_unknown_without_enough_data_to_estimate():
     assert downloader._dedupe_video_formats(no_duration, duration=0)[0]["size"] == "?"
 
 
+def test_a_wildly_inflated_tbr_is_capped_by_a_same_height_sibling():
+    # NOTE: real case, from an actual video - the format with no confirmed
+    # filesize (the one _dedupe_video_formats picks, since it wins on raw tbr)
+    # reported a tbr ~3x every OTHER 1080p format's, despite same codec family
+    # and framerate. Uncapped, its estimate came out bigger than the video's
+    # ENTIRE downloaded file (video+audio+thumbnail) - a logical impossibility
+    # that's what this guards against.
+    formats = [
+        # wins the height slot on tbr, but has no confirmed size of its own
+        {"format_id": "617", "height": 1080, "tbr": 8467.119, "vcodec": "vp09", "ext": "mp4"},
+        # a real sibling at the same height whose filesize IS confirmed
+        {"format_id": "299", "height": 1080, "tbr": 3969.469, "vcodec": "avc1",
+         "ext": "mp4", "filesize": 1_189_581_036},
+    ]
+    result = downloader._dedupe_video_formats(formats, duration=2398)
+    assert result[0]["format_id"] == "617"  # selection itself is unchanged
+    # NOTE: capped at the sibling's real size, not the raw (much bigger) tbr
+    # estimate - human_size(1_189_581_036) is "1135 MB" / "1 GB" territory,
+    # nowhere near the ~2.4 GB the uncapped formula would have produced.
+    assert result[0]["size"] == f"~{downloader.human_size(1_189_581_036)}"
+
+
+def test_the_cap_never_makes_the_estimate_bigger():
+    # NOTE: the cap is a ceiling, not a floor - if the raw tbr estimate is
+    # already smaller than the biggest confirmed sibling, leave it alone.
+    formats = [
+        {"format_id": "x", "height": 480, "tbr": 100, "vcodec": "vp9", "ext": "webm"},
+        {"format_id": "y", "height": 480, "tbr": 90, "vcodec": "avc1", "ext": "mp4", "filesize": 999_999_999_999},
+    ]
+    result = downloader._dedupe_video_formats(formats, duration=600)
+    uncapped = 100 * 1000 / 8 * 600
+    assert result[0]["size"] == f"~{downloader.human_size(uncapped)}"
+
+
+def test_no_cap_applies_when_no_sibling_has_a_confirmed_size():
+    # NOTE: regression guard - a video where NOTHING at that height has a
+    # real filesize must fall back to the plain, uncapped tbr estimate
+    # exactly as before this fix, not silently disappear.
+    formats = [{"format_id": "x", "height": 1080, "tbr": 8467.119, "vcodec": "vp09", "ext": "mp4"}]
+    result = downloader._dedupe_video_formats(formats, duration=2398)
+    uncapped = 8467.119 * 1000 / 8 * 2398
+    assert result[0]["size"] == f"~{downloader.human_size(uncapped)}"
+
+
 # --- _audio_track_list -------------------------------------------------------
 
 
@@ -168,19 +212,60 @@ def test_audio_lang_is_tried_before_falling_back(choice):
     assert fmt.endswith(downloader._audio_opts(choice)["format"])
 
 
-def test_video_opts_without_audio_lang_is_unchanged():
-    assert downloader._video_opts("617")["format"] == downloader._video_opts("617", audio_lang="")["format"]
+def test_video_opts_without_audio_langs_is_unchanged():
+    assert downloader._video_opts("617")["format"] == downloader._video_opts("617", audio_langs=[])["format"]
     assert downloader._video_opts("617")["format"] == "617+bestaudio/617"
+    assert downloader._video_opts("617")["merge_output_format"] == "mp4"
+    assert "allow_multiple_audio_streams" not in downloader._video_opts("617")
 
 
-def test_video_opts_with_audio_lang_falls_back_to_default_audio():
-    fmt = downloader._video_opts("617", audio_lang="tr")["format"]
-    assert fmt == "617+bestaudio[language=tr]/bestaudio/617"
+def test_video_opts_with_one_audio_lang_falls_back_to_default_audio():
+    opts = downloader._video_opts("617", audio_langs=["tr"])
+    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/617"
+    # NOTE: a single language is exactly the pre-multi-track behaviour - still
+    # mp4, still no multistreams flag.
+    assert opts["merge_output_format"] == "mp4"
+    assert "allow_multiple_audio_streams" not in opts
 
 
-def test_video_opts_best_sentinel_also_respects_audio_lang():
-    fmt = downloader._video_opts("best", audio_lang="tr")["format"]
+def test_video_opts_best_sentinel_also_respects_audio_langs():
+    fmt = downloader._video_opts("best", audio_langs=["tr"])["format"]
     assert fmt == "bestvideo+bestaudio[language=tr]/bestaudio/best"
+
+
+# --- multiple audio tracks in one file ---------------------------------------
+
+
+def test_two_audio_langs_chains_both_into_one_selector():
+    opts = downloader._video_opts("617", audio_langs=["tr", "en"])
+    assert opts["format"] == "617+bestaudio[language=tr]+bestaudio[language=en]/617+bestaudio"
+
+
+def test_two_audio_langs_switches_the_container_to_mkv():
+    # NOTE: mp4 CAN hold multiple audio tracks, but mkv is what multi-dub
+    # releases and players actually expect - and this must never leak into
+    # the single-track path (asserted separately above).
+    assert downloader._video_opts("617", audio_langs=["tr", "en"])["merge_output_format"] == "mkv"
+
+
+def test_two_audio_langs_turns_on_multistreams():
+    # NOTE: yt-dlp collapses a "+"-joined multi-audio selector down to one
+    # stream unless this is explicitly set - confirmed against a real
+    # download: without it, only one of the two requested tracks survived.
+    assert downloader._video_opts("617", audio_langs=["tr", "en"])["allow_multiple_audio_streams"] is True
+
+
+def test_a_blank_entry_does_not_count_toward_multi_track():
+    # NOTE: defensive - the UI should never send an empty string in the list,
+    # but if it did, this must not accidentally trip the two-or-more path.
+    opts = downloader._video_opts("617", audio_langs=["tr", ""])
+    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/617"
+    assert opts["merge_output_format"] == "mp4"
+
+
+def test_three_audio_langs_chains_all_three():
+    fmt = downloader._video_opts("617", audio_langs=["tr", "en", "de"])["format"]
+    assert fmt == "617+bestaudio[language=tr]+bestaudio[language=en]+bestaudio[language=de]/617+bestaudio"
 
 
 # --- _subtitle_list / _transcript_language ----------------------------------

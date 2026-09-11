@@ -86,6 +86,218 @@ def test_detect_lang_returns_a_supported_language(setup_mod):
     assert setup_mod.detect_lang() in setup_mod.STRINGS
 
 
+def test_every_translation_key_used_in_the_source_exists(setup_mod):
+    # NOTE: a typo in a key only blows up when that page is shown - in the
+    # middle of a real install. Cheap to catch here instead.
+    source = SETUP_PY.read_text(encoding="utf-8")
+    used = set(re.findall(r'self\.t\(\s*"([A-Za-z0-9_]+)"', source))
+    used |= set(re.findall(r'"(progress_title_[a-z]+)"', source))
+    missing = used - set(setup_mod.STRINGS["tr"])
+    assert not missing, f"unknown translation keys: {sorted(missing)}"
+
+
+# --- remembered install folder -----------------------------------------------
+
+
+@pytest.fixture
+def isolated_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    return tmp_path
+
+
+def test_state_file_lives_under_the_user_profile_not_beside_the_exe(setup_mod, isolated_state):
+    # NOTE: people run the installer from Downloads and then delete or move
+    # it - anything stored next to the exe would be lost with it.
+    path = Path(setup_mod.installer_state_path())
+    assert isolated_state in path.parents
+    assert Path(setup_mod.base_dir()) not in path.parents
+
+
+def test_last_install_dir_round_trips(setup_mod, isolated_state, tmp_path):
+    assert setup_mod.load_last_install_dir() is None
+    target = str(tmp_path / "MediaGrab")
+    setup_mod.save_last_install_dir(target)
+    assert setup_mod.load_last_install_dir() == os.path.abspath(target)
+    setup_mod.forget_last_install_dir()
+    assert setup_mod.load_last_install_dir() is None
+
+
+def test_a_corrupt_state_file_is_ignored(setup_mod, isolated_state):
+    path = Path(setup_mod.installer_state_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not json", encoding="utf-8")
+    assert setup_mod.load_last_install_dir() is None
+    path.write_text('{"last_install_dir": 42}', encoding="utf-8")
+    assert setup_mod.load_last_install_dir() is None
+
+
+def test_forgetting_when_nothing_is_remembered_is_not_an_error(setup_mod, isolated_state):
+    setup_mod.forget_last_install_dir()
+
+
+def test_same_folder_ignores_trailing_separators_and_case_rules(setup_mod, tmp_path):
+    folder = str(tmp_path / "MediaGrab")
+    assert setup_mod.same_folder(folder, folder + os.sep)
+    if os.name == "nt":
+        assert setup_mod.same_folder(folder, folder.upper())
+    assert not setup_mod.same_folder(folder, str(tmp_path / "Other"))
+
+
+# --- the wizard itself -------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def wizard(setup_mod):
+    # NOTE: ONE Tk interpreter for the whole module, shared by every test.
+    # Creating a fresh Tk root after a previous one was destroyed hit a rare,
+    # timing-dependent Tcl bootstrap failure here ("Can't find a usable
+    # init.tcl" / "invalid command name tcl_findLibrary") - only ever on the
+    # SECOND interpreter in a process, never the first. The installer itself
+    # opens exactly one root per process (the language toggle rebuilds the
+    # widgets on the same root), so users are never in that situation; the
+    # tests simply mirror that by never re-creating the root either.
+    import tkinter as tk
+
+    try:
+        app = setup_mod.SetupApp()
+    except tk.TclError:
+        pytest.skip("no display available for Tk")
+    app.withdraw()  # keep it off-screen; widget state is unaffected
+    yield app
+    app.destroy()
+
+
+@pytest.fixture
+def app(wizard, setup_mod, isolated_state):
+    """The shared wizard, reset to a known state before every test."""
+    wizard.mode = None
+    wizard.base_dir = setup_mod.base_dir()
+    wizard.folder_prefilled = False
+    wizard.desktop_shortcut_var.set(False)
+    wizard.start_shortcut_var.set(False)
+    wizard._set_lang("tr")
+    wizard._show_page("welcome")
+    return wizard
+
+
+def _fake_install(folder):
+    (folder / "mediagrab").mkdir(parents=True)
+    (folder / "run.py").write_text("", encoding="utf-8")
+    return str(folder)
+
+
+def test_every_wizard_page_renders_in_both_languages_and_modes(setup_mod, app, tmp_path):
+    # NOTE: the release smoke test only proves the exe starts. This walks
+    # every page in every mode and language, so a page that only breaks when
+    # it is shown (a missing widget, a bad key) can't slip through.
+    installed = _fake_install(tmp_path / "Installed")
+    setup_mod.save_last_install_dir(installed)
+
+    for lang in ("tr", "en"):
+        app._set_lang(lang)
+        app._show_page("welcome")
+        assert app.remembered_label.cget("text").endswith(installed)
+        for mode in (setup_mod.MODE_INSTALL, setup_mod.MODE_REPAIR, setup_mod.MODE_REMOVE):
+            app._start_mode(mode)
+            if mode == setup_mod.MODE_REMOVE:
+                assert app.current_page == "folder"
+            else:
+                assert app.current_page == "deps"
+                app._show_page("folder")
+            if mode != setup_mod.MODE_INSTALL:
+                assert app.base_dir == installed, "Repair/Remove should pre-fill the last install"
+                assert app.folder_prefilled
+            app._show_page("summary")
+            app._show_page("progress")
+            app.update_idletasks()
+
+
+def test_the_language_toggle_retranslates_every_page(setup_mod, app):
+    app._set_lang("en")
+    assert app.title() == setup_mod.STRINGS["en"]["title"]
+    assert app.deps_next_btn.cget("text") == setup_mod.STRINGS["en"]["next"]
+    app._set_lang("tr")
+    assert app.title() == setup_mod.STRINGS["tr"]["title"]
+    assert app.deps_next_btn.cget("text") == setup_mod.STRINGS["tr"]["next"]
+
+
+def test_repair_and_remove_do_not_trust_a_remembered_folder_that_is_gone(setup_mod, app, tmp_path):
+    # NOTE: the user may have deleted the install by hand; pre-filling the
+    # stale folder would point Remove at something that isn't MediaGrab.
+    setup_mod.save_last_install_dir(str(tmp_path / "Deleted"))
+    app._start_mode(setup_mod.MODE_REMOVE)
+    assert app.base_dir != str(tmp_path / "Deleted")
+    assert not app.folder_prefilled
+
+
+def test_install_next_is_blocked_on_a_folder_that_already_has_an_install(setup_mod, app, tmp_path):
+    installed = _fake_install(tmp_path / "Installed")
+    app.mode = setup_mod.MODE_INSTALL
+    app.base_dir = installed
+    app._show_page("folder")
+    assert str(app.folder_next_btn.cget("state")) == "disabled"
+    assert app.folder_hint_label.cget("text") == app.t("folder_already_installed")
+
+    app.base_dir = str(tmp_path / "Fresh")
+    os.makedirs(app.base_dir)
+    app._render_folder_page()
+    assert str(app.folder_next_btn.cget("state")) == "normal"
+
+
+def test_remove_next_is_blocked_on_a_folder_with_no_install(setup_mod, app, tmp_path):
+    app.mode = setup_mod.MODE_REMOVE
+    app.base_dir = str(tmp_path)
+    app._show_page("folder")
+    assert str(app.folder_next_btn.cget("state")) == "disabled"
+    assert app.folder_hint_label.cget("text") == app.t("folder_not_installed")
+
+
+def test_remove_hides_the_shortcut_boxes_and_install_shows_them(setup_mod, app, tmp_path):
+    app.mode = setup_mod.MODE_REMOVE
+    app.base_dir = _fake_install(tmp_path / "Installed")
+    app._show_page("folder")
+    assert not app.desktop_check.winfo_manager(), "Remove has nothing to make a shortcut for"
+
+    app.mode = setup_mod.MODE_INSTALL
+    app.base_dir = str(tmp_path / "Fresh")
+    os.makedirs(app.base_dir)
+    app._show_page("folder")
+    assert app.desktop_check.winfo_manager()
+
+
+def test_a_finished_install_is_remembered_and_a_finished_remove_forgets_it(setup_mod, app, tmp_path):
+    installed = _fake_install(tmp_path / "Installed")
+    app.mode = setup_mod.MODE_INSTALL
+    app.base_dir = installed
+    app._show_page("progress")
+    app._on_job_done(True)
+    assert setup_mod.load_last_install_dir() == installed
+
+    app.mode = setup_mod.MODE_REMOVE
+    app._on_job_done(True)
+    assert setup_mod.load_last_install_dir() is None
+
+
+def test_removing_a_different_folder_keeps_the_remembered_one(setup_mod, app, tmp_path):
+    remembered = _fake_install(tmp_path / "Main")
+    other = _fake_install(tmp_path / "Other")
+    setup_mod.save_last_install_dir(remembered)
+    app.mode = setup_mod.MODE_REMOVE
+    app.base_dir = other
+    app._show_page("progress")
+    app._on_job_done(True)
+    assert setup_mod.load_last_install_dir() == remembered
+
+
+def test_a_failed_job_remembers_nothing(setup_mod, app, tmp_path):
+    app.mode = setup_mod.MODE_INSTALL
+    app.base_dir = str(tmp_path)
+    app._show_page("progress")
+    app._on_job_done(False)
+    assert setup_mod.load_last_install_dir() is None
+
+
 # --- version probing ---------------------------------------------------------
 
 

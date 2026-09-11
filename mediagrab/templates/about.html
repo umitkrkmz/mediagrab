@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{% if lang == "en" %}About{% else %}Hakkında{% endif %} — MediaGrab{% endblock %}
+{% block main_class %}main-narrow{% endblock %}
+{% block content %}
+
+<div class="page-title-row">
+  <h1>{% if lang == "en" %}About MediaGrab{% else %}MediaGrab Hakkında{% endif %}</h1>
+</div>
+
+{% if lang == "en" %}
+<p class="settings-hint">
+  MediaGrab is a local, personal-use video/audio downloader — paste a link, pick a quality, download it. It runs entirely on your own machine: no account, no cloud, no database. Under the hood it's a small FastAPI app that wraps <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>, the same engine that powers most YouTube-downloader tools.
+</p>
+{% else %}
+<p class="settings-hint">
+  MediaGrab, yerelde çalışan, kişisel kullanım için bir video/ses indirme aracı — link yapıştırın, kalite seçin, indirin. Tamamen kendi bilgisayarınızda çalışır: hesap yok, bulut yok, veritabanı yok. Arka planda, çoğu YouTube indirici aracın da kullandığı motor olan <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>'yi saran küçük bir FastAPI uygulaması var.
+</p>
+{% endif %}
+
+<a class="feedback-btn github-btn" href="https://github.com/umitkrkmz/mediagrab" target="_blank" rel="noopener">
+  <img src="/static/icons/github.svg" alt="" width="18" height="18">
+  {% if lang == "en" %}View source on GitHub{% else %}Kaynak koduna GitHub'da bakın{% endif %}
+</a>
+
+<div class="settings-section">
+  <div class="section-title">{% if lang == "en" %}License{% else %}Lisans{% endif %}</div>
+  {% if lang == "en" %}
+  <p class="settings-hint">
+    Versions v1.0.0–v1.8.0 are permanently <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE-MIT" target="_blank" rel="noopener">MIT</a>. Starting with v1.9.0, MediaGrab is <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE" target="_blank" rel="noopener">GNU GPL-3.0-or-later</a> — free to use, study, modify and redistribute, as long as redistributed versions stay under the same license.
+  </p>
+  {% else %}
+  <p class="settings-hint">
+    v1.0.0–v1.8.0 sürümleri kalıcı olarak <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE-MIT" target="_blank" rel="noopener">MIT</a>. v1.9.0'dan itibaren MediaGrab <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE" target="_blank" rel="noopener">GNU GPL-3.0-or-later</a> ile lisanslıdır — kullanmakta, incelemekte, değiştirmekte ve dağıtmakta özgürsünüz; tek şart, dağıttığınız sürümlerin de aynı lisansta kalması.
+  </p>
+  {% endif %}
+</div>
+
+<div class="settings-section">
+  <div class="section-title">{% if lang == "en" %}Contribute or report an issue{% else %}Katkıda bulunun veya sorun bildirin{% endif %}</div>
+  {% if lang == "en" %}
+  <p class="settings-hint">
+    Found a bug or have an idea? Use the <a href="https://github.com/umitkrkmz/mediagrab/issues/new/choose" target="_blank" rel="noopener">issue templates</a> on GitHub. Looking to contribute code? Start with <a href="https://github.com/umitkrkmz/mediagrab/blob/master/CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING.md</a>.
+  </p>
+  {% else %}
+  <p class="settings-hint">
+    Bir hata mı buldunuz, bir fikriniz mi var? GitHub'daki <a href="https://github.com/umitkrkmz/mediagrab/issues/new/choose" target="_blank" rel="noopener">hazır şablonları</a> kullanın. Kod katkısı yapmak isterseniz <a href="https://github.com/umitkrkmz/mediagrab/blob/master/CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING.md</a> ile başlayın.
+  </p>
+  {% endif %}
+</div>
+
+<div class="settings-section">
+  <div class="section-title">{% if lang == "en" %}Version{% else %}Sürüm{% endif %}</div>
+  <p class="settings-hint">
+    {% if lang == "en" %}See what changed in each release on the{% else %}Her sürümde neyin değiştiğini{% endif %}
+    <a href="https://github.com/umitkrkmz/mediagrab/blob/master/CHANGELOG.md" target="_blank" rel="noopener">{% if lang == "en" %}changelog{% else %}CHANGELOG dosyasında{% endif %}</a>{% if lang == "en" %}.{% else %} görebilirsiniz.{% endif %}
+  </p>
+</div>
+
+{% endblock %}

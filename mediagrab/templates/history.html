@@ -12,6 +12,13 @@
   <select id="history-channel-filter" aria-label="{{ ui.history_all_channels }}">
     <option value="">{{ ui.history_all_channels }}</option>
   </select>
+  <select id="history-type-filter" aria-label="{{ ui.history_type_filter_label }}">
+    <option value=""></option>
+  </select>
+  <div class="history-view-toggle" role="group" aria-label="{{ ui.history_view_grid }} / {{ ui.history_view_list }}">
+    <button type="button" id="history-view-grid" data-view="grid" title="{{ ui.history_view_grid }}" aria-label="{{ ui.history_view_grid }}">⊞</button>
+    <button type="button" id="history-view-list" data-view="list" title="{{ ui.history_view_list }}" aria-label="{{ ui.history_view_list }}">☰</button>
+  </div>
 </div>
 <div id="history-error" class="error hidden" role="alert"></div>
 <div id="history-list" class="history-grid"></div>

@@ -22,6 +22,15 @@ Bu, şu anlama gelmiyor: "yapay zeka ne yaparsa kabul." Bu depoda geçerli olan 
 
 Bir PR'da yapay zeka aracı kullandıysanız bunu gizlemenize gerek yok — ama commit'in kalitesinden ve doğruluğundan siz sorumlusunuz, aracın "çalışıyor" demesi yeterli değil.
 
+### Önce haritaları okuyun
+
+Keşfe `grep`/dosya okumayla başlamadan önce `maps/` klasörüne bakın — daha az token, daha az yanlış yer:
+
+- [`maps/project-map.md`](maps/project-map.md) — her dosyanın ne olduğu, hangi işlev nerede, projenin değişmezleri (yt-dlp yalnız `downloader.py`'de, iki ayrı i18n sistemi vb.)
+- [`maps/site-map.md`](maps/site-map.md) — her rota, hangi şablon/JS sürüyor, tüm `/api/*` uçları
+
+Haritalar `tests/test_maps.py` ile korunuyor: dosya veya rota ekleyip haritayı güncellemezseniz test kırmızıya döner. Haritayı da güncelleyin.
+
 ### Derleme / test komutları
 
 ```bash
@@ -29,7 +38,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Node.js kuruluysa JS testleri de çalışır; değilse otomatik atlanır. Ayrıntı için [README → Testler](README.md#testler).
+Node.js kuruluysa JS testleri de çalışır; değilse otomatik atlanır. Ayrıntı için [Kılavuz → Testler](docs/README.tr.md#testler).
 
 ### Bu depoya özgü kısıtlar
 
@@ -62,6 +71,15 @@ That doesn't mean "whatever the AI does is fine." The boundary that applies in t
 
 If you used an AI tool on a PR, you don't need to hide it — but you're responsible for the commit's quality and correctness; the tool saying "it works" isn't enough.
 
+### Read the maps first
+
+Before exploring with `grep`/file reads, look in `maps/` — fewer tokens, fewer wrong turns:
+
+- [`maps/project-map.md`](maps/project-map.md) — what every file is, which function lives where, the project's invariants (yt-dlp only in `downloader.py`, two separate i18n systems, etc.)
+- [`maps/site-map.md`](maps/site-map.md) — every route, which template/JS drives it, all `/api/*` endpoints
+
+The maps are guarded by `tests/test_maps.py`: add a file or a route without updating the map and the test goes red. Update the map too.
+
 ### Build / test commands
 
 ```bash
@@ -69,7 +87,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-JS tests run if Node.js is installed; otherwise they're skipped automatically. See [README → Tests](README.md#tests) for details.
+JS tests run if Node.js is installed; otherwise they're skipped automatically. See [Guide → Tests](docs/README.en.md#tests) for details.
 
 ### Constraints specific to this repo
 

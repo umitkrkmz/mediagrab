@@ -334,7 +334,9 @@ def test_cleanup_without_a_recorded_tmpfile_does_nothing(download_dir):
 def test_transcripts_and_subtitles_show_up_in_history():
     # NOTE: guards against a new download kind being added without its
     # extension being registered, which would make it invisible in the UI.
-    assert {"mp4", "mp3", "m4a", "opus", "srt", "txt"} <= app_module.HISTORY_EXTS
+    # mkv is the multi-audio-track output (see downloader.py's _video_opts) -
+    # it shipped once already without this, making those files disappear.
+    assert {"mp4", "mkv", "mp3", "m4a", "opus", "srt", "txt"} <= app_module.HISTORY_EXTS
 
 
 def test_backups_and_partials_never_show_up_in_history():
@@ -385,7 +387,7 @@ def test_auto_download_uses_the_saved_default_audio_lang(tmp_path, monkeypatch):
         app_module._check_channel(channel)
         assert len(fake_executor.calls) == 1
         submitted_args = fake_executor.calls[0]
-        assert submitted_args[-1] == "tr"  # audio_lang is the last positional argument
+        assert submitted_args[-1] == ["tr"]  # audio_langs is the last positional argument, wrapped in a list
     finally:
         for call in fake_executor.calls:
             with app_module.jobs_lock:
@@ -415,7 +417,7 @@ def test_auto_download_with_no_saved_default_behaves_as_before(tmp_path, monkeyp
     }
     try:
         app_module._check_channel(channel)
-        assert fake_executor.calls[0][-1] == ""
+        assert fake_executor.calls[0][-1] == []
     finally:
         for call in fake_executor.calls:
             with app_module.jobs_lock:

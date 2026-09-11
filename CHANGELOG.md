@@ -11,6 +11,39 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [1.9.0] — 2026-09-11
+
+#### Eklenen
+
+- **Birden fazla ses parçası tek dosyada** — bir video birden fazla dilde dublajlıysa artık sadece birini değil, birden fazlasını (ör. orijinal + Türkçe) aynı anda seçip tek dosyaya (`.mkv`) her biri ayrı, oynatıcıdan seçilebilir bir ses parçası olarak gömebilirsiniz. Yalnızca manuel indirmede geçerli; kanal otomatik indirmesi hâlâ tek dil seçiyor. Tek dil seçilirse davranış tamamen eskisi gibi (mp4, tek ses parçası)
+- **Ana sayfa video açıklaması** — önizleme paneli boş kalmasın diye "En İyi Ses/Video" butonlarının altında yt-dlp'nin getirdiği video açıklaması gösteriliyor, uzun açıklamalar "Daha fazla göster" ile açılıp kapanıyor
+- **Ana sayfada Ses/Video sekmeleri** — aynı anda ikisi birden indirilemeyeceği için format listeleri artık geçiş animasyonlu iki sekmeye ayrıldı; Ses Parçası (her ikisine de uygulandığı için) sekmelerin üstünde, Altyazı ve Transkript her zaman görünür
+- **Ses parçası ve altyazı dillerinde hover tooltip** — "DE", "JA", "ES-419" gibi chip'lerin üzerine gelince dilin tam adı ("Almanca", "Japonca", "İspanyolca") çıkıyor
+- **Yeni "Hakkında" sayfası** (`/about`) — proje ne yapar, GPL-3.0 lisansı, kaynak kod ve katkı/geri bildirim linkleri tek yerde
+- **Ayarlar sayfası yeniden tasarlandı** — tek uzun sayfa yerine solda kategori listesi (Görünüm, Varsayılan Ses Parçası, Çerezler, Sürüm Kontrolleri, Geri Bildirim), sağda seçilenin detay paneli
+- **Geçmiş sayfasında tür filtresi ve liste görünümü** — büyük kapak kartlarına ek olarak kompakt bir liste görünümü; dosya türüne göre filtre artık diskteki gerçek uzantılardan dinamik olarak oluşuyor (elle güncellenmesi gerekmiyor)
+- **Desteklenen Siteler artık tıklanabilir** — her site chip'i kendi marka renginde/logosuyla, tıklanınca ilgili sitenin ana sayfasına gidiyor
+- **Dil kodu sözlüğü** (`docs/language-codes.tr.md`, `docs/language-codes.en.md`) — ISO 639-1'deki 184 dilin tam adı ve kodu; Ayarlar → Varsayılan Ses Parçası alanının yanından linkleniyor
+
+#### Kurulum aracı (`MediaGrabSetup.exe`)
+
+- **Sihirbaz akışı** — her şeyin tek pencereye sığdırıldığı eski ekran yerine adım adım ilerleyen sayfalar: açılışta **Kur / Onar-Güncelle / Kaldır** seçilir; Kur ve Onar sırasıyla Gereksinimler (Git, Python, ffmpeg) → Klasör ve kısayollar → Özet → canlı günlük sayfalarından geçer, Kaldır ise doğrudan klasör → özet. Özet sayfası tıklamadan önce ne olacağını (klasör, bulunan araçlar, kısayollar, üzerine yazılacak mevcut başlatma dosyası/kısayol, ffmpeg eksikse uyarı) tek yerde gösterir
+- **Son kurulum klasörü hatırlanıyor** — başarılı bir kurulum/onarım klasörü `%LOCALAPPDATA%\MediaGrab\installer.json` içine yazılır; **Onar** ve **Kaldır** bu klasörü kendiliğinden doldurur (değiştirilebilir). Exe'nin yanına değil kullanıcı profiline yazılır, çünkü kurulum programı çoğunlukla İndirilenler'den çalıştırılıp sonra siliniyor. Klasör elle silinmişse güvenilmez ve doldurulmaz; kaldırma işlemi de yalnızca hatırlanan klasör boşaltıldıysa kaydı siler
+- **Açılış sayfasında TR/EN düğmesi** — dil sistem ayarından otomatik seçilir (Türkçe dışı her şey İngilizce), tek tıkla değiştirilir
+- **"Docker ile kur" düğmesi** — henüz hazır değil, tıklanınca bunu söyler; Docker desteği sonraki bir sürüme bırakıldı
+
+#### Düzeltilen
+
+- **Video kalitesi boyut tahmini bazı formatlarda gerçek boyutun kat kat üzerinde gösteriyordu** (ör. gerçekte ~500 MB olan bir video için "~2.1 GB") — bazı format varyantlarının kendi bildirdiği ortalama bit hızı (`tbr`) güvenilmezdi. Tahmin artık aynı çözünürlükte, gerçek dosya boyutu bilinen bir kardeş formatla sınırlandırılıyor; hangi formatın indirileceğini etkilemiyor, yalnızca gösterilen tahmini düzeltiyor
+- **Ana sayfada önizleme paneli aşağı kaydırırken navbar'ın üstüne çıkabiliyordu** — panelin nerede sabitleneceği artık sabit bir piksel değeri yerine üst menünün gerçek, ölçülen yüksekliğinden hesaplanıyor
+
+#### Değiştirilen
+
+- **`maps/` klasörü eklendi** — `project-map.md` (her dosyanın amacı, önemli işlevler, projenin değişmezleri) ve `site-map.md` (her rota, şablon, JS ve `/api/*` uçları). Yapay zeka araçları ve katkıcılar keşfe buradan başlasın diye; `AGENTS.md` yönlendiriyor. `tests/test_maps.py` haritaları koruyor: haritaya eklenmeden yeni bir dosya ya da rota eklenirse test kırmızıya döner, böylece harita bayatlayamaz
+- **Ana sayfa yeniden tasarlandı** — çözümlenen video artık 1440px genişliğe kadar genişleyen, sol 1/3 önizleme + sağ 2/3 seçenekler şeklinde iki sütuna bölünmüş bir düzende; önizleme paneli kaydırırken üst menünün hemen altında sabit kalıyor
+- **Lisans: v1.9.0'dan itibaren GPL-3.0-or-later.** v1.0.0 – v1.8.0 sürümleri kalıcı olarak **MIT** kalıyor (bkz. [LICENSE-MIT](LICENSE-MIT)) — bu hak geriye dönük değişmiyor, o sürümleri MIT şartlarıyla kullanmaya/fork'lamaya devam edebilirsiniz. v1.9.0 ve sonrası için lisans **GNU GPL-3.0-or-later** (bkz. [LICENSE](LICENSE), resmi metin gnu.org'dan alındı). Sebep: `mutagen` gibi GPL bağımlılıkları MIT kalarak kullanmak, onları hiç doğrudan import etmemeyi gerektiriyordu; GPL-3.0'a geçmek bu kısıtı kaldırıyor, ileride bir özellik GPL lisanslı bir kütüphaneyi doğrudan kullanmak isterse sorun olmaz. AGPL yerine GPL-3.0 seçildi çünkü MediaGrab bir ağ servisi değil, yerel bir araç.
+- **README ikiye ayrıldı: kısa bir "beni oku" + ayrıntılı kılavuzlar.** Kök `README.md` artık sadece proje ne yapar, nasıl kurulur (linkli) ve lisans/yasal uyarı özeti içeren kısa bir sayfa. Özellik listesi, adım adım kurulum, sorun giderme ve proje yapısı gibi ayrıntılar `docs/README.tr.md` ve `docs/README.en.md`'ye taşındı — Türkçe/İngilizce artık aynı sayfada çapa (anchor) linkleriyle değil, **ayrı dosyalar** olarak birbirine bağlı; bazı görüntüleyicilerde Türkçe karakterli çapa bağlantıları güvenilir çalışmıyordu, ayrı dosya linki bunu ortadan kaldırıyor.
+
 ### [1.8.0] — 2026-09-09
 
 #### Eklenen
@@ -166,6 +199,39 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.9.0] — 2026-09-11
+
+#### Added
+
+- **Multiple audio tracks in one file** — when a video is dubbed into more than one language, you can now pick more than one (e.g. original + Turkish) and get them embedded as separate, player-selectable audio tracks in a single `.mkv`, instead of only ever picking one. Manual downloads only — channel auto-download still picks a single language. Picking just one language behaves exactly as before (mp4, one audio track)
+- **Video description on the home page** — so the preview column isn't left empty, the description yt-dlp fetches is now shown below the "Best Audio/Video" buttons, with a "Show more" toggle for long ones
+- **Audio/Video tabs on the home page** — since you can't download both at once anyway, the format lists are now split into two tabs with a transition animation; the Audio Track picker (it applies to both) sits above the tabs, Subtitles and Transcript stay always visible
+- **Hover tooltips on audio-track and subtitle chips** — hovering "DE", "JA", "ES-419" and similar codes now shows the full language name ("German", "Japanese", "Spanish")
+- **A new "About" page** (`/about`) — what the project is, its GPL-3.0 license, and links to the source code and to filing feedback, all in one place
+- **Settings page redesigned** — instead of one long page, a category list on the left (Appearance, Default Audio Track, Cookies, Version Checks, Feedback) with the selected section's detail panel on the right
+- **A type filter and list view on the History page** — a compact list view alongside the existing large cover-card grid; the file-type filter is now built dynamically from what's actually on disk instead of a hardcoded list
+- **Supported Sites chips are now clickable** — each one carries its site's brand color/logo and links to that site's homepage
+- **A language code reference** (`docs/language-codes.tr.md`, `docs/language-codes.en.md`) — every ISO 639-1 language's name and code, linked from next to Settings → Default Audio Track
+
+#### Installer (`MediaGrabSetup.exe`)
+
+- **A wizard flow** — instead of the old everything-in-one-window screen, step-by-step pages: the welcome page offers **Install / Repair-Update / Remove**; Install and Repair go Requirements (Git, Python, ffmpeg) → Folder and shortcuts → Summary → live log, Remove goes straight to folder → summary. The summary page shows what's about to happen before you click (folder, tools found, shortcuts, an existing launcher/shortcut that will be overwritten, a warning if ffmpeg is missing)
+- **The last install folder is remembered** — a successful install/repair writes its folder to `%LOCALAPPDATA%\MediaGrab\installer.json`, and **Repair** and **Remove** pre-fill it (still changeable). It's stored in the user profile rather than next to the exe, since the installer is usually run from Downloads and deleted afterwards. A folder that was deleted by hand is not trusted and not pre-filled; Remove only clears the record when it's the remembered folder that was emptied
+- **A TR/EN toggle on the welcome page** — the language is picked from the system locale automatically (anything non-Turkish gets English) and switched with one click
+- **An "Install with Docker" button** — not ready yet and says so when clicked; Docker support is left for a later version
+
+#### Fixed
+
+- **The estimated file size for some video qualities was several times the real size** (e.g. "~2.1 GB" for a video that was actually ~500 MB) — a handful of format variants reported an unreliable average bitrate (`tbr`) of their own. The estimate is now capped by a sibling format at the same resolution with a confirmed real file size; this only fixes the displayed number, not which format actually gets downloaded
+- **The home page's preview panel could scroll above the navbar** — where the panel stops pinning is now computed from the header's real, measured height instead of a guessed fixed pixel value
+
+#### Changed
+
+- **A `maps/` folder** — `project-map.md` (what every file is for, key functions, the project's invariants) and `site-map.md` (every route, its template/JS, all `/api/*` endpoints), so AI tools and contributors start exploring there; `AGENTS.md` points to them. `tests/test_maps.py` guards them: a file or route added without a map entry turns the test red, so the maps can't go stale
+- **Home page redesigned** — a resolved video now renders in a two-column layout (1440px max width) with a 1/3 preview column on the left and a 2/3 options column on the right; the preview stays pinned just below the header while scrolling
+- **License: GPL-3.0-or-later starting with v1.9.0.** Versions v1.0.0 – v1.8.0 remain permanently **MIT** (see [LICENSE-MIT](LICENSE-MIT)) — that grant doesn't change retroactively, you can keep using or forking those releases under MIT terms. v1.9.0 and later are licensed under the **GNU GPL-3.0-or-later** (see [LICENSE](LICENSE), official text pulled from gnu.org). Reason: staying MIT while depending on a GPL package like `mutagen` meant never importing it directly; moving to GPL-3.0 removes that constraint, so a future feature can import a GPL-licensed library directly without issue. GPL-3.0 was chosen over AGPL because MediaGrab isn't a network service, only a local tool.
+- **The README was split into a short "read me" plus detailed guides.** The root `README.md` is now a short page: what the project does, how to install (linked), and a license/legal summary. The feature list, step-by-step installation, troubleshooting, and project structure moved to `docs/README.tr.md` and `docs/README.en.md` — Turkish and English are now linked as **separate files** instead of same-page anchors, since anchor links with Turkish characters didn't reliably work in every viewer; separate files sidestep that entirely.
 
 ### [1.8.0] — 2026-09-09
 

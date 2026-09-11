@@ -19,6 +19,7 @@ UI = {
         "nav_channels": "Kanallar",
         "nav_sites": "Desteklenen Siteler",
         "nav_settings": "Ayarlar",
+        "nav_about": "Hakkında",
         "channels_page_title": "Kanal Takibi",
         "channels_page_intro": (
             "Kanal takibi şimdilik yalnızca YouTube kanallarını destekler."
@@ -36,6 +37,8 @@ UI = {
         ),
         "settings_audio_lang_label": "Dil kodu",
         "settings_audio_lang_placeholder": "örn. tr, en, de",
+        "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.tr.md",
+        "settings_audio_lang_codes_link": "Dil kodlarını görüntüle →",
         "settings_cookies_title": "Çerezler",
         "settings_cookies_hint": (
             "Yaş sınırlı, üyelere özel veya giriş gerektiren içerikler için tarayıcı "
@@ -110,6 +113,9 @@ UI = {
         "history_clear": "Tümünü Sil",
         "history_search_placeholder": "Ara...",
         "history_all_channels": "Tüm kanallar",
+        "history_type_filter_label": "Dosya türüne göre filtrele",
+        "history_view_grid": "Izgara görünümü",
+        "history_view_list": "Liste görünümü",
         "settings_page_title": "Ayarlar",
         "settings_add_title": "Kanal Takip Et",
         "settings_add_hint": (
@@ -123,6 +129,7 @@ UI = {
         "settings_list_title": "Takip Edilen Kanallar",
         "channel_empty": "Henüz takip edilen kanal yok.",
         "settings_ytdlp_title": "yt-dlp Sürümü",
+        "settings_environment_title": "Sürüm Kontrolleri",
     },
     "en": {
         "title_index": "MediaGrab — Video & Audio Downloader",
@@ -134,6 +141,7 @@ UI = {
         "nav_channels": "Channels",
         "nav_sites": "Supported Sites",
         "nav_settings": "Settings",
+        "nav_about": "About",
         "channels_page_title": "Channel Following",
         "channels_page_intro": "Channel following currently supports YouTube channels only.",
         "settings_ffmpeg_title": "ffmpeg / ffprobe",
@@ -149,6 +157,8 @@ UI = {
         ),
         "settings_audio_lang_label": "Language code",
         "settings_audio_lang_placeholder": "e.g. tr, en, de",
+        "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.en.md",
+        "settings_audio_lang_codes_link": "View language codes →",
         "settings_cookies_title": "Cookies",
         "settings_cookies_hint": (
             "Your browser session's cookies can be used for age-restricted, members-only "
@@ -218,6 +228,9 @@ UI = {
         "history_clear": "Clear All",
         "history_search_placeholder": "Search...",
         "history_all_channels": "All channels",
+        "history_type_filter_label": "Filter by file type",
+        "history_view_grid": "Grid view",
+        "history_view_list": "List view",
         "settings_page_title": "Settings",
         "settings_add_title": "Follow a Channel",
         "settings_add_hint": (
@@ -231,6 +244,7 @@ UI = {
         "settings_list_title": "Followed Channels",
         "channel_empty": "No followed channels yet.",
         "settings_ytdlp_title": "yt-dlp Version",
+        "settings_environment_title": "Version Checks",
     },
 }
 

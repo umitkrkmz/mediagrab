@@ -209,7 +209,7 @@ body {
 }
 
 .site-header-inner {
-  max-width: 1000px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 14px 20px;
   display: flex;
@@ -471,7 +471,7 @@ body {
 }
 
 .site-main.main-wide {
-  max-width: 1000px;
+  max-width: 1440px;
 }
 
 /* --- Hero (home page) --- */
@@ -538,7 +538,8 @@ body {
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
-#history-channel-filter {
+#history-channel-filter,
+#history-type-filter {
   padding: 10px 12px;
   border-radius: 9px;
   border: 1px solid var(--border-strong);
@@ -548,14 +549,107 @@ body {
   max-width: 200px;
 }
 
+.history-view-toggle {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.history-view-toggle button {
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.history-view-toggle button.active {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--accent-ring);
+}
+
 @media (max-width: 640px) {
   .history-filter-row {
     flex-direction: column;
   }
 
-  #history-channel-filter {
+  #history-channel-filter,
+  #history-type-filter {
     max-width: none;
   }
+}
+
+/* --- History: compact list view (toggle, default is the grid above) --- */
+
+#history-list.view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#history-list.view-list .history-card {
+  flex-direction: row;
+  align-items: center;
+}
+
+#history-list.view-list .history-card-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+#history-list.view-list .history-thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  aspect-ratio: unset;
+}
+
+#history-list.view-list .history-thumb .placeholder {
+  font-size: 1.1rem;
+}
+
+#history-list.view-list .history-body {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+#history-list.view-list .history-body .folder-badge {
+  flex-shrink: 0;
+}
+
+#history-list.view-list .history-body .name {
+  flex: 1;
+  min-width: 0;
+  -webkit-line-clamp: 1;
+}
+
+#history-list.view-list .history-body .meta {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding-top: 0;
+  white-space: nowrap;
+}
+
+#history-list.view-list .history-actions {
+  flex-shrink: 0;
+  width: auto;
+  padding: 0 12px;
+}
+
+#history-list.view-list .history-actions a,
+#history-list.view-list .history-actions button {
+  flex: none;
+  padding: 6px 14px;
 }
 
 /* --- Footer --- */
@@ -566,7 +660,7 @@ body {
 }
 
 .site-footer-inner {
-  max-width: 1000px;
+  max-width: 1440px;
   margin: 0 auto;
   text-align: center;
 }
@@ -1040,20 +1134,151 @@ button:disabled {
   box-shadow: 0 4px 14px var(--accent-glow);
 }
 
-.advanced-options summary {
-  cursor: pointer;
-  color: var(--text-muted);
+/* NOTE: the result card lives on a main-wide (1000px) page now so its two
+   columns have room, but everything BEFORE a result exists (hero, search
+   box, pending banner, recent downloads) should still read as the same
+   narrow, centered column it always was - so each gets its own cap instead
+   of inheriting the page's full width. */
+.hero,
+.input-row,
+.pending-banner,
+.recent-section {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.result-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.result-preview {
+  flex: 1;
+  min-width: 0;
+  position: sticky;
+  /* NOTE: --header-height is set by app.js from the real, rendered header
+     height (not a guessed constant) - a fixed pixel value here drifted out
+     of sync and let this panel scroll up underneath/over the sticky header. */
+  top: calc(var(--header-height, 65px) + 16px);
+  /* NOTE: below the header's z-index (10) so the header always wins if the
+     two ever visually meet while scrolling. */
+  z-index: 5;
+}
+
+.result-preview .info-row {
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.result-preview .info-row img {
+  width: 100%;
+}
+
+.preview-description {
+  margin-top: 18px;
+}
+
+.description-text {
   font-size: 0.85rem;
-  padding: 6px 0;
-  user-select: none;
-}
-
-.advanced-options summary:hover {
+  line-height: 1.5;
   color: var(--text-soft);
+  white-space: pre-wrap;
+  overflow: hidden;
+  max-height: 6.5em;
 }
 
-.advanced-options[open] summary {
-  margin-bottom: 8px;
+.description-text.expanded {
+  max-height: none;
+}
+
+.description-toggle {
+  display: block;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.description-toggle:hover {
+  text-decoration: underline;
+}
+
+.result-options {
+  flex: 2;
+  min-width: 0;
+}
+
+.section-subtitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin: 20px 0 8px;
+}
+
+.section-subtitle:first-child {
+  margin-top: 0;
+}
+
+.format-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: 20px 0 16px;
+}
+
+.format-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.format-tab:hover {
+  color: var(--text);
+}
+
+.format-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.format-tab-panel.active {
+  animation: format-tab-fade-in 0.18s ease;
+}
+
+@keyframes format-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .result-layout {
+    flex-direction: column;
+  }
+
+  .result-preview {
+    width: auto;
+    position: static;
+  }
 }
 
 /* --- Download dock (fixed, shared across pages) --- */
@@ -1487,6 +1712,79 @@ button:disabled {
 
 /* --- /settings page --- */
 
+.settings-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 210px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px;
+}
+
+.settings-nav-item {
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.settings-nav-item.active {
+  background: var(--accent-ring);
+  color: var(--accent-bright);
+  font-weight: 600;
+}
+
+.settings-panels {
+  flex: 1;
+  min-width: 0;
+}
+
+/* NOTE: [hidden] already beats display:flex/block via the base reset, but
+   spelled out here too since this is the one place in the app where hiding
+   a settings-section (as opposed to a chip or a status line) matters. */
+.settings-panels .settings-section[hidden] {
+  display: none;
+}
+
+.settings-subsection {
+  margin-bottom: 28px;
+}
+
+.settings-subsection:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: auto;
+    position: static;
+  }
+}
+
 .settings-section {
   margin-bottom: 36px;
 }
@@ -1514,6 +1812,17 @@ button:disabled {
   box-shadow: 0 4px 14px var(--accent-glow);
 }
 
+.github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 24px;
+}
+
+.github-btn img {
+  display: block;
+}
+
 /* --- /supported-sites page --- */
 
 .sites-category {
@@ -1536,12 +1845,51 @@ button:disabled {
 }
 
 .sites-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: var(--surface-subtle);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 7px 14px;
+  padding: 6px 14px 6px 8px;
   border-radius: 8px;
   font-size: 0.85rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.sites-chip:hover {
+  /* NOTE: --brand is set inline per chip (each site's real hex, from Simple
+     Icons' own metadata) - falls back to the app's accent for anything that
+     doesn't set one. */
+  border-color: var(--brand, var(--accent));
+  background: var(--surface-hover);
+}
+
+.sites-chip:active {
+  transform: scale(0.97);
+}
+
+.sites-chip-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  /* NOTE: fixed white, not a theme token - several brand marks (X, TikTok,
+     Dailymotion) are officially black, which would vanish against a dark
+     background. A small, always-white disc keeps every logo legible in
+     both themes without needing a per-brand exception. */
+  background: #fff;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sites-chip-icon img {
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
 .settings-add-form {
@@ -2032,6 +2380,18 @@ button:disabled {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.lang-codes-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--accent-bright);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.lang-codes-link:hover {
+  text-decoration: underline;
 }
 
 .cookie-warning {

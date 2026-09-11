@@ -120,6 +120,14 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
     # None the same as "none" was wrongly hiding every video quality option
     # on those sites (e.g. archive.org).
     best_by_height: dict[int, dict] = {}
+    # NOTE: some manifest-only formats (no filesize/filesize_approx at all)
+    # report a tbr wildly higher than any sibling at the same height that DOES
+    # have a confirmed size - on a real video, one 1080p entry's tbr was
+    # ~3x every other 1080p format's, despite none of them having a real
+    # reason to differ that much (same codec family, same fps). That tbr
+    # looks like a rough ceiling YouTube hasn't refined yet, not a usable
+    # average - so it's tracked separately as a sanity cap for the estimate.
+    max_known_size_by_height: dict[int, int] = {}
     for f in formats:
         if f.get("vcodec") == "none":
             continue
@@ -130,6 +138,9 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
         current = best_by_height.get(height)
         if current is None or tbr > (current.get("tbr") or 0):
             best_by_height[height] = f
+        known_size = f.get("filesize") or f.get("filesize_approx")
+        if known_size:
+            max_known_size_by_height[height] = max(known_size, max_known_size_by_height.get(height, 0))
 
     result = []
     for height in sorted(best_by_height.keys(), reverse=True):
@@ -137,14 +148,15 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
         size = f.get("filesize") or f.get("filesize_approx")
         size_label = human_size(size)
         if not size:
-            # NOTE: YouTube's DASH video-only formats routinely report neither
-            # filesize nor filesize_approx at all (confirmed on a real 1080p
-            # stream) - tbr (average kbps) times the video's duration gives a
-            # rough total. Prefixed with "~" so it reads as a rough estimate,
-            # not a reported fact - a genuinely variable bitrate can be off.
+            # NOTE: tbr (average kbps) times the video's duration gives a
+            # rough total when nothing better is available. Prefixed with "~"
+            # so it reads as an estimate, not a reported fact.
             tbr = f.get("tbr")
             if tbr and duration:
                 estimate = tbr * 1000 / 8 * duration
+                known_ceiling = max_known_size_by_height.get(height)
+                if known_ceiling:
+                    estimate = min(estimate, known_ceiling)
                 size_label = f"~{human_size(estimate)}"
         vcodec = (f.get("vcodec") or "?").split(".")[0]
         result.append(
@@ -373,6 +385,7 @@ def probe(url: str) -> dict:
         "uploader": info.get("uploader") or "?",
         "duration": int(info.get("duration") or 0),
         "thumbnail": info.get("thumbnail"),
+        "description": info.get("description") or "",
         "video": _dedupe_video_formats(formats, int(info.get("duration") or 0)),
         "subtitles": _subtitle_list(info),
         "transcript": _transcript_language(info),
@@ -511,25 +524,52 @@ def _vtt_to_text(vtt_path: str, timestamps: bool = False) -> str:
     return "\n".join(f"[{ts}] {text}" for ts, text in deduped)
 
 
-def _video_opts(format_id: str, subtitle_langs: Optional[list[str]] = None, audio_lang: str = "") -> dict:
+def _video_opts(
+    format_id: str, subtitle_langs: Optional[list[str]] = None, audio_langs: Optional[list[str]] = None
+) -> dict:
     # NOTE: "best" is a sentinel (not a real yt-dlp format_id) used by channel
     # auto-download, where we can't probe a specific format_id per-video ahead
-    # of time - it maps to a generic, always-valid selector instead.
-    # NOTE: falls back to plain "bestaudio" if the requested dub isn't there,
-    # rather than failing the download over a missing language track.
-    audio_sel = f"bestaudio[language={audio_lang}]/bestaudio" if audio_lang else "bestaudio"
-    fmt = f"bestvideo+{audio_sel}/best" if format_id == "best" else f"{format_id}+{audio_sel}/{format_id}"
+    # of time - it maps to a generic, always-valid selector instead. Channel
+    # auto-download never passes more than one language here (multi-track is
+    # manual-download only), so the "best" sentinel never has to deal with it.
+    langs = [lang for lang in (audio_langs or []) if lang]
+    multi_track = len(langs) >= 2
+
+    if multi_track:
+        # NOTE: yt-dlp collapses a "+"-joined multi-audio selector down to a
+        # single stream unless allow_multiple_audio_streams is set (below) -
+        # and even then, the merge step itself writes no language tags at
+        # all; every downloaded audio-only fragment carries whatever generic
+        # tag YouTube baked into it, regardless of actual dub language. Only
+        # FFmpegMetadata (already in postprocessors) corrects each stream's
+        # tag afterwards from yt-dlp's own per-format language data -
+        # verified on a real video: without it, two genuinely different-
+        # language tracks both showed up tagged "eng".
+        audio_sel = "+".join(f"bestaudio[language={lang}]" for lang in langs)
+        fmt = f"{format_id}+{audio_sel}/{format_id}+bestaudio"
+    else:
+        # NOTE: falls back to plain "bestaudio" if the requested dub isn't
+        # there, rather than failing the download over a missing language.
+        audio_sel = f"bestaudio[language={langs[0]}]/bestaudio" if langs else "bestaudio"
+        fmt = f"bestvideo+{audio_sel}/best" if format_id == "best" else f"{format_id}+{audio_sel}/{format_id}"
+
     opts = {
         "format": fmt,
-        "merge_output_format": "mp4",
+        # NOTE: MKV only when multiple audio tracks are actually requested -
+        # MP4 can technically hold more than one audio track too, but MKV is
+        # the format multi-track players and other multi-dub releases expect,
+        # and it keeps the single-track path's output exactly as before.
+        "merge_output_format": "mkv" if multi_track else "mp4",
         # NOTE: we embed a cover into video downloads too, so the history
-        # list can show a thumbnail (mp4 supports EmbedThumbnail).
+        # list can show a thumbnail (mp4/mkv both support EmbedThumbnail).
         "writethumbnail": True,
         "postprocessors": [
             {"key": "FFmpegMetadata"},
             {"key": "EmbedThumbnail"},
         ],
     }
+    if multi_track:
+        opts["allow_multiple_audio_streams"] = True
     if subtitle_langs:
         # NOTE: subtitles are deliberately NOT embedded into the mp4 - they
         # become separate .srt files sharing the same base name as the mp4
@@ -672,12 +712,16 @@ def download(
     progress_hook: Callable[[dict], None],
     postprocessor_hook: Callable[[dict], None],
     subtitle_langs: Optional[list[str]] = None,
-    audio_lang: str = "",
+    audio_langs: Optional[list[str]] = None,
 ) -> str:
+    audio_langs = [lang for lang in (audio_langs or []) if lang]
     if kind == "audio":
-        opts = _audio_opts(choice, audio_lang)
+        # NOTE: multi-track only makes sense embedded in a video - a plain
+        # audio file (mp3/m4a/opus) can't meaningfully hold more than one
+        # selectable track, so only the first requested language applies here.
+        opts = _audio_opts(choice, audio_langs[0] if audio_langs else "")
     elif kind == "video":
-        opts = _video_opts(choice, subtitle_langs, audio_lang)
+        opts = _video_opts(choice, subtitle_langs, audio_langs)
     elif kind == "subtitle":
         opts = _subtitle_opts(choice)
     elif kind == "transcript":

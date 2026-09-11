@@ -13,6 +13,9 @@ const historyError = document.getElementById("history-error");
 const historyClearBtn = document.getElementById("history-clear-btn");
 const historySearchInput = document.getElementById("history-search");
 const historyChannelFilter = document.getElementById("history-channel-filter");
+const historyTypeFilter = document.getElementById("history-type-filter");
+const historyViewGridBtn = document.getElementById("history-view-grid");
+const historyViewListBtn = document.getElementById("history-view-list");
 const langSwitch = document.getElementById("lang-switch");
 const themeToggle = document.getElementById("theme-toggle");
 const themeChoice = document.getElementById("theme-choice");
@@ -114,8 +117,196 @@ const I18N = {
     resolveBtnBusy: "...",
     sectionAudio: "Ses",
     sectionAudioTrack: "Ses Parçası",
-    audioTrackHint: "Bu videoda birden fazla dil/dublaj var — ses veya video indirirken uygulanır",
+    audioTrackHint: "Bu videoda birden fazla dil/dublaj var. Birden fazlasını seçerseniz videoya hepsi ayrı ayrı seçilebilir ses parçası olarak eklenir (dosya .mkv olur)",
     audioTrackDefaultSuffix: "(orijinal)",
+    // NOTE: ISO 639-1 code -> Turkish language name, sourced from pycountry +
+    // Babel (see docs/language-codes.tr.md) for the audio-track chip tooltip.
+    audioTrackNames: {
+      aa: "Afar",
+      ab: "Abhazca",
+      ae: "Avestçe",
+      af: "Afrikaanca",
+      ak: "Akan",
+      am: "Amharca",
+      an: "Aragonca",
+      ar: "Arapça",
+      as: "Assamca",
+      av: "Avar dili",
+      ay: "Aymara",
+      az: "Azerbaycan dili",
+      ba: "Başkırtça",
+      be: "Belarusça",
+      bg: "Bulgarca",
+      bi: "Bislama",
+      bm: "Bambara",
+      bn: "Bengalce",
+      bo: "Tibetçe",
+      br: "Bretonca",
+      bs: "Boşnakça",
+      ca: "Katalanca",
+      ce: "Çeçence",
+      ch: "Çamorro dili",
+      co: "Korsikaca",
+      cr: "Krice",
+      cs: "Çekçe",
+      cu: "Kilise Slavcası",
+      cv: "Çuvaşça",
+      cy: "Galce",
+      da: "Danca",
+      de: "Almanca",
+      dv: "Divehi dili",
+      dz: "Dzongkha",
+      ee: "Ewe",
+      el: "Yunanca",
+      en: "İngilizce",
+      eo: "Esperanto",
+      es: "İspanyolca",
+      et: "Estonca",
+      eu: "Baskça",
+      fa: "Farsça",
+      ff: "Fula dili",
+      fi: "Fince",
+      fj: "Fiji dili",
+      fo: "Faroe dili",
+      fr: "Fransızca",
+      fy: "Batı Frizcesi",
+      ga: "İrlandaca",
+      gd: "İskoç Gaelcesi",
+      gl: "Galiçyaca",
+      gn: "Guarani dili",
+      gu: "Güceratça",
+      gv: "Man dili",
+      ha: "Hausa dili",
+      he: "İbranice",
+      hi: "Hintçe",
+      ho: "Hiri Motu",
+      hr: "Hırvatça",
+      ht: "Haiti Kreyolu",
+      hu: "Macarca",
+      hy: "Ermenice",
+      hz: "Herero dili",
+      ia: "İnterlingua",
+      id: "Endonezce",
+      ie: "Interlingue",
+      ig: "İbo dili",
+      ii: "Sichuan Yi",
+      ik: "İnyupikçe",
+      io: "Ido",
+      is: "İzlandaca",
+      it: "İtalyanca",
+      iu: "İnuktitut dili",
+      ja: "Japonca",
+      jv: "Cava dili",
+      ka: "Gürcüce",
+      kg: "Kongo dili",
+      ki: "Kikuyu",
+      kj: "Kuanyama",
+      kk: "Kazakça",
+      kl: "Grönland dili",
+      km: "Khmer dili",
+      kn: "Kannada dili",
+      ko: "Korece",
+      kr: "Kanuri dili",
+      ks: "Keşmir dili",
+      ku: "Kürtçe",
+      kv: "Komi",
+      kw: "Kernevekçe",
+      ky: "Kırgızca",
+      la: "Latince",
+      lb: "Lüksemburgca",
+      lg: "Ganda",
+      li: "Limburgca",
+      ln: "Lingala",
+      lo: "Lao dili",
+      lt: "Litvanca",
+      lu: "Luba-Katanga",
+      lv: "Letonca",
+      mg: "Malgaşça",
+      mh: "Marshall Adaları dili",
+      mi: "Maori dili",
+      mk: "Makedonca",
+      ml: "Malayalam dili",
+      mn: "Moğolca",
+      mr: "Marathi dili",
+      ms: "Malayca",
+      mt: "Maltaca",
+      my: "Birman dili",
+      na: "Nauru dili",
+      nb: "Norveççe Bokmål",
+      nd: "Kuzey Ndebele",
+      ne: "Nepalce",
+      ng: "Ndonga",
+      nl: "Felemenkçe",
+      nn: "Norveççe Nynorsk",
+      no: "Norveççe",
+      nr: "Güney Ndebele",
+      nv: "Navaho dili",
+      ny: "Nyanja",
+      oc: "Oksitan dili",
+      oj: "Ojibva dili",
+      om: "Oromo dili",
+      or: "Oriya dili",
+      os: "Osetçe",
+      pa: "Pencapça",
+      pi: "Pali",
+      pl: "Lehçe",
+      ps: "Peştuca",
+      pt: "Portekizce",
+      qu: "Keçuva dili",
+      rm: "Romanşça",
+      rn: "Kirundi",
+      ro: "Rumence",
+      ru: "Rusça",
+      rw: "Kinyarwanda",
+      sa: "Sanskrit",
+      sc: "Sardunya dili",
+      sd: "Sindhi dili",
+      se: "Kuzey Laponcası",
+      sg: "Sango",
+      sh: "Sırp-Hırvat Dili",
+      si: "Sinhali dili",
+      sk: "Slovakça",
+      sl: "Slovence",
+      sm: "Samoa dili",
+      sn: "Şona dili",
+      so: "Somalice",
+      sq: "Arnavutça",
+      sr: "Sırpça",
+      ss: "Sisvati",
+      st: "Güney Sotho dili",
+      su: "Sunda dili",
+      sv: "İsveççe",
+      sw: "Svahili dili",
+      ta: "Tamilce",
+      te: "Telugu dili",
+      tg: "Tacikçe",
+      th: "Tayca",
+      ti: "Tigrinya dili",
+      tk: "Türkmence",
+      tl: "Tagalogca",
+      tn: "Setsvana",
+      to: "Tonga dili",
+      tr: "Türkçe",
+      ts: "Tsonga",
+      tt: "Tatarca",
+      tw: "Tvi",
+      ty: "Tahiti dili",
+      ug: "Uygurca",
+      uk: "Ukraynaca",
+      ur: "Urduca",
+      uz: "Özbekçe",
+      ve: "Venda dili",
+      vi: "Vietnamca",
+      vo: "Volapük",
+      wa: "Valonca",
+      wo: "Volofça",
+      xh: "Zosa dili",
+      yi: "Yidiş",
+      yo: "Yorubaca",
+      za: "Zhuangca",
+      zh: "Çince",
+      zu: "Zuluca",
+    },
     sectionVideo: "Video",
     sectionSubtitle: "Altyazı",
     subtitleHint: "Seçtiğiniz video ile birlikte, aynı dosya adıyla iner",
@@ -129,7 +320,10 @@ const I18N = {
     transcriptBundleWithMedia: "Video/ses ile birlikte indir",
     quickBestAudio: "♪ En İyi Ses",
     quickBestVideo: "▶ En İyi Video",
-    advancedOptions: "Diğer seçenekler",
+    descriptionTitle: "Açıklama",
+    descriptionShowMore: "Daha fazla göster",
+    descriptionShowLess: "Daha az göster",
+    sectionOptions: "Seçenekler",
     audio: {
       opus: { label: "Opus", desc: "en iyi kalite · yeniden kodlanmaz" },
       m4a: { label: "M4A", desc: "AAC · Apple uyumlu · yeniden kodlanmaz" },
@@ -173,6 +367,7 @@ const I18N = {
     historyEmpty: "Henüz indirme yok",
     historyNoMatches: "Aramayla eşleşen indirme yok",
     historyAllChannels: "Tüm kanallar",
+    historyAllTypes: "Tüm türler",
     historyDownload: "Klasörde göster",
     historyDelete: "Sil",
     historyDeleteFailed: "Silinemedi",
@@ -232,8 +427,196 @@ const I18N = {
     resolveBtnBusy: "...",
     sectionAudio: "Audio",
     sectionAudioTrack: "Audio Track",
-    audioTrackHint: "This video has more than one language/dub — applies when you download audio or video",
+    audioTrackHint: "This video has more than one language/dub. Pick more than one and they're all added as separate, selectable audio tracks in the file (which becomes .mkv)",
     audioTrackDefaultSuffix: "(original)",
+    // NOTE: ISO 639-1 code -> English language name, sourced from pycountry +
+    // Babel (see docs/language-codes.en.md) for the audio-track chip tooltip.
+    audioTrackNames: {
+      aa: "Afar",
+      ab: "Abkhazian",
+      ae: "Avestan",
+      af: "Afrikaans",
+      ak: "Akan",
+      am: "Amharic",
+      an: "Aragonese",
+      ar: "Arabic",
+      as: "Assamese",
+      av: "Avaric",
+      ay: "Aymara",
+      az: "Azerbaijani",
+      ba: "Bashkir",
+      be: "Belarusian",
+      bg: "Bulgarian",
+      bi: "Bislama",
+      bm: "Bambara",
+      bn: "Bangla",
+      bo: "Tibetan",
+      br: "Breton",
+      bs: "Bosnian",
+      ca: "Catalan",
+      ce: "Chechen",
+      ch: "Chamorro",
+      co: "Corsican",
+      cr: "Cree",
+      cs: "Czech",
+      cu: "Church Slavic",
+      cv: "Chuvash",
+      cy: "Welsh",
+      da: "Danish",
+      de: "German",
+      dv: "Divehi",
+      dz: "Dzongkha",
+      ee: "Ewe",
+      el: "Greek",
+      en: "English",
+      eo: "Esperanto",
+      es: "Spanish",
+      et: "Estonian",
+      eu: "Basque",
+      fa: "Persian",
+      ff: "Fula",
+      fi: "Finnish",
+      fj: "Fijian",
+      fo: "Faroese",
+      fr: "French",
+      fy: "Western Frisian",
+      ga: "Irish",
+      gd: "Scottish Gaelic",
+      gl: "Galician",
+      gn: "Guarani",
+      gu: "Gujarati",
+      gv: "Manx",
+      ha: "Hausa",
+      he: "Hebrew",
+      hi: "Hindi",
+      ho: "Hiri Motu",
+      hr: "Croatian",
+      ht: "Haitian Creole",
+      hu: "Hungarian",
+      hy: "Armenian",
+      hz: "Herero",
+      ia: "Interlingua",
+      id: "Indonesian",
+      ie: "Interlingue",
+      ig: "Igbo",
+      ii: "Sichuan Yi",
+      ik: "Inupiaq",
+      io: "Ido",
+      is: "Icelandic",
+      it: "Italian",
+      iu: "Inuktitut",
+      ja: "Japanese",
+      jv: "Javanese",
+      ka: "Georgian",
+      kg: "Kongo",
+      ki: "Kikuyu",
+      kj: "Kuanyama",
+      kk: "Kazakh",
+      kl: "Kalaallisut",
+      km: "Khmer",
+      kn: "Kannada",
+      ko: "Korean",
+      kr: "Kanuri",
+      ks: "Kashmiri",
+      ku: "Kurdish",
+      kv: "Komi",
+      kw: "Cornish",
+      ky: "Kyrgyz",
+      la: "Latin",
+      lb: "Luxembourgish",
+      lg: "Ganda",
+      li: "Limburgish",
+      ln: "Lingala",
+      lo: "Lao",
+      lt: "Lithuanian",
+      lu: "Luba-Katanga",
+      lv: "Latvian",
+      mg: "Malagasy",
+      mh: "Marshallese",
+      mi: "Māori",
+      mk: "Macedonian",
+      ml: "Malayalam",
+      mn: "Mongolian",
+      mr: "Marathi",
+      ms: "Malay",
+      mt: "Maltese",
+      my: "Burmese",
+      na: "Nauru",
+      nb: "Norwegian Bokmål",
+      nd: "North Ndebele",
+      ne: "Nepali",
+      ng: "Ndonga",
+      nl: "Dutch",
+      nn: "Norwegian Nynorsk",
+      no: "Norwegian",
+      nr: "South Ndebele",
+      nv: "Navajo",
+      ny: "Nyanja",
+      oc: "Occitan",
+      oj: "Ojibwa",
+      om: "Oromo",
+      or: "Odia",
+      os: "Ossetic",
+      pa: "Punjabi",
+      pi: "Pali",
+      pl: "Polish",
+      ps: "Pashto",
+      pt: "Portuguese",
+      qu: "Quechua",
+      rm: "Romansh",
+      rn: "Rundi",
+      ro: "Romanian",
+      ru: "Russian",
+      rw: "Kinyarwanda",
+      sa: "Sanskrit",
+      sc: "Sardinian",
+      sd: "Sindhi",
+      se: "Northern Sami",
+      sg: "Sango",
+      sh: "Serbo-Croatian",
+      si: "Sinhala",
+      sk: "Slovak",
+      sl: "Slovenian",
+      sm: "Samoan",
+      sn: "Shona",
+      so: "Somali",
+      sq: "Albanian",
+      sr: "Serbian",
+      ss: "Swati",
+      st: "Southern Sotho",
+      su: "Sundanese",
+      sv: "Swedish",
+      sw: "Swahili",
+      ta: "Tamil",
+      te: "Telugu",
+      tg: "Tajik",
+      th: "Thai",
+      ti: "Tigrinya",
+      tk: "Turkmen",
+      tl: "Tagalog",
+      tn: "Tswana",
+      to: "Tongan",
+      tr: "Turkish",
+      ts: "Tsonga",
+      tt: "Tatar",
+      tw: "Twi",
+      ty: "Tahitian",
+      ug: "Uyghur",
+      uk: "Ukrainian",
+      ur: "Urdu",
+      uz: "Uzbek",
+      ve: "Venda",
+      vi: "Vietnamese",
+      vo: "Volapük",
+      wa: "Walloon",
+      wo: "Wolof",
+      xh: "Xhosa",
+      yi: "Yiddish",
+      yo: "Yoruba",
+      za: "Zhuang",
+      zh: "Chinese",
+      zu: "Zulu",
+    },
     sectionVideo: "Video",
     sectionSubtitle: "Subtitles",
     subtitleHint: "Downloads together with the video you pick, using the same filename",
@@ -247,7 +630,10 @@ const I18N = {
     transcriptBundleWithMedia: "Include with video/audio download",
     quickBestAudio: "♪ Best Audio",
     quickBestVideo: "▶ Best Video",
-    advancedOptions: "More options",
+    descriptionTitle: "Description",
+    descriptionShowMore: "Show more",
+    descriptionShowLess: "Show less",
+    sectionOptions: "Options",
     audio: {
       opus: { label: "Opus", desc: "best quality · not re-encoded" },
       m4a: { label: "M4A", desc: "AAC · Apple-compatible · not re-encoded" },
@@ -291,6 +677,9 @@ const I18N = {
     historyEmpty: "No downloads yet",
     historyNoMatches: "No downloads match your search",
     historyAllChannels: "All channels",
+    historyAllTypes: "All types",
+    historyViewGrid: "Grid view",
+    historyViewList: "List view",
     historyDownload: "Show in folder",
     historyDelete: "Delete",
     historyDeleteFailed: "Could not delete",
@@ -357,7 +746,10 @@ let lastProbe = null; // { url, info } - currently shown single-video detail
 let lastPlaylist = null; // { url, data } - currently shown playlist listing
 let lastHistory = [];
 let selectedSubtitles = new Set(); // checked subtitle language codes - go along with the next video download
-let selectedAudioLang = ""; // chosen audio-track language code - "" means yt-dlp's own default (the original track)
+// NOTE: a Set, not a single value - picking more than one language embeds all
+// of them as separate, selectable audio tracks in one file (video only; see
+// downloader.py). Empty means yt-dlp's own default (the original track).
+let selectedAudioLangs = new Set();
 let defaultAudioLang = ""; // the user's saved preference from /settings - applied when a video actually has that language
 let transcriptBundleSelected = false; // whether the transcript should also download alongside the next audio/video download
 let lastPending = [];
@@ -468,6 +860,15 @@ function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 }
 
+// NOTE: subtitle codes can carry a region tag (e.g. "es-419", "pt-BR") that
+// audioTrackNames (plain ISO 639-1) doesn't have an entry for - only the
+// base language part before the dash is looked up, so the tooltip still
+// shows a name instead of nothing.
+function languageNameForCode(code) {
+  const base = String(code || "").split(/[-_]/)[0].toLowerCase();
+  return t().audioTrackNames[base] || "";
+}
+
 async function revealFile(url) {
   // NOTE: fetch() rather than a plain <a href> navigation - the endpoint
   // just opens the OS file explorer server-side and returns {"ok": true};
@@ -494,10 +895,10 @@ async function fetchProbe(url) {
 
 function applyDefaultAudioLang(info) {
   // NOTE: only pre-selects when the video actually HAS the saved language -
-  // otherwise selectedAudioLang stays "" and the original plays, exactly as
-  // if no default were configured at all.
+  // otherwise selectedAudioLangs stays empty and the original plays, exactly
+  // as if no default were configured at all.
   if (defaultAudioLang && info.audio_tracks?.some((t) => t.code === defaultAudioLang)) {
-    selectedAudioLang = defaultAudioLang;
+    selectedAudioLangs = new Set([defaultAudioLang]);
   }
 }
 
@@ -510,7 +911,7 @@ async function probe() {
   lastProbe = null;
   lastPlaylist = null;
   selectedSubtitles = new Set();
-  selectedAudioLang = "";
+  selectedAudioLangs = new Set();
   transcriptBundleSelected = false;
 
   try {
@@ -535,7 +936,7 @@ async function selectPlaylistEntry(entry) {
   card.classList.remove("hidden");
   card.innerHTML = `<div class="progress-status">${t().resolveBtnBusy}</div>`;
   selectedSubtitles = new Set();
-  selectedAudioLang = "";
+  selectedAudioLangs = new Set();
   transcriptBundleSelected = false;
   try {
     const data = await fetchProbe(entry.url);
@@ -576,16 +977,18 @@ function renderCard(url, info) {
   if (info.audio_tracks && info.audio_tracks.length > 0) {
     const chipsHtml = info.audio_tracks
       .map((track) => {
-        // NOTE: single-choice, unlike the subtitle chips - "" (nothing picked
-        // yet) is visually shown as the default track being selected, since
-        // that's exactly what happens on the backend when nothing is chosen.
-        const isSelected = selectedAudioLang ? selectedAudioLang === track.code : track.is_default;
+        // NOTE: multi-select, like the subtitle chips - but when NOTHING has
+        // been explicitly picked yet, the default track is shown as selected
+        // anyway, since that's exactly what happens on the backend when
+        // audio_langs is empty.
+        const isSelected = selectedAudioLangs.size > 0 ? selectedAudioLangs.has(track.code) : track.is_default;
         const suffix = track.is_default ? ` ${t().audioTrackDefaultSuffix}` : "";
-        return `<button type="button" class="subtitle-chip audio-track-chip${isSelected ? " selected" : ""}" data-lang="${escapeHtml(track.code)}">${escapeHtml(track.code.toUpperCase())}${suffix}</button>`;
+        const langName = languageNameForCode(track.code);
+        return `<button type="button" class="subtitle-chip audio-track-chip${isSelected ? " selected" : ""}" data-lang="${escapeHtml(track.code)}" data-default="${track.is_default ? "1" : ""}"${langName ? ` title="${escapeHtml(langName)}"` : ""}>${escapeHtml(track.code.toUpperCase())}${suffix}</button>`;
       })
       .join("");
     audioTrackHtml = `
-    <div class="section-title">${t().sectionAudioTrack}</div>
+    <div class="section-subtitle">${t().sectionAudioTrack}</div>
     <div class="subtitle-hint">${t().audioTrackHint}</div>
     <div class="subtitle-grid" id="audio-track-grid">${chipsHtml}</div>`;
   }
@@ -613,11 +1016,12 @@ function renderCard(url, info) {
         const choiceVal = `${s.code}:${s.source}`;
         const selected = selectedSubtitles.has(choiceVal) ? " selected" : "";
         const suffix = s.source === "auto" ? ` ${t().subtitleAutoSuffix}` : "";
-        return `<button type="button" class="subtitle-chip${selected}" data-choice="${escapeHtml(choiceVal)}">${escapeHtml(s.code.toUpperCase())}${suffix}</button>`;
+        const langName = languageNameForCode(s.code);
+        return `<button type="button" class="subtitle-chip${selected}" data-choice="${escapeHtml(choiceVal)}"${langName ? ` title="${escapeHtml(langName)}"` : ""}>${escapeHtml(s.code.toUpperCase())}${suffix}</button>`;
       })
       .join("");
     subtitleHtml = `
-    <div class="section-title">${t().sectionSubtitle}</div>
+    <div class="section-subtitle">${t().sectionSubtitle}</div>
     <div class="subtitle-hint">${t().subtitleHint}</div>
     <div class="subtitle-grid">${chipsHtml}</div>`;
   }
@@ -626,7 +1030,7 @@ function renderCard(url, info) {
   if (info.transcript) {
     const sourceLabel = info.transcript.source === "auto" ? t().transcriptAuto : t().transcriptManual;
     transcriptHtml = `
-    <div class="section-title">${t().sectionTranscript}</div>
+    <div class="section-subtitle">${t().sectionTranscript}</div>
     <label class="transcript-timestamp-check">
       <input type="checkbox" id="transcript-timestamps">
       ${t().transcriptTimestamps}
@@ -656,38 +1060,92 @@ function renderCard(url, info) {
       }
     </div>`;
 
+  let descriptionHtml = "";
+  if (info.description && info.description.trim()) {
+    descriptionHtml = `
+    <div class="preview-description">
+      <div class="section-subtitle">${t().descriptionTitle}</div>
+      <div class="description-text" id="description-text">${escapeHtml(info.description)}</div>
+      <button type="button" class="description-toggle hidden" id="description-toggle">${t().descriptionShowMore}</button>
+    </div>`;
+  }
+
   card.innerHTML = `
     ${backLink}
-    <div class="info-row">
-      ${thumb}
-      <div class="info-meta">
-        <div class="title">${escapeHtml(info.title)}</div>
-        <div class="sub">${escapeHtml(info.uploader)} · ${fmtDuration(info.duration)}</div>
+    <div class="result-layout">
+      <div class="result-preview">
+        <div class="info-row">
+          ${thumb}
+          <div class="info-meta">
+            <div class="title">${escapeHtml(info.title)}</div>
+            <div class="sub">${escapeHtml(info.uploader)} · ${fmtDuration(info.duration)}</div>
+          </div>
+        </div>
+        ${quickHtml}
+        ${descriptionHtml}
+      </div>
+      <div class="result-options">
+        <div class="section-title">${t().sectionOptions}</div>
+        ${audioTrackHtml}
+        <div class="format-tabs" id="format-tabs" role="tablist">
+          <button type="button" class="format-tab active" data-tab="audio" role="tab" aria-selected="true">${t().sectionAudio}</button>
+          <button type="button" class="format-tab" data-tab="video" role="tab" aria-selected="false">${t().sectionVideo}</button>
+        </div>
+        <div class="format-tab-panels">
+          <div class="format-tab-panel active" data-tab-panel="audio">${audioHtml}</div>
+          <div class="format-tab-panel" data-tab-panel="video" hidden>${videoHtml}</div>
+        </div>
+        ${subtitleHtml}
+        ${transcriptHtml}
       </div>
     </div>
-    ${quickHtml}
-    <details class="advanced-options">
-      <summary>${t().advancedOptions}</summary>
-      <div class="section-title">${t().sectionAudio}</div>
-      ${audioHtml}
-      ${audioTrackHtml}
-      <div class="section-title">${t().sectionVideo}</div>
-      ${videoHtml}
-      ${subtitleHtml}
-      ${transcriptHtml}
-    </details>
   `;
+
+  const formatTabs = card.querySelector("#format-tabs");
+  if (formatTabs) {
+    formatTabs.querySelectorAll(".format-tab").forEach((tabBtn) => {
+      tabBtn.addEventListener("click", () => {
+        const targetTab = tabBtn.dataset.tab;
+        formatTabs.querySelectorAll(".format-tab").forEach((btn) => {
+          const active = btn.dataset.tab === targetTab;
+          btn.classList.toggle("active", active);
+          btn.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        card.querySelectorAll(".format-tab-panel").forEach((panel) => {
+          const active = panel.dataset.tabPanel === targetTab;
+          panel.hidden = !active;
+          panel.classList.toggle("active", active);
+        });
+      });
+    });
+  }
+
+  const descText = card.querySelector("#description-text");
+  const descToggle = card.querySelector("#description-toggle");
+  if (descText && descToggle) {
+    // NOTE: the toggle is only shown when the clamped text actually
+    // overflows - a short description has nothing to expand, so the button
+    // would just be dead UI.
+    if (descText.scrollHeight > descText.clientHeight + 1) {
+      descToggle.classList.remove("hidden");
+    }
+    descToggle.addEventListener("click", () => {
+      const expanded = descText.classList.toggle("expanded");
+      descToggle.textContent = expanded ? t().descriptionShowLess : t().descriptionShowMore;
+    });
+  }
 
   card.querySelectorAll(".option, .quick-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const subs = btn.dataset.kind === "video" ? Array.from(selectedSubtitles) : [];
-      const audioLang = btn.dataset.kind === "video" || btn.dataset.kind === "audio" ? selectedAudioLang : "";
+      const audioLangs =
+        btn.dataset.kind === "video" || btn.dataset.kind === "audio" ? Array.from(selectedAudioLangs) : [];
       let choice = btn.dataset.choice;
       if (btn.dataset.kind === "transcript") {
         const tsCheck = document.getElementById("transcript-timestamps");
         choice = `${choice}:${tsCheck && tsCheck.checked ? "ts" : "plain"}`;
       }
-      startDownload(url, btn.dataset.kind, choice, subs, info.title, audioLang);
+      startDownload(url, btn.dataset.kind, choice, subs, info.title, audioLangs);
 
       // NOTE: transcript has no yt-dlp-level way to bundle into the same
       // download as audio/video (it needs skip_download: True, the opposite
@@ -716,12 +1174,24 @@ function renderCard(url, info) {
     });
   });
 
-  // NOTE: single-choice unlike the subtitle chips above - picking one clears
-  // any other selection instead of toggling independently.
+  // NOTE: multi-select, like the subtitle chips above - picking Turkish and
+  // English both embeds two selectable audio tracks in one file instead of
+  // replacing one choice with another.
   card.querySelectorAll(".audio-track-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
-      selectedAudioLang = chip.dataset.lang;
-      card.querySelectorAll(".audio-track-chip").forEach((c) => c.classList.toggle("selected", c === chip));
+      const lang = chip.dataset.lang;
+      if (selectedAudioLangs.has(lang)) {
+        selectedAudioLangs.delete(lang);
+      } else {
+        selectedAudioLangs.add(lang);
+      }
+      // NOTE: re-derive every chip's state from the Set, not just the one
+      // clicked - once anything is explicitly picked, the implicit
+      // "is_default" highlight no longer applies to the others.
+      card.querySelectorAll(".audio-track-chip").forEach((c) => {
+        const isSelected = selectedAudioLangs.size > 0 ? selectedAudioLangs.has(c.dataset.lang) : !!c.dataset.default;
+        c.classList.toggle("selected", isSelected);
+      });
     });
   });
 
@@ -836,12 +1306,12 @@ function queuePlaylistRange(kind, choice) {
   }
 }
 
-async function startDownload(url, kind, choice, subtitleLangs, title, audioLang) {
+async function startDownload(url, kind, choice, subtitleLangs, title, audioLangs) {
   try {
     const res = await fetch("/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, kind, choice, subtitle_langs: subtitleLangs || [], audio_lang: audioLang || "" }),
+      body: JSON.stringify({ url, kind, choice, subtitle_langs: subtitleLangs || [], audio_langs: audioLangs || [] }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1076,6 +1546,7 @@ async function loadHistory() {
     lastHistory = data;
     if (historyList) {
       populateChannelFilter();
+      populateTypeFilter();
       applyHistoryFilters();
     }
     if (recentList) renderRecent(lastHistory);
@@ -1094,25 +1565,40 @@ function populateChannelFilter() {
   historyChannelFilter.value = channels.includes(current) ? current : "";
 }
 
+function populateTypeFilter() {
+  if (!historyTypeFilter) return;
+  // NOTE: built from whatever extensions actually exist in the downloads
+  // folder right now, not a hand-kept list here - a new download kind (like
+  // .mkv from multi-track audio) shows up on its own, nothing to remember.
+  const types = Array.from(new Set(lastHistory.map((i) => i.ext).filter(Boolean))).sort();
+  const current = historyTypeFilter.value;
+  historyTypeFilter.innerHTML =
+    `<option value="">${t().historyAllTypes}</option>` +
+    types.map((ext) => `<option value="${escapeHtml(ext)}">${escapeHtml(ext.toUpperCase())}</option>`).join("");
+  historyTypeFilter.value = types.includes(current) ? current : "";
+}
+
 function applyHistoryFilters() {
   if (!historyList) return;
   const q = (historySearchInput?.value || "").trim().toLowerCase();
   const channel = historyChannelFilter?.value || "";
+  const type = historyTypeFilter?.value || "";
   const filtered = lastHistory.filter((item) => {
     const matchesQuery = !q || item.filename.toLowerCase().includes(q);
     const matchesChannel = !channel || item.folder === channel;
-    return matchesQuery && matchesChannel;
+    const matchesType = !type || item.ext === type;
+    return matchesQuery && matchesChannel && matchesType;
   });
   renderHistory(filtered);
 }
 
-const VIDEO_EXTS = new Set(["mp4"]);
+const VIDEO_EXTS = new Set(["mp4", "mkv"]);
 const SUBTITLE_EXTS = new Set(["srt"]);
 const TRANSCRIPT_EXTS = new Set(["txt"]);
 // NOTE: only media containers can carry an embedded cover. Subtitles and
 // transcripts are plain text, so requesting a thumbnail for them was a
 // guaranteed 404 that still cost the server an ffprobe spawn per card.
-const THUMBNAILABLE_EXTS = new Set(["mp4", "mp3", "m4a", "opus"]);
+const THUMBNAILABLE_EXTS = new Set(["mp4", "mkv", "mp3", "m4a", "opus"]);
 
 function encodePath(relPath) {
   // NOTE: encodes each "/"-separated segment individually so the slash stays
@@ -1712,6 +2198,39 @@ function wireDepsUpdateBtn() {
   });
 }
 
+// --- Ayarlar: sekme gecisi ---
+
+const settingsNav = document.getElementById("settings-nav");
+
+function showSettingsTab(tabId) {
+  const panels = document.querySelectorAll(".settings-panels [data-panel]");
+  if (!panels.length) return;
+  const validIds = Array.from(panels).map((p) => p.dataset.panel);
+  if (!validIds.includes(tabId)) tabId = validIds[0];
+
+  panels.forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== tabId;
+  });
+  settingsNav?.querySelectorAll(".settings-nav-item").forEach((btn) => {
+    const active = btn.dataset.tab === tabId;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-current", active ? "true" : "false");
+  });
+}
+
+if (settingsNav) {
+  settingsNav.querySelectorAll(".settings-nav-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      location.hash = btn.dataset.tab;
+    });
+  });
+  // NOTE: hash-driven rather than plain JS state, so a direct link (or a
+  // refresh) lands on the right tab, and the browser's back/forward buttons
+  // step through tabs the same way they'd step through pages.
+  window.addEventListener("hashchange", () => showSettingsTab(location.hash.slice(1)));
+  showSettingsTab(location.hash.slice(1));
+}
+
 // --- Ayarlar: cerezler ---
 
 const cookieModes = document.getElementById("cookie-modes");
@@ -1919,6 +2438,20 @@ themeChoice?.querySelectorAll("[data-theme-choice]").forEach((btn) => {
   btn.addEventListener("click", () => setThemePreference(btn.dataset.themeChoice));
 });
 renderThemeControls();
+
+// NOTE: the sticky result-preview panel needs to stop exactly where the
+// sticky header ends, not a guessed pixel value - measuring the real,
+// rendered height keeps this correct even if the header's content (nav
+// items, font) ever changes its height.
+function updateHeaderHeightVar() {
+  const header = document.querySelector(".site-header");
+  if (header) {
+    document.documentElement.style.setProperty("--header-height", `${header.offsetHeight}px`);
+  }
+}
+updateHeaderHeightVar();
+window.addEventListener("resize", updateHeaderHeightVar);
+
 // NOTE: while following the OS (no explicit choice), track live changes to it
 // so the icon doesn't go stale if the system flips theme on a schedule.
 window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
@@ -1927,6 +2460,39 @@ window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", ()
 historyClearBtn?.addEventListener("click", clearAllHistory);
 historySearchInput?.addEventListener("input", applyHistoryFilters);
 historyChannelFilter?.addEventListener("change", applyHistoryFilters);
+historyTypeFilter?.addEventListener("change", applyHistoryFilters);
+
+// --- Gecmis: izgara/liste gorunumu ---
+
+function applyHistoryViewMode(mode) {
+  if (!historyList) return;
+  historyList.classList.toggle("view-list", mode === "list");
+  historyViewGridBtn?.classList.toggle("active", mode !== "list");
+  historyViewListBtn?.classList.toggle("active", mode === "list");
+}
+
+if (historyList) {
+  let savedView = "grid";
+  try {
+    savedView = localStorage.getItem("mediagrab_history_view") || "grid";
+  } catch (e) {
+    // NOTE: private browsing / storage disabled - just default to grid.
+  }
+  applyHistoryViewMode(savedView);
+
+  historyViewGridBtn?.addEventListener("click", () => {
+    applyHistoryViewMode("grid");
+    try {
+      localStorage.setItem("mediagrab_history_view", "grid");
+    } catch (e) {}
+  });
+  historyViewListBtn?.addEventListener("click", () => {
+    applyHistoryViewMode("list");
+    try {
+      localStorage.setItem("mediagrab_history_view", "list");
+    } catch (e) {}
+  });
+}
 itemRevealBtn?.addEventListener("click", () => revealFile(itemRevealBtn.dataset.revealUrl));
 itemPreviewBtn?.addEventListener("click", () => {
   if (!itemPreviewPlayer) return;
