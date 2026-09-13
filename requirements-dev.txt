@@ -5,3 +5,7 @@
 #   pip install -r requirements-dev.txt
 #   pytest
 pytest>=8.0
+# NOTE: only for fastapi.testclient.TestClient (real HTTP round trips against
+# the app, e.g. the login/session middleware) - starlette's TestClient needs
+# an httpx-family client and prefers this one.
+httpx2>=2.0

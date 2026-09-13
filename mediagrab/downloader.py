@@ -551,7 +551,19 @@ def _video_opts(
         # NOTE: falls back to plain "bestaudio" if the requested dub isn't
         # there, rather than failing the download over a missing language.
         audio_sel = f"bestaudio[language={langs[0]}]/bestaudio" if langs else "bestaudio"
-        fmt = f"bestvideo+{audio_sel}/best" if format_id == "best" else f"{format_id}+{audio_sel}/{format_id}"
+        # NOTE: the final fallback used to be bare "{format_id}" - which
+        # ALWAYS resolves (it's just the video format matching itself) even
+        # when neither audio_sel alternative found anything to merge with, so
+        # it could silently ship a video with no sound at all. This has been
+        # observed for real: probe() and download() each re-extract formats
+        # independently (download() re-fetches fresh, well after the user
+        # picked a quality), so a transient hiccup that drops every audio-only
+        # format between the two calls previously produced a silent MP4
+        # instead of an error. "best" still requires an actual audio track
+        # (falling back to a combined format, or failing loudly if the video
+        # truly has none) - see the "best" sentinel branch just above, which
+        # already used this safer pattern.
+        fmt = f"bestvideo+{audio_sel}/best" if format_id == "best" else f"{format_id}+{audio_sel}/best"
 
     opts = {
         "format": fmt,

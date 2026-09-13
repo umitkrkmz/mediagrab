@@ -89,6 +89,53 @@ class SettingsUpdateRequest(BaseModel):
     default_audio_lang: str = ""
 
 
+class LoginRequest(BaseModel):
+    password: str
+
+
+class ClientInfoResponse(BaseModel):
+    # NOTE: whether THIS request came from the host machine itself
+    # (127.0.0.1/::1) or from another device on the LAN - decides whether the
+    # UI offers "show in folder" (only useful when you're sitting at the
+    # host) or a real "download to this device" action.
+    is_local: bool
+
+
+class RemoteAccessStatus(BaseModel):
+    enabled: bool
+    # NOTE: never the hash itself - only whether one has been set, so the
+    # settings UI can tell "off" apart from "on but no password yet".
+    has_password: bool
+    # NOTE: only set once this is genuinely reachable (enabled AND bound
+    # beyond localhost, see store.remote_access_active) - showing a LAN
+    # address before then would be a link that doesn't actually work yet.
+    lan_url: Optional[str] = None
+    download_mode: Literal["keep", "relay"] = "keep"
+
+
+class SessionInfo(BaseModel):
+    id: str
+    created_at: float
+    device: str
+    is_current: bool
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionInfo]
+
+
+class RemoteAccessUpdateRequest(BaseModel):
+    enabled: bool
+    download_mode: Literal["keep", "relay"] = "keep"
+
+
+class SetPasswordRequest(BaseModel):
+    password: str
+    # NOTE: only checked when a password already exists (see the route) -
+    # setting the very first password has nothing to confirm against.
+    current_password: str = ""
+
+
 class HistoryItem(BaseModel):
     filename: str
     folder: Optional[str] = None

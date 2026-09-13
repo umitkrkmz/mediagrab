@@ -47,6 +47,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **About page** (`/about`) — what the project is, its GPL-3.0 license, and links to the source code and feedback
 - **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Channel following** (`/channels`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service - see the note below.
+- **Remote access** (`/settings`) — set a password and turn it on, and your phone or another computer on the same Wi-Fi/network can connect to MediaGrab from its own browser and download on its own; see the dedicated section below for details.
 - **Download history** — its own page (`/history`), switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all
 - **Light / dark theme** — follows your system setting, or pick it by hand from `/settings` or the header toggle
 - **Cancel a download** — stop a running download from the panel; partial files are cleaned up automatically
@@ -219,6 +220,18 @@ In that case you'll need to open `http://127.0.0.1:8420` in your browser yoursel
 MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (running `python run.py` or the `uvicorn` command), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
 
 The followed-channel list and each channel's "last seen video" state live in a `channels.json` file (not committed to git) instead of a database - same "real data lives on disk, no separate DB" philosophy as the rest of the project.
+
+## Remote Access (From Your Local Network)
+
+You can run MediaGrab on one computer and open it from your phone or another device on the same Wi-Fi/network, browser to browser - no need to install MediaGrab separately on every device.
+
+**How to turn it on:** `/settings` → **Remote Access** tab → set a password first, then enable "Allow access from the local network". The server restarts itself once while the setting is applied; once it's back, the same panel shows the connection address (something like `http://192.168.x.x:8420`) - type that into the other device's browser. That device logs in with the password the first time it connects.
+
+- **Connected devices** — the same panel shows every device currently logged in (browser + OS guess, e.g. "Chrome · Windows") and when it connected; you can sign any one of them out individually without affecting your own device.
+- **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
+- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once a file has been fully sent to a device, this computer's copy is deleted right after. Downloads you make from this computer itself (the host's own browser) are never affected by this setting - it only applies to files sent to another device.
+
+> **Security note:** this connection runs over plain HTTP, not HTTPS - only use it on a home/office network you trust, and never forward the port to expose it directly to the internet. Sessions are kept in memory only; whenever the server restarts (an update, the computer shutting down, etc.) everyone has to log back in with the password - a deliberate simplification, since a personal/local tool doesn't need sessions to survive on disk.
 
 ## Tests
 

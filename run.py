@@ -11,8 +11,13 @@ import webbrowser
 
 import uvicorn
 
-from mediagrab.app import app
+from mediagrab.app import app, lan_ip as _app_lan_ip
+from mediagrab.store import get_settings, remote_access_active
 
+# NOTE: HOST is what THIS process uses to reach the server itself (probing
+# whether it's already running, opening the browser) - always loopback,
+# regardless of what uvicorn is told to listen on. A browser can't usefully
+# be pointed at 0.0.0.0 anyway; 127.0.0.1 reaches a server bound there too.
 HOST = "127.0.0.1"
 # NOTE: deliberately not 8000/3000/5000/8080 - common ports that other local
 # projects often default to. This is just the FIRST port tried, though - see
@@ -75,8 +80,20 @@ def main() -> None:
         port = fallback
 
     threading.Thread(target=_open_browser, args=(port,), daemon=True).start()
+
+    # NOTE: only listen beyond localhost when Settings -> Remote Access is
+    # both turned on AND a password is set (remote_access_active checks
+    # both - see its docstring in store.py) - the exact same condition the
+    # app's own login gate uses, so "requires a login" and "reachable from
+    # the network at all" can never drift apart.
+    bind_host = "0.0.0.0" if remote_access_active(get_settings()) else HOST
+    if bind_host != HOST:
+        # NOTE: _app_lan_ip is the exact same function Settings -> Remote
+        # Access shows an address from - this print can never disagree with it.
+        print(f"Uzaktan erisim acik / Remote access is on - LAN: http://{_app_lan_ip() or '?'}:{port}")
+
     try:
-        uvicorn.run(app, host=HOST, port=port)
+        uvicorn.run(app, host=bind_host, port=port)
     except Exception:
         # NOTE: a console-mode PyInstaller exe closes its window the instant
         # the process exits, so an unhandled exception would flash red text

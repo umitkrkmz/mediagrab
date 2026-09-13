@@ -9,6 +9,7 @@ import os
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 from mediagrab import app as app_module
 from mediagrab import downloader
@@ -422,3 +423,215 @@ def test_auto_download_with_no_saved_default_behaves_as_before(tmp_path, monkeyp
         for call in fake_executor.calls:
             with app_module.jobs_lock:
                 app_module.jobs.pop(call[0], None)
+
+
+# --- _delayed_restart ---------------------------------------------------------
+
+
+def test_restart_prefers_the_original_command_line(monkeypatch):
+    # NOTE: regression test - reproduced live. Launched as
+    # `python -m uvicorn mediagrab.app:app ...`, the old code
+    # (os.execv(sys.executable, [sys.executable] + sys.argv)) re-executed
+    # uvicorn's own __main__.py directly instead of through "-m", which
+    # changes sys.path[0] to uvicorn's OWN package directory - letting its
+    # uvicorn/logging.py shadow the stdlib `logging` module and crashing the
+    # restarted process with "module 'logging' has no attribute 'Formatter'".
+    # sys.orig_argv preserves the exact original invocation (including "-m")
+    # and must be used whenever it's available.
+    calls = []
+    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(app_module.os, "execv", lambda exe, argv: calls.append((exe, argv)))
+    original = ["/usr/bin/python", "-m", "uvicorn", "mediagrab.app:app", "--port", "8420"]
+    monkeypatch.setattr(app_module.sys, "orig_argv", original, raising=False)
+
+    app_module._delayed_restart()
+
+    assert calls == [(app_module.sys.executable, original)]
+
+
+def test_restart_falls_back_to_argv_when_orig_argv_is_unavailable(monkeypatch):
+    # NOTE: sys.orig_argv only exists on Python 3.10+ - older interpreters
+    # keep the previous behaviour, which is correct for the primary
+    # `python run.py` flow (no third-party package sits next to run.py to
+    # collide with).
+    calls = []
+    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(app_module.os, "execv", lambda exe, argv: calls.append((exe, argv)))
+    monkeypatch.delattr(app_module.sys, "orig_argv", raising=False)
+    monkeypatch.setattr(app_module.sys, "argv", ["run.py"])
+
+    app_module._delayed_restart()
+
+    assert calls == [(app_module.sys.executable, [app_module.sys.executable, "run.py"])]
+
+
+# --- local vs. remote client detection, and "download to this device" ------
+
+
+@pytest.fixture
+def client_settings(tmp_path, monkeypatch):
+    # NOTE: isolates settings.json/channels.json so these TestClient-driven
+    # tests can't touch (or be confused by) whatever's really on disk.
+    monkeypatch.setattr(store, "SETTINGS_PATH", str(tmp_path / "settings.json"))
+    monkeypatch.setattr(store, "STORE_PATH", str(tmp_path / "channels.json"))
+    monkeypatch.setattr(app_module, "_delayed_restart", lambda: None)
+
+
+def test_client_info_reports_local_for_loopback(client_settings):
+    with TestClient(app_module.app, client=("127.0.0.1", 12345)) as c:
+        assert c.get("/api/client-info").json() == {"is_local": True}
+
+
+def test_client_info_reports_ipv6_loopback_as_local(client_settings):
+    with TestClient(app_module.app, client=("::1", 12345)) as c:
+        assert c.get("/api/client-info").json() == {"is_local": True}
+
+
+def test_client_info_reports_a_lan_address_as_not_local(client_settings):
+    with TestClient(app_module.app, client=("192.168.1.50", 12345)) as c:
+        assert c.get("/api/client-info").json() == {"is_local": False}
+
+
+def test_the_download_route_is_tried_before_the_greedy_reveal_route(download_dir, client_settings, monkeypatch):
+    # NOTE: regression test, reproduced directly. `{filename:path}` matches
+    # slashes, so ".../file/{filename:path}" is greedy enough to ALSO match
+    # a URL ending in the literal segment "/download" (capturing it as part
+    # of `filename`) if that route is registered first. FastAPI/Starlette
+    # tries routes in registration order, so the more specific
+    # ".../file/{filename:path}/download" route MUST be declared first in
+    # app.py - this proves it still is, independent of reading the source.
+    folder = download_dir / "Kanal Adi"
+    folder.mkdir()
+    media = folder / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    reveal_calls = []
+    monkeypatch.setattr(app_module.downloader, "reveal_in_explorer", lambda path: reveal_calls.append(path))
+
+    with TestClient(app_module.app) as c:
+        download_res = c.get("/api/history/file/Kanal Adi/Video.mp4/download")
+        assert download_res.status_code == 200
+        assert download_res.content == b"fake video bytes"
+        assert not reveal_calls, "the /download URL must never reach the reveal-in-explorer handler"
+
+        reveal_res = c.get("/api/history/file/Kanal Adi/Video.mp4")
+        assert reveal_res.status_code == 200
+        assert reveal_res.json() == {"ok": True}
+        assert reveal_calls == [str(media)]
+
+
+def test_history_download_sets_content_disposition_attachment(download_dir, client_settings):
+    folder = download_dir / "Kanal Adi"
+    folder.mkdir()
+    media = folder / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with TestClient(app_module.app) as c:
+        res = c.get("/api/history/file/Kanal Adi/Video.mp4/download")
+    assert res.status_code == 200
+    assert 'attachment; filename="Video.mp4"' in res.headers["content-disposition"]
+    assert res.content == b"fake video bytes"
+
+
+def test_job_download_sets_content_disposition_attachment(download_dir, client_settings):
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+    job_id = "test-download-job"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = {"state": "bitti", "ready": True, "filepath": str(media)}
+    try:
+        with TestClient(app_module.app) as c:
+            res = c.get(f"/api/file/{job_id}/download")
+        assert res.status_code == 200
+        assert 'attachment; filename="Video.mp4"' in res.headers["content-disposition"]
+        assert res.content == b"fake video bytes"
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)
+
+
+def test_job_download_404s_before_the_job_is_ready(client_settings):
+    job_id = "test-not-ready-job"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = {"state": "indiriliyor", "ready": False}
+    try:
+        with TestClient(app_module.app) as c:
+            res = c.get(f"/api/file/{job_id}/download")
+        assert res.status_code == 404
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)
+
+
+# --- keep vs. relay: deleting a remote device's file after it's fully sent ---
+
+
+def test_relay_delete_background_is_none_for_local_requests_regardless_of_mode(client_settings):
+    store.save_settings(remote_download_mode="relay")
+    assert app_module._relay_delete_background("C:/whatever.mp4", is_local=True) is None
+
+
+def test_relay_delete_background_is_none_in_keep_mode_regardless_of_locality(client_settings):
+    # NOTE: "keep" is also the default, so this doubles as "a fresh install
+    # with no settings.json at all never auto-deletes anything".
+    assert store.get_settings()["remote_download_mode"] == "keep"
+    assert app_module._relay_delete_background("C:/whatever.mp4", is_local=False) is None
+
+
+def test_relay_delete_background_returns_a_task_only_for_a_remote_relay_download(client_settings):
+    store.save_settings(remote_download_mode="relay")
+    background = app_module._relay_delete_background("C:/whatever.mp4", is_local=False)
+    assert isinstance(background, app_module.BackgroundTask)
+
+
+def test_a_remote_relay_download_deletes_the_file_after_it_is_fully_sent(download_dir, client_settings):
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with TestClient(app_module.app, client=("192.168.1.50", 12345)) as c:
+        res = c.get("/api/history/file/Video.mp4/download")
+    assert res.status_code == 200
+    assert res.content == b"fake video bytes"
+    assert not media.exists(), "relay mode must delete the host's copy once a remote device has it"
+
+
+def test_a_remote_keep_download_never_deletes_the_file(download_dir, client_settings):
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with TestClient(app_module.app, client=("192.168.1.50", 12345)) as c:
+        res = c.get("/api/history/file/Video.mp4/download")
+    assert res.status_code == 200
+    assert media.exists(), "keep mode must never delete anything, regardless of who downloads it"
+
+
+def test_a_local_relay_download_never_deletes_the_file(download_dir, client_settings):
+    # NOTE: relay mode only ever applies to a REMOTE device's transfer - the
+    # host's own "reveal/download" of its own file is never the thing being
+    # relayed anywhere, so there is no second copy to justify deleting this one.
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with TestClient(app_module.app, client=("127.0.0.1", 12345)) as c:
+        res = c.get("/api/history/file/Video.mp4/download")
+    assert res.status_code == 200
+    assert media.exists(), "the host's own download must never be auto-deleted"
+
+
+def test_a_remote_relay_job_download_deletes_the_file_after_it_is_fully_sent(download_dir, client_settings):
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+    job_id = "test-relay-job"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = {"state": "bitti", "ready": True, "filepath": str(media)}
+    try:
+        with TestClient(app_module.app, client=("192.168.1.50", 12345)) as c:
+            res = c.get(f"/api/file/{job_id}/download")
+        assert res.status_code == 200
+        assert not media.exists()
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)

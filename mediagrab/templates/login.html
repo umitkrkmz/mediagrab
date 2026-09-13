@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ ui.title_login }}</title>
+<script>
+// NOTE: same inline, before-stylesheet theme pickup as base.html - see that
+// file's comment. A separate standalone page (not extending base.html) still
+// needs this itself, or a light-theme user gets a dark flash here too.
+(function () {
+  try {
+    var t = localStorage.getItem("mediagrab_theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version('style.css') }}">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#5b8def">
+</head>
+<body>
+<main class="site-main login-page">
+  <div class="login-card">
+    <div class="brand login-brand">
+      <span class="brand-mark">M</span>
+      <span class="brand-name">MediaGrab</span>
+    </div>
+    <h1 class="login-heading">{{ ui.login_heading }}</h1>
+    <form id="login-form" autocomplete="off">
+      <label class="cookie-label" for="login-password">{{ ui.login_password_label }}</label>
+      <input type="password" id="login-password" placeholder="{{ ui.login_password_placeholder }}" autocomplete="current-password" autofocus>
+      <button type="submit" id="login-submit-btn">{{ ui.login_submit_btn }}</button>
+      <div id="login-error" class="error hidden" role="alert"></div>
+    </form>
+  </div>
+</main>
+<script>
+(function () {
+  var form = document.getElementById("login-form");
+  var passwordInput = document.getElementById("login-password");
+  var errorBox = document.getElementById("login-error");
+  var submitBtn = document.getElementById("login-submit-btn");
+  var nextPath = {{ next | tojson }};
+  var wrongPasswordText = {{ ui.login_wrong_password | tojson }};
+
+  form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    errorBox.classList.add("hidden");
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordInput.value }),
+      });
+      if (res.ok) {
+        window.location.href = nextPath;
+        return;
+      }
+      errorBox.textContent = wrongPasswordText;
+      errorBox.classList.remove("hidden");
+      passwordInput.select();
+    } catch (err) {
+      errorBox.textContent = wrongPasswordText;
+      errorBox.classList.remove("hidden");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

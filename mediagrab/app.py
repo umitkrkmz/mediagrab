@@ -1,7 +1,10 @@
+import asyncio
 import glob
+import json
 import re
 import locale
 import os
+import socket
 import sys
 import threading
 import time
@@ -13,21 +16,29 @@ from typing import Optional
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 
-from . import deps, downloader, store
+from . import auth, deps, downloader, store
 from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
     ChannelItem,
+    ClientInfoResponse,
     DownloadRequest,
     DownloadStartResponse,
     HistoryItem,
     LocaleResponse,
+    LoginRequest,
     PendingVideo,
     ProbeRequest,
+    RemoteAccessStatus,
+    RemoteAccessUpdateRequest,
+    SessionInfo,
+    SessionListResponse,
+    SetPasswordRequest,
     SettingsResponse,
     SettingsUpdateRequest,
     StatusResponse,
@@ -36,18 +47,83 @@ from .models import (
 from .paths import resource_dir
 
 
+# NOTE: the running event loop, captured once at startup by `lifespan` below -
+# needed so `_broadcast_job_event` (called from arbitrary download WORKER
+# THREADS, see `_run_job`) can safely hand a value to an asyncio.Queue that
+# only the main event loop thread is allowed to touch directly.
+_event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # NOTE: replaces the deprecated @app.on_event("startup") hook.
     # This is a "check on launch" design, not a persistent background service -
     # the app only runs while opened, so followed channels are checked once
     # here rather than on a timer. See README for why.
+    global _event_loop
+    _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
     threading.Thread(target=_check_all_channels, daemon=True).start()
     yield
 
 
 app = FastAPI(lifespan=lifespan)
+
+# NOTE: paths reachable with NO session, even while remote access is active -
+# the login page and its own API (or nobody could ever log in), plus a
+# handful of static/locale bits the login page itself needs to render at all.
+# Everything under /static/ is allowed separately below (see the middleware).
+_PUBLIC_PATHS = {"/login", "/api/login", "/api/locale", "/sw.js"}
+
+
+class _RequireLoginForRemoteAccess:
+    """Raw ASGI middleware gating every route behind a session cookie once
+    remote access is active - registered via `app.add_middleware()`, NOT the
+    `@app.middleware("http")` decorator.
+
+    That decorator wraps Starlette's `BaseHTTPMiddleware`, which buffers an
+    ENTIRE response before it's allowed to reach the client - fine for normal
+    JSON responses, fatal for `/api/events`'s infinite SSE stream (reproduced
+    live: the connection just hung forever, since "the whole response" never
+    arrives). Implementing `__call__(self, scope, receive, send)` directly
+    forwards each chunk the instant the underlying route produces it.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        settings = store.get_settings()
+        if not store.remote_access_active(settings):
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
+        if path in _PUBLIC_PATHS or path.startswith("/static/"):
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+        token = request.cookies.get(auth.SESSION_COOKIE_NAME)
+        if auth.is_valid_session(token):
+            await self.app(scope, receive, send)
+            return
+
+        if path.startswith("/api/"):
+            response = Response(status_code=401, content="Unauthorized")
+        else:
+            next_path = request.url.path
+            if request.url.query:
+                next_path += f"?{request.url.query}"
+            response = RedirectResponse(url=f"/login?next={quote(next_path)}", status_code=307)
+        await response(scope, receive, send)
+
+
+app.add_middleware(_RequireLoginForRemoteAccess)
 
 STATIC_DIR = resource_dir("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -137,6 +213,29 @@ def _page_context(request: Request, lang: Optional[str], active: str) -> dict:
     return {"lang": resolved, "active": active, "ui": ui_text(resolved)}
 
 
+def lan_ip() -> Optional[str]:
+    # NOTE: shared with run.py's own startup print AND the Settings ->
+    # Remote Access address panel - both must always agree on what "the LAN
+    # address" is, so there's exactly one implementation of it.
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return None
+
+
+def _is_local_request(request: Request) -> bool:
+    # NOTE: request.client can be None on some ASGI transports (e.g. certain
+    # test harnesses) - treated as "local" to match this app's pre-existing,
+    # loopback-only behaviour rather than accidentally locking the host out.
+    client = request.client
+    return client is None or client.host in ("127.0.0.1", "::1")
+
+
+@app.get("/api/client-info", response_model=ClientInfoResponse)
+def client_info(request: Request) -> dict:
+    return {"is_local": _is_local_request(request)}
+
+
 def _history_path(rel_path: str) -> str:
     # NOTE: rel_path may include a channel subfolder (e.g. "Kanal Adi/Video.mp4")
     # now that downloads are auto-organized - os.path.commonpath guards against
@@ -155,9 +254,34 @@ def _url_path_quote(rel_path: str) -> str:
     return "/".join(quote(seg) for seg in rel_path.split("/"))
 
 
+# NOTE: one asyncio.Queue per connected /api/events tab, replacing the old
+# per-job 800ms poll from the browser. `_broadcast_job_event` fans a single
+# update out to all of them; a queue is discarded (see job_events) the moment
+# its own connection disconnects, so this never accumulates dead entries.
+_event_queues: set[asyncio.Queue] = set()
+_event_queues_lock = threading.Lock()
+
+
+def _broadcast_job_event(job_id: str, job: dict) -> None:
+    with _event_queues_lock:
+        queues = list(_event_queues)
+    if not queues or _event_loop is None:
+        return
+    payload = json.dumps({"job_id": job_id, **job})
+    for queue in queues:
+        # NOTE: this can run on a download WORKER THREAD (yt-dlp progress
+        # hooks call _set_job synchronously from there) - call_soon_threadsafe
+        # is the only safe way to hand something to an asyncio.Queue that
+        # belongs to a different thread's event loop.
+        _event_loop.call_soon_threadsafe(queue.put_nowait, payload)
+
+
 def _set_job(job_id: str, **fields) -> None:
     with jobs_lock:
         jobs[job_id].update(fields)
+        job = dict(jobs[job_id])
+        job["queue_position"] = _queue_position(job)
+    _broadcast_job_event(job_id, job)
 
 
 def _format_speed(bytes_per_sec) -> Optional[str]:
@@ -475,6 +599,115 @@ def about_page(request: Request, lang: Optional[str] = None):
     return templates.TemplateResponse(request, "about.html", _page_context(request, lang, "about"))
 
 
+# --- login gate for optional LAN/remote access --------------------------------
+
+
+@app.get("/login")
+def login_page(request: Request, lang: Optional[str] = None, next: str = "/"):
+    return templates.TemplateResponse(
+        request, "login.html", {**_page_context(request, lang, "login"), "next": next}
+    )
+
+
+@app.post("/api/login")
+def login(req: LoginRequest, request: Request) -> Response:
+    settings = store.get_settings()
+    if not auth.verify_password(
+        req.password, settings["remote_access_password_salt"], settings["remote_access_password_hash"]
+    ):
+        raise HTTPException(status_code=401, detail="Sifre yanlis")
+    token = auth.create_session(request.headers.get("user-agent", ""))
+    response = Response(content=json.dumps({"ok": True}), media_type="application/json")
+    response.set_cookie(
+        auth.SESSION_COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=30 * 24 * 3600,
+    )
+    return response
+
+
+@app.post("/api/logout")
+def logout(request: Request) -> Response:
+    token = request.cookies.get(auth.SESSION_COOKIE_NAME)
+    auth.destroy_session(token)
+    response = Response(content=json.dumps({"ok": True}), media_type="application/json")
+    response.delete_cookie(auth.SESSION_COOKIE_NAME)
+    return response
+
+
+def _remote_access_status(settings: dict, request: Request) -> dict:
+    active = store.remote_access_active(settings)
+    lan_url = None
+    if active:
+        ip = lan_ip()
+        if ip:
+            port = request.url.port or 8420
+            lan_url = f"http://{ip}:{port}"
+    return {
+        "enabled": bool(settings.get("remote_access_enabled")),
+        "has_password": bool(settings.get("remote_access_password_hash")),
+        "lan_url": lan_url,
+        "download_mode": settings.get("remote_download_mode", "keep"),
+    }
+
+
+@app.get("/api/remote-access", response_model=RemoteAccessStatus)
+def remote_access_status(request: Request) -> dict:
+    return _remote_access_status(store.get_settings(), request)
+
+
+@app.post("/api/remote-access", response_model=RemoteAccessStatus)
+def update_remote_access(req: RemoteAccessUpdateRequest, request: Request) -> dict:
+    settings = store.get_settings()
+    was_active = store.remote_access_active(settings)
+    if req.enabled and not settings.get("remote_access_password_hash"):
+        raise HTTPException(status_code=400, detail="Once bir sifre belirleyin")
+    settings = store.save_settings(remote_access_enabled=req.enabled, remote_download_mode=req.download_mode)
+    if was_active != store.remote_access_active(settings):
+        # NOTE: which network interface uvicorn listens on is only decided at
+        # process startup (see run.py) - the only way to change it live is to
+        # restart the whole process, same restart dance as the yt-dlp/deps
+        # updaters.
+        threading.Thread(target=_delayed_restart, daemon=True).start()
+    return _remote_access_status(settings, request)
+
+
+@app.post("/api/remote-access/password", response_model=RemoteAccessStatus)
+def set_remote_access_password(req: SetPasswordRequest, request: Request) -> dict:
+    settings = store.get_settings()
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Sifre en az 8 karakter olmali")
+    existing_hash = settings.get("remote_access_password_hash")
+    if existing_hash:
+        # NOTE: nothing to confirm against on the very first password - only
+        # required once a real one already exists.
+        if not auth.verify_password(
+            req.current_password, settings.get("remote_access_password_salt", ""), existing_hash
+        ):
+            raise HTTPException(status_code=401, detail="Mevcut sifre yanlis")
+    salt, password_hash = auth.hash_password(req.password)
+    settings = store.save_settings(remote_access_password_salt=salt, remote_access_password_hash=password_hash)
+    # NOTE: a real security property, not just plumbing - anyone already
+    # logged in (possibly not the account holder any more) must be signed out
+    # immediately rather than staying trusted until their session expires.
+    auth.clear_all_sessions()
+    return _remote_access_status(settings, request)
+
+
+@app.get("/api/remote-access/sessions", response_model=SessionListResponse)
+def remote_access_sessions(request: Request) -> dict:
+    current_token = request.cookies.get(auth.SESSION_COOKIE_NAME)
+    return {"sessions": auth.list_sessions(current_token)}
+
+
+@app.delete("/api/remote-access/sessions/{session_id}")
+def revoke_remote_access_session(session_id: str) -> dict:
+    auth.destroy_session_by_id(session_id)
+    return {"ok": True}
+
+
 @app.post("/api/probe")
 def probe(req: ProbeRequest) -> dict:
     # NOTE: response_model is deliberately omitted - single-video and
@@ -551,6 +784,35 @@ def status(job_id: str) -> dict:
         return {**job, "queue_position": _queue_position(job)}
 
 
+@app.get("/api/events")
+async def job_events(request: Request) -> StreamingResponse:
+    # NOTE: replaces the download dock's old per-job 800ms poll with one
+    # shared SSE connection - see _broadcast_job_event/_set_job for the
+    # producer side. ": ..." lines are SSE comments (ignored by
+    # EventSource.onmessage) used here purely as keep-alives, so an idle
+    # proxy/browser doesn't time the connection out.
+    queue: asyncio.Queue = asyncio.Queue()
+    with _event_queues_lock:
+        _event_queues.add(queue)
+
+    async def stream():
+        try:
+            yield ": connected\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    payload = await asyncio.wait_for(queue.get(), timeout=15)
+                    yield f"data: {payload}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+        finally:
+            with _event_queues_lock:
+                _event_queues.discard(queue)
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
 @app.get("/api/file/{job_id}")
 def file(job_id: str) -> dict:
     # NOTE: this used to also stream the file back as a FileResponse, which
@@ -567,6 +829,52 @@ def file(job_id: str) -> dict:
     return {"ok": True}
 
 
+def _delete_relayed_file(path: str) -> None:
+    # NOTE: runs as a FileResponse `background` task - Starlette only starts
+    # it once the response has been FULLY sent, so a connection that drops
+    # partway through a transfer never triggers this (the file is only ever
+    # deleted after a genuinely complete hand-off to the requesting device).
+    # Reuses the exact same three steps as the manual "delete from History"
+    # action (_remove_sidecar_json / _cleanup_empty_dir, defined below) -
+    # this isn't a separate deletion path, just an automatic trigger for the
+    # same one.
+    try:
+        os.remove(path)
+    except OSError:
+        return
+    _remove_sidecar_json(path)
+    _cleanup_empty_dir(path)
+
+
+def _relay_delete_background(path: str, is_local: bool) -> Optional[BackgroundTask]:
+    # NOTE: "relay" mode only ever applies to a REMOTE device's own transfer.
+    # The host's own downloads are never auto-deleted in either mode - there
+    # is no "other device" they were relayed to, so deleting the only copy
+    # the user directly asked for on their own machine would just be data
+    # loss with no corresponding benefit.
+    if is_local or store.get_settings().get("remote_download_mode") != "relay":
+        return None
+    return BackgroundTask(_delete_relayed_file, path)
+
+
+@app.get("/api/file/{job_id}/download")
+def download_file(job_id: str, request: Request) -> FileResponse:
+    # NOTE: the counterpart to /api/file/{job_id} - a remote device (phone,
+    # laptop on the LAN) has no use for "reveal in folder" (that would open
+    # an OS file explorer on the HOST's screen, not the device asking), so
+    # the client picks this one instead once /api/client-info says it isn't
+    # local. FileResponse's `filename=` sets Content-Disposition: attachment,
+    # which is what makes the browser actually save it instead of navigating
+    # to it inline.
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None or not job.get("ready"):
+            raise HTTPException(status_code=404, detail="Dosya henuz hazir degil")
+        filepath = job["filepath"]
+    background = _relay_delete_background(filepath, _is_local_request(request))
+    return FileResponse(filepath, filename=os.path.basename(filepath), background=background)
+
+
 @app.get("/api/locale", response_model=LocaleResponse)
 def locale_info() -> dict:
     return {"lang": _detect_system_lang()}
@@ -579,12 +887,23 @@ def ytdlp_version() -> dict:
 
 def _delayed_restart() -> None:
     # NOTE: os.execv replaces this process's image with a fresh one using the
-    # exact same command line (sys.argv) that launched it - works the same
-    # whether that was "python run.py" or "uvicorn mediagrab.app:app", since
-    # both run this same process. The 1s delay lets the HTTP response for the
-    # update request actually reach the browser before the process restarts.
+    # exact same command line that launched it - works the same whether that
+    # was "python run.py" or "uvicorn mediagrab.app:app", since both run this
+    # same process. The 1s delay lets the HTTP response for the update
+    # request actually reach the browser before the process restarts.
+    #
+    # sys.orig_argv (3.10+) is used over sys.argv when available: sys.argv
+    # loses a "-m module" framing (e.g. "python -m uvicorn ...") down to just
+    # "uvicorn ..." with no interpreter path, which makes os.execv run
+    # uvicorn's OWN __main__.py directly instead of through "-m" - that
+    # changes sys.path[0] to uvicorn's package directory, letting its
+    # uvicorn/logging.py shadow the stdlib logging module and crashing the
+    # restarted process (reproduced live: "module 'logging' has no attribute
+    # 'Formatter'"). sys.orig_argv preserves the exact original invocation,
+    # "-m" and all.
     time.sleep(1.0)
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    argv = getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv
+    os.execv(sys.executable, argv)
 
 
 @app.post("/api/ytdlp-update")
@@ -675,6 +994,22 @@ def history() -> list[dict]:
             )
     items.sort(key=lambda x: x["downloaded_at"], reverse=True)
     return items
+
+
+@app.get("/api/history/file/{filename:path}/download")
+def history_download(filename: str, request: Request) -> FileResponse:
+    # NOTE: the counterpart to /api/history/file - see /api/file/{job_id}/download
+    # (including _relay_delete_background, which this shares).
+    #
+    # Registered BEFORE the plain /api/history/file/{filename:path} route
+    # below, and this order is load-bearing: FastAPI/Starlette try routes in
+    # registration order, and {filename:path} matches literal "/" characters
+    # too - greedy enough to swallow this route's own literal "/download"
+    # suffix as part of `filename` if the plain route were tried first
+    # (reproduced directly - see tests/test_app.py's ordering regression test).
+    path = _history_path(filename)
+    background = _relay_delete_background(path, _is_local_request(request))
+    return FileResponse(path, filename=os.path.basename(path), background=background)
 
 
 @app.get("/api/history/file/{filename:path}")
@@ -867,6 +1202,7 @@ def item_detail(request: Request, filename: str, lang: Optional[str] = None):
         "title": meta["title"] or base_name,
         "artist": meta["artist"],
         "duration_label": _fmt_duration(meta["duration"]),
+        "is_local": _is_local_request(request),
     }
     return templates.TemplateResponse(request, "item.html", context)
 

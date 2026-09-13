@@ -52,7 +52,11 @@
     </div>
 
     <button type="button" id="item-reveal-btn" class="download-btn item-download-btn" data-reveal-url="/api/history/file/{{ filename_url }}">
-      {% if lang == "en" %}Show in folder{% else %}Klasörde göster{% endif %}
+      {% if is_local %}
+        {% if lang == "en" %}Show in folder{% else %}Klasörde göster{% endif %}
+      {% else %}
+        {% if lang == "en" %}Download to Device{% else %}Cihaza İndir{% endif %}
+      {% endif %}
     </button>
     {% if ext in ("mp3", "m4a", "opus", "mp4") %}
     <button type="button" id="item-preview-btn" class="download-btn item-download-btn btn-secondary" data-stream-url="/api/history/stream/{{ filename_url }}" data-ext="{{ ext }}">

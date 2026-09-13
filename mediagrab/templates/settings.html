@@ -12,6 +12,7 @@
     <button type="button" class="settings-nav-item" data-tab="theme">{{ ui.settings_theme_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="audio-lang">{{ ui.settings_audio_lang_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="cookies">{{ ui.settings_cookies_title }}</button>
+    <button type="button" class="settings-nav-item" data-tab="remote-access">{{ ui.settings_remote_access_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="environment">{{ ui.settings_environment_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="feedback">{{ ui.settings_feedback_title }}</button>
   </nav>
@@ -71,6 +72,70 @@
       <div id="cookie-status" class="cookie-status hidden" role="status"></div>
 
       <p class="settings-hint cookie-privacy">{{ ui.cookie_privacy }}</p>
+    </div>
+
+    <div class="settings-section" data-panel="remote-access">
+      <div class="section-title">{{ ui.settings_remote_access_title }}</div>
+      <p class="settings-hint">{{ ui.settings_remote_access_hint }}</p>
+      <p class="settings-hint cookie-warning">{{ ui.settings_remote_access_warning }}</p>
+
+      <div class="cookie-panel">
+        <label class="transcript-timestamp-check" for="remote-access-toggle">
+          <input type="checkbox" id="remote-access-toggle">
+          {{ ui.settings_remote_access_enable_label }}
+        </label>
+        <p id="remote-access-need-password" class="settings-hint hidden">{{ ui.settings_remote_access_need_password_first }}</p>
+      </div>
+
+      <div class="cookie-panel hidden" id="remote-access-address-panel">
+        <div class="section-subtitle">{{ ui.settings_remote_access_address_title }}</div>
+        <p class="settings-hint">{{ ui.settings_remote_access_address_hint }}</p>
+        <div class="remote-access-address-row">
+          <input type="text" id="remote-access-address-input" readonly>
+          <button type="button" id="remote-access-address-copy-btn">{{ ui.copy_btn }}</button>
+        </div>
+      </div>
+
+      <div class="cookie-panel" id="remote-access-storage-panel">
+        <div class="section-subtitle">{{ ui.settings_remote_access_storage_title }}</div>
+        <p class="settings-hint">{{ ui.settings_remote_access_storage_hint }}</p>
+        <div class="cookie-modes" id="remote-access-storage-modes" role="radiogroup" aria-label="{{ ui.settings_remote_access_storage_title }}">
+          <button type="button" data-storage-mode="keep" role="radio" aria-checked="false">{{ ui.settings_remote_access_storage_keep_label }}</button>
+          <button type="button" data-storage-mode="relay" role="radio" aria-checked="false">{{ ui.settings_remote_access_storage_relay_label }}</button>
+        </div>
+        <p class="settings-hint" id="remote-access-storage-keep-hint">{{ ui.settings_remote_access_storage_keep_hint }}</p>
+        <p class="settings-hint cookie-warning hidden" id="remote-access-storage-relay-hint">{{ ui.settings_remote_access_storage_relay_hint }}</p>
+      </div>
+
+      <div class="cookie-panel">
+        <div id="remote-access-current-password-row" class="remote-access-password-field hidden">
+          <label class="cookie-label" for="remote-access-current-password-input">{{ ui.settings_remote_access_current_password_label }}</label>
+          <input type="password" id="remote-access-current-password-input" class="remote-access-password-input" autocomplete="current-password">
+        </div>
+        <div class="remote-access-password-field">
+          <label class="cookie-label" for="remote-access-password-input">{{ ui.settings_remote_access_password_label }}</label>
+          <input type="password" id="remote-access-password-input" class="remote-access-password-input" placeholder="{{ ui.settings_remote_access_password_placeholder }}" autocomplete="new-password">
+        </div>
+        <div class="remote-access-password-field">
+          <label class="cookie-label" for="remote-access-password-confirm-input">{{ ui.settings_remote_access_confirm_password_label }}</label>
+          <input type="password" id="remote-access-password-confirm-input" class="remote-access-password-input" autocomplete="new-password">
+        </div>
+        <label class="transcript-timestamp-check" for="remote-access-show-passwords-toggle">
+          <input type="checkbox" id="remote-access-show-passwords-toggle">
+          {{ ui.settings_remote_access_show_passwords_label }}
+        </label>
+        <p id="remote-access-forgot-password-hint" class="settings-hint hidden">{{ ui.settings_remote_access_forgot_password_hint }}</p>
+      </div>
+      <div class="cookie-actions">
+        <button type="button" id="remote-access-password-save-btn">{{ ui.settings_remote_access_set_password_btn }}</button>
+        <button type="button" id="remote-access-logout-btn" class="btn-secondary">{{ ui.settings_remote_access_logout_btn }}</button>
+      </div>
+      <div id="remote-access-status" class="cookie-status hidden" role="status"></div>
+
+      <div class="cookie-panel hidden" id="remote-access-devices-panel">
+        <div class="section-subtitle">{{ ui.settings_remote_access_devices_title }}</div>
+        <div id="remote-access-devices-list"></div>
+      </div>
     </div>
 
     <div class="settings-section" data-panel="environment">

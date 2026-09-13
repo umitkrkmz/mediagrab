@@ -31,7 +31,35 @@ DEFAULT_SETTINGS = {
     # known language list on purpose: which codes are valid depends on the
     # video being downloaded, not on anything MediaGrab can check up front.
     "default_audio_lang": "",
+    # NOTE: only a PBKDF2 salt+hash is ever stored, never the password itself
+    # (see mediagrab/auth.py). "enabled" is a separate flag from "a password
+    # is set" on purpose - remote_access_active() below requires both, so
+    # flipping this on before setting a password can never expose the app.
+    "remote_access_enabled": False,
+    "remote_access_password_salt": "",
+    "remote_access_password_hash": "",
+    # NOTE: "keep" - a personal computer with plenty of disk, downloads stay
+    # in indirilenler/ permanently, same as every non-remote download always
+    # has. "relay" - a storage-constrained host (e.g. a Raspberry Pi acting
+    # purely as a fetch-and-forward box): once a REMOTE device's download
+    # finishes sending, the host's own copy is deleted right after (see
+    # app.py's download routes). Only ever applies to a remote device's
+    # transfer - the host's own downloads (reveal-in-explorer) are never
+    # auto-deleted in either mode, since there's no "other device" it was
+    # relayed to.
+    "remote_download_mode": "keep",  # "keep" | "relay"
 }
+
+
+def remote_access_active(settings: dict) -> bool:
+    """True only when LAN access is both turned on AND a password is set.
+
+    Used by BOTH the auth middleware (app.py) and the startup bind-host
+    decision (run.py) - the same predicate for "should logins be required"
+    and "should the server listen beyond localhost", so the two facts can
+    never drift apart (e.g. listening on 0.0.0.0 while enforcing no login).
+    """
+    return bool(settings.get("remote_access_enabled")) and bool(settings.get("remote_access_password_hash"))
 
 
 def get_settings() -> dict:

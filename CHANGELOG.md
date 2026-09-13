@@ -5,11 +5,26 @@ This file lists notable changes to MediaGrab, by release.
 
 ---
 
-## [Türkçe](#türkçe-1) · [English](#english-1)
+## [Türkçe](#türkçe) · [English](#english)
 
 ---
 
 ## Türkçe
+
+### [1.10.0] — 2026-09-13
+
+#### Eklenen
+
+- **Uzaktan erişim (yerel ağdan)** — Ayarlar → Uzaktan Erişim: bir şifre belirleyip açtığınızda, aynı ağdaki başka bir cihaz (telefon, dizüstü) tarayıcıdan MediaGrab'e bağlanabilir. Bağlantı adresi etkinleştirildikten sonra aynı panelde görünür. HTTP üzerinden çalışır (HTTPS değildir) — yalnızca güvendiğiniz bir ev/ofis ağında kullanın, doğrudan internete açmayın
+- **Bağlı cihazlar listesi ve tek tek çıkış yaptırma** — Ayarlar, o an oturum açmış her cihazı (tarayıcı + işletim sistemi tahmini, ör. "Chrome · Windows") ve bağlantı zamanını gösterir; herhangi birini tek tek çıkışa zorlayabilirsiniz, kendi cihazınız etkilenmez
+- **Uzak bir cihazdan gerçek indirme** — bir telefon/dizüstü artık "klasörde göster" yerine dosyayı doğrudan kendi cihazına indirebiliyor; host'un kendi tarayıcısında davranış değişmedi (hâlâ klasörde gösterir)
+- **Depolama modu: Bende Kalsın / Cihaza Aktar** — depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız "Cihaza Aktar" modu, bir dosya bir cihaza tam olarak gönderildikten hemen sonra host'taki kopyasını siler; kendi bilgisayarınızdan yaptığınız indirmeler bu ayardan hiçbir zaman etkilenmez. Varsayılan "Bende Kalsın" önceki davranışın (kalıcı saklama) tamamen aynısı
+- **İndirme ilerlemesi artık anlık** — indirme kutusu her işi ayrı ayrı yoklamak yerine tek bir canlı bağlantı üzerinden güncelleniyor, arayüz daha akıcı
+
+#### Düzeltilen
+
+- **Bazı videolar çok nadiren sesi olmayan bir mp4 olarak inebiliyordu** — format seçici zincirinin en sonundaki "hiçbir tercihe uymasa da olsun" düşüşü, sesi olmayan bir formata da razı olabiliyordu; artık zincirin sonu bile ses içermeyen bir formatta karar kılmıyor
+- **`python -m uvicorn ...` ile başlatılan sunucu, bir güncelleme (yt-dlp/bağımlılık/uzaktan erişim ayarı) sonrası kendini yeniden başlatırken çökebiliyordu** — yeniden başlatma artık orijinal komut satırını (`-m` bayrağı dahil) koruyor
 
 ### [1.9.0] — 2026-09-11
 
@@ -199,6 +214,21 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [1.10.0] — 2026-09-13
+
+#### Added
+
+- **Remote access (from your local network)** — Settings → Remote Access: set a password and turn it on, and another device on the same network (phone, laptop) can connect to MediaGrab from its own browser. The connection address appears in the same panel once it's active. Runs over plain HTTP (not HTTPS) — only use this on a home/office network you trust, never expose it directly to the internet
+- **A connected-devices list with per-device sign-out** — Settings shows every currently logged-in device (browser + OS guess, e.g. "Chrome · Windows") and when it connected; you can sign any one of them out individually without affecting your own
+- **A real download from a remote device** — a phone/laptop now gets the actual file sent to it instead of "show in folder" (which only makes sense on the host itself); the host's own browser behaves exactly as before (still reveals the file in its folder)
+- **Storage mode: Keep Here / Relay To Device** — if you're running this on a storage-constrained device (e.g. a Raspberry Pi), "Relay To Device" deletes the host's own copy right after a file has been fully sent to a device; downloads you make from the host itself are never affected by this setting either way. The default, "Keep Here", is identical to the previous (permanent) behaviour
+- **Download progress is now pushed live** — the download dock updates over one shared live connection instead of polling every job separately, making progress feel smoother
+
+#### Fixed
+
+- **A downloaded mp4 could very rarely end up with no audio** — the very last fallback in the format-selector chain would settle for a format with no audio track at all if nothing else matched; the chain's last resort now never settles for a silent video
+- **A server launched via `python -m uvicorn ...` could crash while restarting itself after an update** (yt-dlp, a dependency, or a remote-access setting change) — the restart now preserves the exact original command line (including the `-m` flag)
 
 ### [1.9.0] — 2026-09-11
 

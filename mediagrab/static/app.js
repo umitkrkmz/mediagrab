@@ -338,6 +338,7 @@ const I18N = {
       iptal: "İptal edildi",
     },
     downloadBtn: "Klasörde göster",
+    downloadToDeviceBtn: "Cihaza İndir",
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
     dockCancel: "İndirmeyi iptal et",
@@ -421,6 +422,19 @@ const I18N = {
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
     ytdlpCreditLink: "GitHub'da teşekkür edin →",
+    settingsRemoteAccessRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
+    settingsRemoteAccessPasswordTooShort: "Şifre en az 8 karakter olmalı.",
+    settingsRemoteAccessPasswordsDontMatch: "Yeni şifreler eşleşmiyor.",
+    settingsRemoteAccessCurrentPasswordRequired: "Mevcut şifrenizi girin.",
+    settingsRemoteAccessWrongCurrentPassword: "Mevcut şifre yanlış.",
+    settingsRemoteAccessPasswordSaved: "Şifre kaydedildi.",
+    settingsRemoteAccessStorageSaved: "Depolama ayarı kaydedildi.",
+    settingsRemoteAccessLoggedOut: "Çıkış yapıldı.",
+    settingsRemoteAccessThisDevice: "Bu cihaz",
+    settingsRemoteAccessSetPasswordBtn: "Şifreyi Kaydet",
+    settingsRemoteAccessUpdatePasswordBtn: "Şifreyi Güncelle",
+    settingsRemoteAccessRevokeBtn: "Çıkış yaptır",
+    settingsRemoteAccessCopied: "Kopyalandı ✓",
   },
   en: {
     resolveBtn: "Resolve",
@@ -648,6 +662,7 @@ const I18N = {
       iptal: "Cancelled",
     },
     downloadBtn: "Show in folder",
+    downloadToDeviceBtn: "Download to Device",
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
     dockCancel: "Cancel download",
@@ -733,6 +748,19 @@ const I18N = {
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
     ytdlpCreditLink: "Say thanks on GitHub →",
+    settingsRemoteAccessRestartNote: "Applying the setting, restarting the server...",
+    settingsRemoteAccessPasswordTooShort: "Password must be at least 8 characters.",
+    settingsRemoteAccessPasswordsDontMatch: "The new passwords don't match.",
+    settingsRemoteAccessCurrentPasswordRequired: "Enter your current password.",
+    settingsRemoteAccessWrongCurrentPassword: "Current password is incorrect.",
+    settingsRemoteAccessPasswordSaved: "Password saved.",
+    settingsRemoteAccessStorageSaved: "Storage setting saved.",
+    settingsRemoteAccessLoggedOut: "Logged out.",
+    settingsRemoteAccessThisDevice: "This device",
+    settingsRemoteAccessSetPasswordBtn: "Save Password",
+    settingsRemoteAccessUpdatePasswordBtn: "Update Password",
+    settingsRemoteAccessRevokeBtn: "Sign out",
+    settingsRemoteAccessCopied: "Copied ✓",
   },
 };
 
@@ -869,15 +897,47 @@ function languageNameForCode(code) {
   return t().audioTrackNames[base] || "";
 }
 
-async function revealFile(url) {
-  // NOTE: fetch() rather than a plain <a href> navigation - the endpoint
-  // just opens the OS file explorer server-side and returns {"ok": true};
-  // navigating to it directly would have shown raw JSON in the tab.
+// NOTE: whether THIS browser is talking to the app from the host machine
+// itself (127.0.0.1/::1) or from another device on the LAN - decides whether
+// "reveal in explorer" (host-only; opening an OS file explorer on some OTHER
+// device's screen would help nobody) or a real file download is the right
+// action. Defaults to true (today's only behaviour) until loadClientInfo()
+// resolves, and again if it ever fails - the safe fallback either way.
+let isLocalClient = true;
+
+async function loadClientInfo() {
   try {
-    await fetch(url);
+    const res = await fetch("/api/client-info");
+    const data = await res.json();
+    isLocalClient = data.is_local !== false;
   } catch (err) {
-    // best-effort - revealing the file in explorer is a nice-to-have here.
+    // NOTE: same tolerance as the rest of this file's best-effort fetches -
+    // isLocalClient just stays at its safe default.
   }
+}
+
+async function revealFile(url) {
+  if (isLocalClient) {
+    // NOTE: fetch() rather than a plain <a href> navigation - the endpoint
+    // just opens the OS file explorer server-side and returns {"ok": true};
+    // navigating to it directly would have shown raw JSON in the tab.
+    try {
+      await fetch(url);
+    } catch (err) {
+      // best-effort - revealing the file in explorer is a nice-to-have here.
+    }
+    return;
+  }
+  // NOTE: a real download needs a native browser navigation - fetch() would
+  // receive the bytes into JS and just discard them, triggering nothing on
+  // screen. The matching /download route (see app.py) sets
+  // Content-Disposition: attachment, which is what makes the browser save
+  // the file instead of trying to navigate to it inline.
+  window.location.href = `${url}/download`;
+}
+
+function revealOrDownloadLabel() {
+  return isLocalClient ? t().downloadBtn : t().downloadToDeviceBtn;
 }
 
 async function fetchProbe(url) {
@@ -1334,7 +1394,6 @@ async function startDownload(url, kind, choice, subtitleLangs, title, audioLangs
 
 const DOCK_JOBS_KEY = "mediagrab_active_jobs";
 let dockJobs = []; // in-memory: [{jobId, title, state, percent, speed, ready, error}]
-const dockPollTimers = {};
 
 function loadTrackedJobIds() {
   try {
@@ -1353,70 +1412,87 @@ function trackDockJob(jobId, title) {
   dockJobs.push({ jobId, title, state: "basliyor", percent: 0, speed: null, ready: false, error: null });
   saveTrackedJobIds();
   renderDock();
-  pollDockJob(jobId);
+  ensureJobEventStream();
+  // NOTE: the live stream only pushes on the NEXT change - this fetches the
+  // current snapshot once immediately, so the row doesn't sit blank until
+  // the download's first progress tick (which can be seconds away).
+  refreshJobOnce(jobId);
 }
 
 function dismissDockJob(jobId) {
   dockJobs = dockJobs.filter((j) => j.jobId !== jobId);
-  if (dockPollTimers[jobId]) {
-    clearInterval(dockPollTimers[jobId]);
-    delete dockPollTimers[jobId];
-  }
   saveTrackedJobIds();
   renderDock();
 }
 
-function pollDockJob(jobId) {
-  if (dockPollTimers[jobId]) return;
-  dockPollTimers[jobId] = setInterval(async () => {
-    const job = dockJobs.find((j) => j.jobId === jobId);
-    if (!job) {
-      clearInterval(dockPollTimers[jobId]);
-      delete dockPollTimers[jobId];
-      return;
-    }
-    try {
-      const res = await fetch(`/api/status/${jobId}`);
-      if (res.status === 404) {
-        // NOTE: the server has no record of this job at all - almost always
-        // because it restarted since this job was tracked (its jobs dict is
-        // in-memory only) and a stale entry survived in this browser's
-        // localStorage. That's infrastructure noise, not a real download
-        // failure the user did anything to cause, so this cleans it up
-        // silently instead of popping an alarming, unexplained error toast.
-        clearInterval(dockPollTimers[jobId]);
-        delete dockPollTimers[jobId];
-        dismissDockJob(jobId);
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok) {
-        clearInterval(dockPollTimers[jobId]);
-        delete dockPollTimers[jobId];
-        job.state = "hata";
-        job.error = data.detail || t().errStatusFailed;
-        saveTrackedJobIds();
-        renderDock();
-        return;
-      }
-      Object.assign(job, data);
-      if (isJobFinished(data)) {
-        clearInterval(dockPollTimers[jobId]);
-        delete dockPollTimers[jobId];
-        saveTrackedJobIds();
-        if (data.state === "bitti" && data.ready) loadHistory();
-      }
-      renderDock();
-    } catch (err) {
-      // NOTE: transient network hiccup while polling - keep retrying rather
-      // than killing the row, since the download itself keeps running
-      // server-side regardless of whether this poll succeeds.
-    }
-  }, 800);
-}
-
 function isJobFinished(job) {
   return job.state === "hata" || job.state === "iptal" || (job.state === "bitti" && job.ready);
+}
+
+// NOTE: shared by the one-shot fetch below AND by incoming SSE messages -
+// either way, a job update ends up applied exactly the same way.
+function applyJobUpdate(jobId, data) {
+  const job = dockJobs.find((j) => j.jobId === jobId);
+  if (!job) return;
+  Object.assign(job, data);
+  if (isJobFinished(data)) {
+    saveTrackedJobIds();
+    if (data.state === "bitti" && data.ready) loadHistory();
+  }
+  renderDock();
+}
+
+async function refreshJobOnce(jobId) {
+  const job = dockJobs.find((j) => j.jobId === jobId);
+  if (!job) return;
+  try {
+    const res = await fetch(`/api/status/${jobId}`);
+    if (res.status === 404) {
+      // NOTE: the server has no record of this job at all - almost always
+      // because it restarted since this job was tracked (its jobs dict is
+      // in-memory only) and a stale entry survived in this browser's
+      // localStorage. That's infrastructure noise, not a real download
+      // failure the user did anything to cause, so this cleans it up
+      // silently instead of popping an alarming, unexplained error toast.
+      dismissDockJob(jobId);
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      job.state = "hata";
+      job.error = data.detail || t().errStatusFailed;
+      saveTrackedJobIds();
+      renderDock();
+      return;
+    }
+    applyJobUpdate(jobId, data);
+  } catch (err) {
+    // NOTE: transient network hiccup - the live event stream below will
+    // catch up once it's connected, same tolerance the old poll loop had.
+  }
+}
+
+// NOTE: ONE shared connection for every tracked job, replacing what used to
+// be an 800ms setInterval PER job - see /api/events in app.py. A page with
+// no downloads yet still opens this eagerly (see resumeTrackedDockJobs/
+// trackDockJob) so it's already live the moment a job needs it.
+let jobEventSource = null;
+
+function ensureJobEventStream() {
+  if (jobEventSource) return;
+  jobEventSource = new EventSource("/api/events");
+  jobEventSource.onmessage = (event) => {
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (err) {
+      return; // NOTE: not job JSON (shouldn't happen - onmessage never fires for ":" comment lines) - ignore.
+    }
+    if (data && data.job_id) applyJobUpdate(data.job_id, data);
+  };
+  // NOTE: the browser's EventSource reconnects on its own after a drop -
+  // nothing to do here beyond letting it keep trying, the same tolerance
+  // the old polling loop had for a transient network hiccup.
 }
 
 function dockMetaText(job) {
@@ -1443,7 +1519,7 @@ function dockRowHtml(job) {
   } else if (job.state === "iptal") {
     statusHtml = `<div class="dock-row-meta">${t().states.iptal}</div>`;
   } else if (job.state === "bitti" && job.ready) {
-    statusHtml = `<button type="button" class="dock-reveal-btn" data-job-id="${job.jobId}">${t().downloadBtn}</button>`;
+    statusHtml = `<button type="button" class="dock-reveal-btn" data-job-id="${job.jobId}">${revealOrDownloadLabel()}</button>`;
   } else {
     statusHtml = `
       <div class="dock-row-bar-bg"><div class="dock-row-bar-fg" style="width:${percent}%"></div></div>
@@ -1534,7 +1610,8 @@ function resumeTrackedDockJobs() {
   if (stored.length === 0) return;
   dockJobs = stored.map((j) => ({ ...j, state: "indiriliyor", percent: 0, speed: null, ready: false, error: null }));
   renderDock();
-  dockJobs.forEach((j) => pollDockJob(j.jobId));
+  ensureJobEventStream();
+  dockJobs.forEach((j) => refreshJobOnce(j.jobId));
 }
 
 async function loadHistory() {
@@ -1634,7 +1711,7 @@ function historyCardHtml(item, withActions) {
     ? `
       <div class="history-actions">
         <button type="button" class="reveal-btn" data-reveal-url="${fileUrl}"
-          aria-label="${escapeHtml(`${t().historyDownload}: ${baseName}`)}">${t().historyDownload}</button>
+          aria-label="${escapeHtml(`${revealOrDownloadLabel()}: ${baseName}`)}">${revealOrDownloadLabel()}</button>
         <button type="button" class="delete-btn"
           aria-label="${escapeHtml(`${t().historyDelete}: ${baseName}`)}">${t().historyDelete}</button>
       </div>`
@@ -2244,6 +2321,25 @@ const cookieStatus = document.getElementById("cookie-status");
 const defaultAudioLangInput = document.getElementById("default-audio-lang-input");
 const defaultAudioLangSaveBtn = document.getElementById("default-audio-lang-save-btn");
 const defaultAudioLangStatus = document.getElementById("default-audio-lang-status");
+const remoteAccessToggle = document.getElementById("remote-access-toggle");
+const remoteAccessNeedPasswordHint = document.getElementById("remote-access-need-password");
+const remoteAccessCurrentPasswordRow = document.getElementById("remote-access-current-password-row");
+const remoteAccessCurrentPasswordInput = document.getElementById("remote-access-current-password-input");
+const remoteAccessPasswordInput = document.getElementById("remote-access-password-input");
+const remoteAccessPasswordConfirmInput = document.getElementById("remote-access-password-confirm-input");
+const remoteAccessShowPasswordsToggle = document.getElementById("remote-access-show-passwords-toggle");
+const remoteAccessForgotPasswordHint = document.getElementById("remote-access-forgot-password-hint");
+const remoteAccessPasswordSaveBtn = document.getElementById("remote-access-password-save-btn");
+const remoteAccessLogoutBtn = document.getElementById("remote-access-logout-btn");
+const remoteAccessStatus = document.getElementById("remote-access-status");
+const remoteAccessAddressPanel = document.getElementById("remote-access-address-panel");
+const remoteAccessAddressInput = document.getElementById("remote-access-address-input");
+const remoteAccessAddressCopyBtn = document.getElementById("remote-access-address-copy-btn");
+const remoteAccessDevicesPanel = document.getElementById("remote-access-devices-panel");
+const remoteAccessDevicesList = document.getElementById("remote-access-devices-list");
+const remoteAccessStorageModes = document.getElementById("remote-access-storage-modes");
+const remoteAccessStorageKeepHint = document.getElementById("remote-access-storage-keep-hint");
+const remoteAccessStorageRelayHint = document.getElementById("remote-access-storage-relay-hint");
 
 let cookieMode = "off";
 
@@ -2378,6 +2474,257 @@ async function testCookieSettings() {
   }
 }
 
+// NOTE: whether a password already exists server-side - the toggle checks
+// this itself before even trying to enable, since the backend refuses to
+// turn remote access on without one anyway (see /api/remote-access).
+let remoteAccessHasPassword = false;
+let remoteAccessDownloadMode = "keep";
+
+// NOTE: mirrors renderCookieMode()'s button-group pattern - "keep" (a
+// personal computer, plenty of disk) vs "relay" (storage-constrained host,
+// e.g. a Raspberry Pi: delete the host's copy right after a remote device
+// has fully received it - see _relay_delete_background in app.py).
+function renderRemoteAccessStorageMode() {
+  remoteAccessStorageModes?.querySelectorAll("[data-storage-mode]").forEach((btn) => {
+    const active = btn.dataset.storageMode === remoteAccessDownloadMode;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", active ? "true" : "false");
+  });
+  remoteAccessStorageKeepHint?.classList.toggle("hidden", remoteAccessDownloadMode !== "keep");
+  remoteAccessStorageRelayHint?.classList.toggle("hidden", remoteAccessDownloadMode !== "relay");
+}
+
+function showRemoteAccessStatus(text, kind) {
+  if (!remoteAccessStatus) return;
+  remoteAccessStatus.textContent = text;
+  remoteAccessStatus.classList.remove("hidden", "ok", "bad");
+  remoteAccessStatus.classList.add(kind);
+}
+
+function renderRemoteAccessAddress(lanUrl) {
+  if (!remoteAccessAddressPanel) return;
+  if (lanUrl) {
+    remoteAccessAddressPanel.classList.remove("hidden");
+    if (remoteAccessAddressInput) remoteAccessAddressInput.value = lanUrl;
+  } else {
+    remoteAccessAddressPanel.classList.add("hidden");
+  }
+}
+
+// NOTE: the button reads "Update" once a password already exists, rather
+// than always "Save" - a password is never shown back after saving, so
+// "Update" is the only signal that submitting again REPLACES a real, working
+// password rather than setting one for the first time.
+function renderRemoteAccessPasswordBtnLabel() {
+  if (remoteAccessPasswordSaveBtn) {
+    remoteAccessPasswordSaveBtn.textContent = remoteAccessHasPassword
+      ? t().settingsRemoteAccessUpdatePasswordBtn
+      : t().settingsRemoteAccessSetPasswordBtn;
+  }
+  // NOTE: nothing to confirm against on the very first password - the
+  // "current password" field (and the forgot-password pointer next to it)
+  // only make sense once a real one already exists.
+  remoteAccessCurrentPasswordRow?.classList.toggle("hidden", !remoteAccessHasPassword);
+  remoteAccessForgotPasswordHint?.classList.toggle("hidden", !remoteAccessHasPassword);
+}
+
+async function loadRemoteAccessStatus() {
+  if (!remoteAccessToggle) return;
+  try {
+    const res = await fetch("/api/remote-access");
+    const data = await res.json();
+    remoteAccessHasPassword = !!data.has_password;
+    remoteAccessToggle.checked = !!data.enabled;
+    remoteAccessDownloadMode = data.download_mode || "keep";
+    renderRemoteAccessAddress(data.lan_url);
+    renderRemoteAccessPasswordBtnLabel();
+    renderRemoteAccessStorageMode();
+  } catch (err) {
+    // NOTE: same as the rest of settings - a failed fetch just leaves the
+    // panel at its default (off), it doesn't break the page.
+  }
+  loadRemoteAccessDevices();
+}
+
+// NOTE: a plain locale-formatted timestamp - "which device connected when"
+// only needs to be roughly legible, not a fancy "3 minutes ago" ticker.
+function fmtDeviceConnectedAt(unixSeconds) {
+  const date = new Date(unixSeconds * 1000);
+  return date.toLocaleString(lang === "tr" ? "tr-TR" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function remoteAccessDeviceRowHtml(session) {
+  const action = session.is_current
+    ? `<span class="remote-access-device-badge">${escapeHtml(t().settingsRemoteAccessThisDevice)}</span>`
+    : `<button type="button" class="btn-secondary remote-access-revoke-btn" data-session-id="${escapeHtml(session.id)}">${escapeHtml(t().settingsRemoteAccessRevokeBtn)}</button>`;
+  return `
+    <div class="remote-access-device-row">
+      <div>
+        <span class="remote-access-device-name">${escapeHtml(session.device)}</span>
+        <span class="remote-access-device-meta">${escapeHtml(fmtDeviceConnectedAt(session.created_at))}</span>
+      </div>
+      ${action}
+    </div>`;
+}
+
+async function loadRemoteAccessDevices() {
+  if (!remoteAccessDevicesPanel || !remoteAccessDevicesList) return;
+  try {
+    const res = await fetch("/api/remote-access/sessions");
+    const data = await res.json();
+    const sessions = data.sessions || [];
+    if (sessions.length === 0) {
+      remoteAccessDevicesPanel.classList.add("hidden");
+      return;
+    }
+    remoteAccessDevicesPanel.classList.remove("hidden");
+    remoteAccessDevicesList.innerHTML = sessions.map(remoteAccessDeviceRowHtml).join("");
+  } catch (err) {
+    // NOTE: best-effort, same as the rest of this panel.
+  }
+}
+
+async function revokeRemoteAccessDevice(sessionId) {
+  try {
+    await fetch(`/api/remote-access/sessions/${sessionId}`, { method: "DELETE" });
+  } catch (err) {
+    // NOTE: best-effort - if this failed, the row simply won't disappear
+    // and the user can just try again.
+  }
+  loadRemoteAccessDevices();
+}
+
+async function toggleRemoteAccess() {
+  const wantEnabled = remoteAccessToggle.checked;
+  if (wantEnabled && !remoteAccessHasPassword) {
+    remoteAccessToggle.checked = false;
+    remoteAccessNeedPasswordHint?.classList.remove("hidden");
+    return;
+  }
+  remoteAccessNeedPasswordHint?.classList.add("hidden");
+  remoteAccessToggle.disabled = true;
+  try {
+    const res = await fetch("/api/remote-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: wantEnabled, download_mode: remoteAccessDownloadMode }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      remoteAccessToggle.checked = !wantEnabled;
+      showRemoteAccessStatus(data.detail || t().cookieTestFailed, "bad");
+      return;
+    }
+    // NOTE: changing this setting restarts the server (it changes which
+    // network interface it listens on - see run.py) - same "tell the user,
+    // then poll until it's back" flow as the yt-dlp/deps updaters.
+    showRemoteAccessStatus(t().settingsRemoteAccessRestartNote, "ok");
+    waitForServerAndReload();
+  } catch (err) {
+    remoteAccessToggle.checked = !wantEnabled;
+    showRemoteAccessStatus(t().errNetwork + err.message, "bad");
+    remoteAccessToggle.disabled = false;
+  }
+}
+
+async function saveRemoteAccessPassword() {
+  if (!remoteAccessPasswordSaveBtn) return;
+  const currentPassword = remoteAccessCurrentPasswordInput?.value || "";
+  const password = remoteAccessPasswordInput?.value || "";
+  const confirmPassword = remoteAccessPasswordConfirmInput?.value || "";
+
+  // NOTE: checked client-side first purely to save a round trip on an
+  // obvious mistake - the server enforces the same rules regardless (never
+  // trust the client alone for the current-password check in particular).
+  if (remoteAccessHasPassword && !currentPassword) {
+    showRemoteAccessStatus(t().settingsRemoteAccessCurrentPasswordRequired, "bad");
+    return;
+  }
+  if (password.length < 8) {
+    showRemoteAccessStatus(t().settingsRemoteAccessPasswordTooShort, "bad");
+    return;
+  }
+  if (password !== confirmPassword) {
+    showRemoteAccessStatus(t().settingsRemoteAccessPasswordsDontMatch, "bad");
+    return;
+  }
+
+  remoteAccessPasswordSaveBtn.disabled = true;
+  try {
+    const res = await fetch("/api/remote-access/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, current_password: currentPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const isWrongCurrent = res.status === 401;
+      showRemoteAccessStatus(
+        isWrongCurrent ? t().settingsRemoteAccessWrongCurrentPassword : data.detail || t().cookieTestFailed,
+        "bad"
+      );
+      return;
+    }
+    remoteAccessHasPassword = !!data.has_password;
+    if (remoteAccessCurrentPasswordInput) remoteAccessCurrentPasswordInput.value = "";
+    if (remoteAccessPasswordInput) remoteAccessPasswordInput.value = "";
+    if (remoteAccessPasswordConfirmInput) remoteAccessPasswordConfirmInput.value = "";
+    renderRemoteAccessPasswordBtnLabel();
+    showRemoteAccessStatus(t().settingsRemoteAccessPasswordSaved, "ok");
+  } catch (err) {
+    showRemoteAccessStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    remoteAccessPasswordSaveBtn.disabled = false;
+  }
+}
+
+async function saveRemoteAccessStorageMode(mode) {
+  if (mode === remoteAccessDownloadMode) return;
+  const previous = remoteAccessDownloadMode;
+  remoteAccessDownloadMode = mode;
+  renderRemoteAccessStorageMode();
+  try {
+    const res = await fetch("/api/remote-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // NOTE: enabled is resent as its CURRENT value, unchanged - this call
+      // only ever changes download_mode. Since remote_access_active() (what
+      // decides whether the server needs to restart) depends only on
+      // enabled+password, never on download_mode, this never restarts the
+      // server - it's a plain settings save.
+      body: JSON.stringify({ enabled: !!remoteAccessToggle?.checked, download_mode: mode }),
+    });
+    if (!res.ok) {
+      remoteAccessDownloadMode = previous;
+      renderRemoteAccessStorageMode();
+      const data = await res.json().catch(() => ({}));
+      showRemoteAccessStatus(data.detail || t().cookieTestFailed, "bad");
+      return;
+    }
+    showRemoteAccessStatus(t().settingsRemoteAccessStorageSaved, "ok");
+  } catch (err) {
+    remoteAccessDownloadMode = previous;
+    renderRemoteAccessStorageMode();
+    showRemoteAccessStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+async function logoutRemoteAccess() {
+  if (!remoteAccessLogoutBtn) return;
+  remoteAccessLogoutBtn.disabled = true;
+  try {
+    await fetch("/api/logout", { method: "POST" });
+    showRemoteAccessStatus(t().settingsRemoteAccessLoggedOut, "ok");
+  } catch (err) {
+    // NOTE: best-effort - if this fails the session just expires on its own.
+  } finally {
+    remoteAccessLogoutBtn.disabled = false;
+  }
+}
+
 cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
   btn.addEventListener("click", () => {
     cookieMode = btn.dataset.cookieMode;
@@ -2387,6 +2734,34 @@ cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
 cookieSaveBtn?.addEventListener("click", saveCookieSettings);
 cookieTestBtn?.addEventListener("click", testCookieSettings);
 defaultAudioLangSaveBtn?.addEventListener("click", saveDefaultAudioLang);
+remoteAccessToggle?.addEventListener("change", toggleRemoteAccess);
+remoteAccessPasswordSaveBtn?.addEventListener("click", saveRemoteAccessPassword);
+remoteAccessLogoutBtn?.addEventListener("click", logoutRemoteAccess);
+remoteAccessStorageModes?.querySelectorAll("[data-storage-mode]").forEach((btn) => {
+  btn.addEventListener("click", () => saveRemoteAccessStorageMode(btn.dataset.storageMode));
+});
+remoteAccessShowPasswordsToggle?.addEventListener("change", () => {
+  const fieldType = remoteAccessShowPasswordsToggle.checked ? "text" : "password";
+  [remoteAccessCurrentPasswordInput, remoteAccessPasswordInput, remoteAccessPasswordConfirmInput].forEach((input) => {
+    if (input) input.type = fieldType;
+  });
+});
+remoteAccessAddressCopyBtn?.addEventListener("click", () => {
+  if (!remoteAccessAddressInput) return;
+  navigator.clipboard?.writeText(remoteAccessAddressInput.value).catch(() => {});
+  const original = remoteAccessAddressCopyBtn.textContent;
+  remoteAccessAddressCopyBtn.textContent = t().settingsRemoteAccessCopied;
+  setTimeout(() => {
+    remoteAccessAddressCopyBtn.textContent = original;
+  }, 1500);
+});
+// NOTE: one delegated listener, like the download dock - the list's rows are
+// rebuilt wholesale on every refresh, so per-button listeners would just be
+// lost (and re-added) each time.
+remoteAccessDevicesList?.addEventListener("click", (e) => {
+  const btn = e.target.closest?.(".remote-access-revoke-btn");
+  if (btn) revokeRemoteAccessDevice(btn.dataset.sessionId);
+});
 
 probeBtn?.addEventListener("click", probe);
 urlInput?.addEventListener("keydown", (e) => {
@@ -2512,15 +2887,24 @@ channelModeRadios.forEach((r) => r.addEventListener("change", updateChannelChoic
 pendingClearBtn?.addEventListener("click", clearPending);
 updateChannelChoiceVisibility();
 
-loadHistory();
-loadChannels();
-loadPending();
-loadYtdlpVersion();
-loadFfmpegVersion();
-loadDependencies();
-wireDepsUpdateBtn();
-loadSettings();
-resumeTrackedDockJobs();
+// NOTE: isLocalClient has to be resolved BEFORE anything renders a
+// reveal/download button (history cards, the dock) - otherwise a remote
+// device could briefly render "Show in folder" (or vice versa) until
+// whichever fetch happened to finish first. All of these are independent,
+// so awaiting just the one flag first costs nothing but a few ms.
+(async () => {
+  await loadClientInfo();
+  loadHistory();
+  loadChannels();
+  loadPending();
+  loadYtdlpVersion();
+  loadFfmpegVersion();
+  loadDependencies();
+  wireDepsUpdateBtn();
+  loadSettings();
+  loadRemoteAccessStatus();
+  resumeTrackedDockJobs();
+})();
 
 // NOTE: lets an external trigger (e.g. a browser extension/bookmarklet)
 // open MediaGrab pre-filled and already resolving, via

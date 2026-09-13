@@ -50,3 +50,16 @@ def test_every_ui_key_used_in_a_template_exists():
     assert used, "no ui.* references found - did the templates move?"
     unknown = used - set(UI["tr"])
     assert not unknown, f"templates use undefined keys: {sorted(unknown)}"
+
+
+def test_no_key_collides_with_a_real_dict_method():
+    # NOTE: regression test, reproduced live. `ui` is a plain dict, and
+    # Jinja's `{{ ui.copy }}` tries getattr(ui, "copy") BEFORE ui["copy"] -
+    # since dict has a real .copy() method, a key named "copy" silently
+    # rendered as "<built-in method copy of dict object at 0x...>" instead of
+    # the translated string, with no error anywhere. Same trap for any other
+    # key matching a dict attribute (items, keys, values, get, update, pop,
+    # clear, ...).
+    reserved = set(dir({}))
+    colliding = set(UI["tr"]) & reserved
+    assert not colliding, f"these i18n keys are shadowed by dict methods and must be renamed: {sorted(colliding)}"

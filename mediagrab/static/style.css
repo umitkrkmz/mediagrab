@@ -845,6 +845,65 @@ button:disabled {
   word-break: break-word;
 }
 
+/* --- Login page --- */
+
+.login-page {
+  max-width: 420px;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 100%;
+  padding: 32px 28px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.login-brand {
+  margin-bottom: 18px;
+  justify-content: center;
+}
+
+.login-heading {
+  font-size: 1.3rem;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+#login-form .cookie-label {
+  margin-top: 4px;
+}
+
+#login-password {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 14px;
+}
+
+#login-password:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+#login-submit-btn {
+  width: 100%;
+}
+
+#login-form .error {
+  margin-top: 14px;
+  text-align: center;
+}
+
 .info-row {
   display: flex;
   gap: 16px;
@@ -1770,6 +1829,78 @@ button:disabled {
 
 .settings-subsection:last-child {
   margin-bottom: 0;
+}
+
+.remote-access-address-row {
+  display: flex;
+  gap: 8px;
+}
+
+.remote-access-password-field {
+  margin-bottom: 12px;
+}
+
+.remote-access-password-field:last-of-type {
+  margin-bottom: 10px;
+}
+
+.remote-access-password-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.remote-access-password-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+#remote-access-address-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: "Consolas", monospace;
+}
+
+.remote-access-device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.remote-access-device-row:last-child {
+  border-bottom: none;
+}
+
+.remote-access-device-name {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.remote-access-device-meta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.remote-access-device-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 @media (max-width: 720px) {

@@ -214,14 +214,14 @@ def test_audio_lang_is_tried_before_falling_back(choice):
 
 def test_video_opts_without_audio_langs_is_unchanged():
     assert downloader._video_opts("617")["format"] == downloader._video_opts("617", audio_langs=[])["format"]
-    assert downloader._video_opts("617")["format"] == "617+bestaudio/617"
+    assert downloader._video_opts("617")["format"] == "617+bestaudio/best"
     assert downloader._video_opts("617")["merge_output_format"] == "mp4"
     assert "allow_multiple_audio_streams" not in downloader._video_opts("617")
 
 
 def test_video_opts_with_one_audio_lang_falls_back_to_default_audio():
     opts = downloader._video_opts("617", audio_langs=["tr"])
-    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/617"
+    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/best"
     # NOTE: a single language is exactly the pre-multi-track behaviour - still
     # mp4, still no multistreams flag.
     assert opts["merge_output_format"] == "mp4"
@@ -231,6 +231,22 @@ def test_video_opts_with_one_audio_lang_falls_back_to_default_audio():
 def test_video_opts_best_sentinel_also_respects_audio_langs():
     fmt = downloader._video_opts("best", audio_langs=["tr"])["format"]
     assert fmt == "bestvideo+bestaudio[language=tr]/bestaudio/best"
+
+
+def test_the_final_fallback_never_settles_for_a_silent_video():
+    # NOTE: regression guard for a real bug - the fallback used to be the
+    # bare format id ("617"), which ALWAYS resolves (it matches itself) even
+    # when every "+bestaudio" alternative failed to find an audio stream to
+    # merge with, so a transient audio-format hiccup between probe() and
+    # download() (each re-extracts formats independently) could silently
+    # ship a picture with no sound. Every alternative in the chain must
+    # require an audio track - none may be the bare video-only format id on
+    # its own.
+    for audio_langs in (None, ["tr"], ["tr", ""]):
+        fmt = downloader._video_opts("617", audio_langs=audio_langs)["format"]
+        alternatives = fmt.split("/")
+        assert "617" not in alternatives, f"a silent-video alternative slipped back in: {fmt!r}"
+        assert alternatives[-1] == "best", f"must end in a fallback that still requires audio: {fmt!r}"
 
 
 # --- multiple audio tracks in one file ---------------------------------------
@@ -259,7 +275,7 @@ def test_a_blank_entry_does_not_count_toward_multi_track():
     # NOTE: defensive - the UI should never send an empty string in the list,
     # but if it did, this must not accidentally trip the two-or-more path.
     opts = downloader._video_opts("617", audio_langs=["tr", ""])
-    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/617"
+    assert opts["format"] == "617+bestaudio[language=tr]/bestaudio/best"
     assert opts["merge_output_format"] == "mp4"
 
 
