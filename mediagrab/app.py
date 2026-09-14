@@ -59,13 +59,21 @@ _event_loop: Optional[asyncio.AbstractEventLoop] = None
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # NOTE: replaces the deprecated @app.on_event("startup") hook.
-    # This is a "check on launch" design, not a persistent background service -
-    # the app only runs while opened, so followed channels are checked once
-    # here rather than on a timer. See README for why.
+    # Checking followed channels once here (not on a timer) is the original,
+    # default design - the app only runs while opened, so this is normally
+    # the only check a session ever gets. See README for why.
+    #
+    # home_server_mode (Ayarlar -> Uzaktan Erişim) additionally starts a
+    # periodic loop for a device meant to stay running continuously (a
+    # Raspberry Pi/mini PC, or a desktop someone chooses to keep open) - see
+    # _periodic_channel_check_loop. The one-time check below still always
+    # runs either way.
     global _event_loop
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
     threading.Thread(target=_check_all_channels, daemon=True).start()
+    if store.get_settings().get("home_server_mode"):
+        threading.Thread(target=_periodic_channel_check_loop, daemon=True).start()
     yield
 
 
@@ -605,6 +613,23 @@ def _check_all_channels() -> None:
         _check_channel(channel)
 
 
+# NOTE: 3 hours - frequent enough that a new upload doesn't sit undetected
+# for most of a day, infrequent enough not to hammer every followed channel's
+# page constantly. Only relevant when home_server_mode is on; the one-time
+# check-at-launch in lifespan() always runs regardless of this setting.
+_HOME_SERVER_CHANNEL_CHECK_INTERVAL_SECONDS = 3 * 3600
+
+
+def _periodic_channel_check_loop() -> None:
+    # NOTE: plain threading + time.sleep, not asyncio - matches the launch-
+    # time check's own thread (see lifespan) and, more importantly, keeps
+    # _check_channel's blocking network/yt-dlp calls off the asyncio event
+    # loop that SSE and every other request depend on.
+    while True:
+        time.sleep(_HOME_SERVER_CHANNEL_CHECK_INTERVAL_SECONDS)
+        _check_all_channels()
+
+
 @app.get("/")
 def index(request: Request, lang: Optional[str] = None):
     return templates.TemplateResponse(request, "index.html", _page_context(request, lang, "home"))
@@ -975,13 +1000,21 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
             raise HTTPException(status_code=400, detail="Cerez dosyasi bulunamadi")
     if req.download_speed_limit_mbps < 0:
         raise HTTPException(status_code=400, detail="Hiz siniri negatif olamaz")
-    return store.save_settings(
+    # NOTE: home_server_mode is only actually read once, at process startup
+    # (see lifespan) - a live toggle needs a restart to take effect, same
+    # restart dance as the yt-dlp/deps updaters and remote-access toggle.
+    was_home_server_mode = bool(store.get_settings().get("home_server_mode"))
+    result = store.save_settings(
         cookie_mode=req.cookie_mode,
         cookie_browser=req.cookie_browser,
         cookie_file=(req.cookie_file or "").strip(),
         default_audio_lang=(req.default_audio_lang or "").strip().lower(),
         download_speed_limit_mbps=req.download_speed_limit_mbps,
+        home_server_mode=req.home_server_mode,
     )
+    if req.home_server_mode != was_home_server_mode:
+        threading.Thread(target=_delayed_restart, daemon=True).start()
+    return result
 
 
 # NOTE: never exported, and never accepted on import even if a hand-edited

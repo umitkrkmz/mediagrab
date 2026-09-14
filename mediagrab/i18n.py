@@ -153,6 +153,13 @@ UI = {
         "login_submit_btn": "Giriş Yap",
         "login_wrong_password": "Şifre yanlış",
         "settings_remote_access_title": "Uzaktan Erişim",
+        "settings_home_server_title": "Ev Sunucusu Modu",
+        "settings_home_server_enable_label": "Bu cihazı sürekli açık tutuyorum",
+        "settings_home_server_hint": (
+            "Açıkken takip ettiğiniz kanallar sadece uygulamayı açtığınızda değil, arka planda periyodik olarak "
+            "(birkaç saatte bir) kontrol edilir. Uzaktan erişimden bağımsızdır - ikisini ayrı ayrı açıp "
+            "kapatabilirsiniz. Ayar değiştiğinde uygulama kendini bir kez yeniden başlatır."
+        ),
         "settings_remote_access_hint": "Bunu açtığınızda, aynı ağdaki başka cihazlar (telefon, laptop) MediaGrab'a bağlanabilir — şifrenizi bilmeleri gerekir. Bağlantı adresi, etkinleştirdikten sonra aşağıda görünür.",
         "settings_remote_access_warning": "Bu şifreleme kullanmaz (HTTPS değildir) — yalnızca güvendiğiniz bir ev/ofis ağında kullanın, doğrudan internete açmayın.",
         "settings_remote_access_enable_label": "Yerel ağdan erişime izin ver",
@@ -321,6 +328,13 @@ UI = {
         "login_submit_btn": "Log In",
         "login_wrong_password": "Incorrect password",
         "settings_remote_access_title": "Remote Access",
+        "settings_home_server_title": "Home Server Mode",
+        "settings_home_server_enable_label": "I keep this device running continuously",
+        "settings_home_server_hint": (
+            "When on, followed channels are checked periodically in the background (every few hours) instead of "
+            "only when you open the app. Independent of remote access - turn either on or off separately. "
+            "The app restarts itself once when this setting changes."
+        ),
         "settings_remote_access_hint": "Turning this on lets other devices on the same network (phone, laptop) reach MediaGrab — they'll need your password. The connection address shows up below once it's on.",
         "settings_remote_access_warning": "This has no encryption (it isn't HTTPS) — only use it on a home/office network you trust, never expose it directly to the internet.",
         "settings_remote_access_enable_label": "Allow access from your local network",

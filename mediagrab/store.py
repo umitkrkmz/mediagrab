@@ -52,6 +52,13 @@ DEFAULT_SETTINGS = {
     # than yt-dlp's native bytes/sec so a hand-edited settings.json stays
     # human-readable; downloader.py converts at the point of use.
     "download_speed_limit_mbps": 0,
+    # NOTE: off by default (matches the app's original "you open it, it
+    # runs" design). When on, followed channels are checked periodically
+    # (see app.py's _periodic_channel_check_loop) instead of only once at
+    # launch - meant for a device left running continuously (a Raspberry
+    # Pi/mini PC, or a desktop someone chooses to keep open). Independent of
+    # remote_access_enabled: either can be on without the other.
+    "home_server_mode": False,
 }
 
 

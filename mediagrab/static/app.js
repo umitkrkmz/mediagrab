@@ -424,6 +424,7 @@ const I18N = {
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
     ytdlpCreditLink: "GitHub'da teşekkür edin →",
     settingsRemoteAccessRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
+    settingsHomeServerRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
     settingsRemoteAccessPasswordTooShort: "Şifre en az 8 karakter olmalı.",
     settingsRemoteAccessPasswordsDontMatch: "Yeni şifreler eşleşmiyor.",
     settingsRemoteAccessCurrentPasswordRequired: "Mevcut şifrenizi girin.",
@@ -754,6 +755,7 @@ const I18N = {
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
     ytdlpCreditLink: "Say thanks on GitHub →",
     settingsRemoteAccessRestartNote: "Applying the setting, restarting the server...",
+    settingsHomeServerRestartNote: "Applying the setting, restarting the server...",
     settingsRemoteAccessPasswordTooShort: "Password must be at least 8 characters.",
     settingsRemoteAccessPasswordsDontMatch: "The new passwords don't match.",
     settingsRemoteAccessCurrentPasswordRequired: "Enter your current password.",
@@ -2344,6 +2346,7 @@ const cookieStatus = document.getElementById("cookie-status");
 const defaultAudioLangInput = document.getElementById("default-audio-lang-input");
 const defaultAudioLangSaveBtn = document.getElementById("default-audio-lang-save-btn");
 const defaultAudioLangStatus = document.getElementById("default-audio-lang-status");
+const homeServerModeToggle = document.getElementById("home-server-mode-toggle");
 const remoteAccessToggle = document.getElementById("remote-access-toggle");
 const remoteAccessNeedPasswordHint = document.getElementById("remote-access-need-password");
 const remoteAccessCurrentPasswordRow = document.getElementById("remote-access-current-password-row");
@@ -2412,6 +2415,7 @@ async function importSettingsBackup() {
 
 let cookieMode = "off";
 let speedLimitMbps = 0;
+let homeServerMode = false;
 
 // NOTE: the three fixed buttons above cover the common cases; anything else
 // (the user typed their own number) is "custom" - there's no separate flag
@@ -2508,6 +2512,8 @@ async function loadSettings() {
     if (defaultAudioLangInput) defaultAudioLangInput.value = defaultAudioLang;
     speedLimitMbps = settings.download_speed_limit_mbps || 0;
     renderSpeedLimitMode();
+    homeServerMode = !!settings.home_server_mode;
+    if (homeServerModeToggle) homeServerModeToggle.checked = homeServerMode;
 
     if (!cookieModes) return;
     const browsersRes = await fetch("/api/cookie-browsers");
@@ -2537,7 +2543,38 @@ function collectSettingsPayload() {
     cookie_file: cookieFileInput?.value || "",
     default_audio_lang: defaultAudioLangInput?.value || "",
     download_speed_limit_mbps: speedLimitMbps,
+    home_server_mode: homeServerMode,
   };
+}
+
+// NOTE: mirrors toggleRemoteAccess()'s pattern - a change saves immediately
+// (no separate "save" button) and, since this setting is only actually read
+// once at process startup (see app.py's lifespan), restarts the server.
+async function toggleHomeServerMode() {
+  if (!homeServerModeToggle) return;
+  const wantEnabled = homeServerModeToggle.checked;
+  homeServerModeToggle.disabled = true;
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...collectSettingsPayload(), home_server_mode: wantEnabled }),
+    });
+    if (!res.ok) {
+      homeServerModeToggle.checked = !wantEnabled;
+      const data = await res.json().catch(() => ({}));
+      showRemoteAccessStatus(data.detail || t().cookieTestFailed, "bad");
+      homeServerModeToggle.disabled = false;
+      return;
+    }
+    homeServerMode = wantEnabled;
+    showRemoteAccessStatus(t().settingsHomeServerRestartNote, "ok");
+    waitForServerAndReload();
+  } catch (err) {
+    homeServerModeToggle.checked = !wantEnabled;
+    showRemoteAccessStatus(t().errNetwork + err.message, "bad");
+    homeServerModeToggle.disabled = false;
+  }
 }
 
 // NOTE: mirrors saveRemoteAccessStorageMode()'s pattern - a button click
@@ -2940,6 +2977,7 @@ settingsImportBtn?.addEventListener("click", () => settingsImportFile?.click());
 settingsImportFile?.addEventListener("change", importSettingsBackup);
 defaultAudioLangSaveBtn?.addEventListener("click", saveDefaultAudioLang);
 remoteAccessToggle?.addEventListener("change", toggleRemoteAccess);
+homeServerModeToggle?.addEventListener("change", toggleHomeServerMode);
 remoteAccessPasswordSaveBtn?.addEventListener("click", saveRemoteAccessPassword);
 remoteAccessLogoutBtn?.addEventListener("click", logoutRemoteAccess);
 remoteAccessStorageModes?.querySelectorAll("[data-storage-mode]").forEach((btn) => {

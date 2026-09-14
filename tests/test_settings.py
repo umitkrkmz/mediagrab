@@ -59,3 +59,25 @@ def test_saving_other_settings_does_not_reset_the_speed_limit(settings_file):
     store.save_settings(download_speed_limit_mbps=10)
     store.save_settings(default_audio_lang="tr")
     assert store.get_settings()["download_speed_limit_mbps"] == 10
+
+
+# --- home_server_mode ---------------------------------------------------------
+
+
+def test_home_server_mode_defaults_to_off(settings_file):
+    # NOTE: matches the app's original "you open it, it runs" design - a
+    # fresh install must not silently start checking channels in the
+    # background before the user has ever opted in.
+    assert store.get_settings()["home_server_mode"] is False
+
+
+def test_home_server_mode_round_trips(settings_file):
+    store.save_settings(home_server_mode=True)
+    assert store.get_settings()["home_server_mode"] is True
+
+
+def test_home_server_mode_is_independent_of_remote_access(settings_file):
+    store.save_settings(home_server_mode=True, remote_access_enabled=False)
+    settings = store.get_settings()
+    assert settings["home_server_mode"] is True
+    assert settings["remote_access_enabled"] is False

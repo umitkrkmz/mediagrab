@@ -124,6 +124,15 @@
       <p class="settings-hint cookie-warning">{{ ui.settings_remote_access_warning }}</p>
 
       <div class="cookie-panel">
+        <div class="section-subtitle">{{ ui.settings_home_server_title }}</div>
+        <label class="transcript-timestamp-check" for="home-server-mode-toggle">
+          <input type="checkbox" id="home-server-mode-toggle">
+          {{ ui.settings_home_server_enable_label }}
+        </label>
+        <p class="settings-hint">{{ ui.settings_home_server_hint }}</p>
+      </div>
+
+      <div class="cookie-panel">
         <label class="transcript-timestamp-check" for="remote-access-toggle">
           <input type="checkbox" id="remote-access-toggle">
           {{ ui.settings_remote_access_enable_label }}

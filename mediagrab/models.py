@@ -91,6 +91,9 @@ class SettingsResponse(BaseModel):
     default_audio_lang: str = ""
     # NOTE: 0 means unlimited.
     download_speed_limit_mbps: int = 0
+    # NOTE: see store.py's DEFAULT_SETTINGS - switches followed-channel
+    # checking from "once at launch" to periodic.
+    home_server_mode: bool = False
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -99,6 +102,7 @@ class SettingsUpdateRequest(BaseModel):
     cookie_file: str = ""
     default_audio_lang: str = ""
     download_speed_limit_mbps: int = 0
+    home_server_mode: bool = False
 
 
 class LoginRequest(BaseModel):
