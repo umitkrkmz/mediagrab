@@ -49,6 +49,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `mediagrab/static/style.css` | All styles; design tokens on `:root` (`--bg`, `--surface`, `--accent`, …), dark-first with light overrides; `.result-layout` (1/3 preview sticky : 2/3 options), `.format-tabs`, `.settings-layout`, `#history-list.view-list`, `.sites-chip`, `.download-dock` |
 | `mediagrab/static/sw.js` | PWA service worker (served at `/sw.js` by `app.py`) |
 | `mediagrab/static/manifest.json` | PWA manifest |
+| `mediagrab/static/qrcode.js` | Third-party (MIT, davidshimjs/qrcodejs), unmodified - local file, not CDN-loaded, matching the app's offline/local philosophy. Only loaded on `/settings` (see its `<script>` tag there); renders the remote-access LAN address as a scannable QR code |
 | `mediagrab/static/icon.svg` | App icon |
 | `mediagrab/static/icons/` | Brand logos for supported sites + GitHub (Simple Icons, CC0, colour baked into `fill`, kept local — not hotlinked) |
 

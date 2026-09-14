@@ -2354,6 +2354,7 @@ const remoteAccessStatus = document.getElementById("remote-access-status");
 const remoteAccessAddressPanel = document.getElementById("remote-access-address-panel");
 const remoteAccessAddressInput = document.getElementById("remote-access-address-input");
 const remoteAccessAddressCopyBtn = document.getElementById("remote-access-address-copy-btn");
+const remoteAccessQr = document.getElementById("remote-access-qr");
 const remoteAccessDevicesPanel = document.getElementById("remote-access-devices-panel");
 const remoteAccessDevicesList = document.getElementById("remote-access-devices-list");
 const remoteAccessStorageModes = document.getElementById("remote-access-storage-modes");
@@ -2632,9 +2633,20 @@ function renderRemoteAccessAddress(lanUrl) {
   if (lanUrl) {
     remoteAccessAddressPanel.classList.remove("hidden");
     if (remoteAccessAddressInput) remoteAccessAddressInput.value = lanUrl;
+    renderRemoteAccessQr(lanUrl);
   } else {
     remoteAccessAddressPanel.classList.add("hidden");
   }
+}
+
+// NOTE: QRCode (mediagrab/static/qrcode.js, loaded only on this page) has no
+// "update" method - re-rendering means clearing the container and building a
+// fresh instance, which is fine here since this only ever runs once per
+// Settings page load / remote-access status refresh, not on every keystroke.
+function renderRemoteAccessQr(lanUrl) {
+  if (!remoteAccessQr || typeof QRCode === "undefined") return;
+  remoteAccessQr.innerHTML = "";
+  new QRCode(remoteAccessQr, { text: lanUrl, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
 }
 
 // NOTE: the button reads "Update" once a password already exists, rather

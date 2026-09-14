@@ -137,6 +137,8 @@
           <input type="text" id="remote-access-address-input" readonly>
           <button type="button" id="remote-access-address-copy-btn">{{ ui.copy_btn }}</button>
         </div>
+        <div id="remote-access-qr" class="remote-access-qr"></div>
+        <p class="settings-hint">{{ ui.settings_remote_access_qr_hint }}</p>
       </div>
 
       <div class="cookie-panel" id="remote-access-storage-panel">
@@ -218,5 +220,12 @@
 
   </div>
 </div>
+
+<!-- NOTE: only loaded on this page (the QR code is Settings-only), and
+     placed BEFORE app.js in the DOM so the QRCode global exists by the time
+     app.js's own top-level code runs. Local file, not a CDN - offline/local
+     is the whole point of this app; see mediagrab/static/qrcode.js's header
+     for its own MIT license notice (davidshimjs/qrcodejs). -->
+<script src="/static/qrcode.js?v={{ asset_version('qrcode.js') }}"></script>
 
 {% endblock %}

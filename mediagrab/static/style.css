@@ -1836,6 +1836,15 @@ button:disabled {
   gap: 8px;
 }
 
+.remote-access-qr {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 10px;
+  line-height: 0;
+}
+
 .remote-access-password-field {
   margin-bottom: 12px;
 }
