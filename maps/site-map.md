@@ -82,6 +82,8 @@ host's own reveal/download of its own file is never affected either way.
 | `/api/settings` | GET | Current settings (cookie source, default audio language) |
 | `/api/settings` | POST | Update settings |
 | `/api/settings/test-cookies` | POST | Try reading cookies from the configured source |
+| `/api/settings/export` | GET | Downloads settings + followed channels + pending videos as one JSON file (`Content-Disposition: attachment`) - never includes `remote_access_password_salt`/`_hash` |
+| `/api/settings/import` | POST | Restores settings + channels + pending from a previously exported file - replaces (not merges) the channel list; silently drops any credential fields even if present in the file |
 | `/api/cookie-browsers` | GET | Browsers yt-dlp can read cookies from |
 | `/api/locale` | GET | Server-detected language |
 | `/api/client-info` | GET | `{is_local}` - whether THIS request came from the host machine (127.0.0.1/::1) or a LAN device; fetched once at page load (see `loadClientInfo` in app.js) and used to pick "reveal in explorer" vs a real "download to this device" action |

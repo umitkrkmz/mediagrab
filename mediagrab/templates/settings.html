@@ -15,6 +15,7 @@
     <button type="button" class="settings-nav-item" data-tab="cookies">{{ ui.settings_cookies_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="remote-access">{{ ui.settings_remote_access_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="environment">{{ ui.settings_environment_title }}</button>
+    <button type="button" class="settings-nav-item" data-tab="backup">{{ ui.settings_backup_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="feedback">{{ ui.settings_feedback_title }}</button>
   </nav>
 
@@ -210,6 +211,18 @@
           <div id="deps-update-status" class="ytdlp-update-status hidden"></div>
         </div>
       </div>
+    </div>
+
+    <div class="settings-section" data-panel="backup">
+      <div class="section-title">{{ ui.settings_backup_title }}</div>
+      <p class="settings-hint">{{ ui.settings_backup_hint }}</p>
+      <p class="settings-hint cookie-warning">{{ ui.settings_backup_password_warning }}</p>
+      <div class="cookie-actions">
+        <button type="button" id="settings-export-btn">{{ ui.settings_backup_export_btn }}</button>
+        <button type="button" id="settings-import-btn" class="btn-secondary">{{ ui.settings_backup_import_btn }}</button>
+        <input type="file" id="settings-import-file" accept="application/json" class="hidden">
+      </div>
+      <div id="settings-backup-status" class="cookie-status hidden" role="status"></div>
     </div>
 
     <div class="settings-section" data-panel="feedback">

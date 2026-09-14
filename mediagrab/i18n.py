@@ -87,6 +87,11 @@ UI = {
             "Sanal ortamdaki paketler PyPI'daki güncel sürümlerle karşılaştırılır."
         ),
         "deps_update_btn": "Tümünü Güncelle",
+        "settings_backup_title": "Yedekle",
+        "settings_backup_hint": "Ayarlarınızı ve kanal takip listenizi tek bir dosyaya kaydedin; başka bir bilgisayara veya Raspberry Pi'ye geçerken bu dosyayı içe aktarın.",
+        "settings_backup_password_warning": "Uzaktan erişim şifreniz yedeğe dahil edilmez - yeni cihazda şifreyi yeniden belirlemeniz gerekir.",
+        "settings_backup_export_btn": "Dışa Aktar",
+        "settings_backup_import_btn": "İçe Aktar",
         "settings_feedback_title": "Geri Bildirim",
         "settings_feedback_hint": (
             "Bir hata mı buldunuz, yoksa bir özellik mi önereceksiniz? GitHub üzerinden bildirin."
@@ -253,6 +258,11 @@ UI = {
         "settings_deps_title": "Python Dependencies",
         "settings_deps_hint": "Packages in the virtual environment, compared against the latest on PyPI.",
         "deps_update_btn": "Update All",
+        "settings_backup_title": "Backup",
+        "settings_backup_hint": "Save your settings and followed-channel list to one file; import it when moving to another computer or a Raspberry Pi.",
+        "settings_backup_password_warning": "Your remote-access password is not included in the backup - you'll need to set it again on the new device.",
+        "settings_backup_export_btn": "Export",
+        "settings_backup_import_btn": "Import",
         "settings_feedback_title": "Feedback",
         "settings_feedback_hint": "Found a bug, or have a feature to suggest? Report it on GitHub.",
         "settings_feedback_btn": "Report a Bug / Suggest a Feature",

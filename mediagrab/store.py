@@ -187,3 +187,12 @@ def clear_pending() -> None:
         data = _load()
         data["pending"] = []
         _save(data)
+
+
+def replace_channels(channels: list[dict], pending: list[dict]) -> None:
+    # NOTE: a full replace, not a merge - used by the settings import route,
+    # where the whole point is "make this device match the backup file"
+    # (moving to a new device, or restoring after a reinstall). A merge would
+    # need to resolve id collisions and doesn't match either use case.
+    with _lock:
+        _save({"channels": channels, "pending": pending})

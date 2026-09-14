@@ -431,6 +431,8 @@ const I18N = {
     settingsRemoteAccessPasswordSaved: "Şifre kaydedildi.",
     settingsRemoteAccessStorageSaved: "Depolama ayarı kaydedildi.",
     settingsSpeedLimitInvalid: "Geçerli bir hız girin (en az 1 MB/s).",
+    settingsBackupImported: "İçe aktarıldı. Sayfa yenileniyor...",
+    settingsBackupInvalidFile: "Bu dosya okunamadı - geçerli bir MediaGrab yedek dosyası olduğundan emin olun.",
     settingsRemoteAccessLoggedOut: "Çıkış yapıldı.",
     settingsRemoteAccessThisDevice: "Bu cihaz",
     settingsRemoteAccessSetPasswordBtn: "Şifreyi Kaydet",
@@ -759,6 +761,8 @@ const I18N = {
     settingsRemoteAccessPasswordSaved: "Password saved.",
     settingsRemoteAccessStorageSaved: "Storage setting saved.",
     settingsSpeedLimitInvalid: "Enter a valid speed (at least 1 MB/s).",
+    settingsBackupImported: "Imported. Reloading...",
+    settingsBackupInvalidFile: "Couldn't read this file - make sure it's a valid MediaGrab backup file.",
     settingsRemoteAccessLoggedOut: "Logged out.",
     settingsRemoteAccessThisDevice: "This device",
     settingsRemoteAccessSetPasswordBtn: "Save Password",
@@ -2367,6 +2371,44 @@ const speedLimitCustomPanel = document.getElementById("speed-limit-custom-panel"
 const speedLimitCustomInput = document.getElementById("speed-limit-custom-input");
 const speedLimitCustomSaveBtn = document.getElementById("speed-limit-custom-save-btn");
 const speedLimitInfoCustomValue = document.getElementById("speed-limit-info-custom-value");
+const settingsExportBtn = document.getElementById("settings-export-btn");
+const settingsImportBtn = document.getElementById("settings-import-btn");
+const settingsImportFile = document.getElementById("settings-import-file");
+const settingsBackupStatus = document.getElementById("settings-backup-status");
+
+function showSettingsBackupStatus(text, kind) {
+  if (!settingsBackupStatus) return;
+  settingsBackupStatus.textContent = text;
+  settingsBackupStatus.classList.remove("hidden", "ok", "bad");
+  settingsBackupStatus.classList.add(kind);
+}
+
+async function importSettingsBackup() {
+  const file = settingsImportFile?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const res = await fetch("/api/settings/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}));
+      showSettingsBackupStatus(result.detail || t().settingsBackupInvalidFile, "bad");
+      return;
+    }
+    showSettingsBackupStatus(t().settingsBackupImported, "ok");
+    // NOTE: reloads so every panel (channels, cookies, speed limit, ...)
+    // picks up the freshly-imported values instead of showing stale state.
+    setTimeout(() => window.location.reload(), 1200);
+  } catch (err) {
+    showSettingsBackupStatus(t().settingsBackupInvalidFile, "bad");
+  } finally {
+    if (settingsImportFile) settingsImportFile.value = "";
+  }
+}
 
 let cookieMode = "off";
 let speedLimitMbps = 0;
@@ -2887,6 +2929,15 @@ speedLimitCustomInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") saveCustomSpeedLimit();
 });
 speedLimitCustomInput?.addEventListener("input", updateSpeedLimitInfoRow);
+settingsExportBtn?.addEventListener("click", () => {
+  // NOTE: native navigation, not fetch() - the route's Content-Disposition:
+  // attachment header is what makes the browser save the file; fetch()
+  // would just receive the bytes into JS and discard them (same reasoning
+  // as revealFile()'s remote-download path).
+  window.location.href = "/api/settings/export";
+});
+settingsImportBtn?.addEventListener("click", () => settingsImportFile?.click());
+settingsImportFile?.addEventListener("change", importSettingsBackup);
 defaultAudioLangSaveBtn?.addEventListener("click", saveDefaultAudioLang);
 remoteAccessToggle?.addEventListener("change", toggleRemoteAccess);
 remoteAccessPasswordSaveBtn?.addEventListener("click", saveRemoteAccessPassword);

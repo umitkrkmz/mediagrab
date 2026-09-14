@@ -198,3 +198,15 @@ class PendingVideo(BaseModel):
     url: str
     thumbnail: Optional[str] = None
     duration: int = 0
+
+
+class SettingsImportRequest(BaseModel):
+    mediagrab_export_version: int = 1
+    # NOTE: a plain dict, not SettingsResponse - an older/newer export's
+    # settings shape may not exactly match this version's model, and the
+    # route filters it down to known, non-credential keys anyway (see its own
+    # comment). Validating channels/pending as real models still catches a
+    # corrupt or hand-edited file with the wrong shape there.
+    settings: dict = {}
+    channels: list[ChannelItem] = []
+    pending: list[PendingVideo] = []

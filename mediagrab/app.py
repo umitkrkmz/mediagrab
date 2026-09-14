@@ -40,6 +40,7 @@ from .models import (
     SessionInfo,
     SessionListResponse,
     SetPasswordRequest,
+    SettingsImportRequest,
     SettingsResponse,
     SettingsUpdateRequest,
     StatusResponse,
@@ -981,6 +982,52 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
         default_audio_lang=(req.default_audio_lang or "").strip().lower(),
         download_speed_limit_mbps=req.download_speed_limit_mbps,
     )
+
+
+# NOTE: never exported, and never accepted on import even if a hand-edited
+# file includes them - a backup file is something people might share (moving
+# to a new device, asking for help), and it must never be possible for the
+# remote-access password to travel in it or be silently overwritten by
+# importing someone else's file. The receiving device always sets its own
+# password fresh (see docs/README's remote-access section).
+_SETTINGS_BACKUP_EXCLUDED_KEYS = {"remote_access_password_salt", "remote_access_password_hash"}
+
+
+@app.get("/api/settings/export")
+def export_settings() -> Response:
+    settings = store.get_settings()
+    exported_settings = {k: v for k, v in settings.items() if k not in _SETTINGS_BACKUP_EXCLUDED_KEYS}
+    body = json.dumps(
+        {
+            "mediagrab_export_version": 1,
+            "settings": exported_settings,
+            "channels": store.list_channels(),
+            "pending": store.get_pending(),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=mediagrab-yedek.json"},
+    )
+
+
+@app.post("/api/settings/import")
+def import_settings(req: SettingsImportRequest) -> dict:
+    safe_settings = {
+        k: v
+        for k, v in req.settings.items()
+        if k in store.DEFAULT_SETTINGS and k not in _SETTINGS_BACKUP_EXCLUDED_KEYS
+    }
+    if safe_settings:
+        store.save_settings(**safe_settings)
+    store.replace_channels(
+        [c.model_dump() for c in req.channels],
+        [p.model_dump() for p in req.pending],
+    )
+    return {"ok": True}
 
 
 @app.post("/api/settings/test-cookies")
