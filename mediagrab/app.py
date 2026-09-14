@@ -428,6 +428,56 @@ def _run_job(
             _set_job(job_id, state="hata", error=downloader.strip_ansi_codes(str(exc)))
 
 
+# NOTE: reserves at least 1 of the executor's 3 worker slots for a manual
+# download (the /api/download route always submits straight to `executor`,
+# uncapped) - channel auto-downloads go through this instead of submitting
+# directly, so they can never occupy every slot. Without this, someone
+# pasting an urgent link while a channel's periodic check (see
+# _periodic_channel_check_loop) just queued several auto-downloads would have
+# to wait behind all of them.
+_MAX_CONCURRENT_AUTO_DOWNLOADS = 2
+_auto_download_lock = threading.Lock()
+_active_auto_downloads = 0
+_pending_auto_downloads: list[tuple] = []  # (job_id, url, kind, choice, audio_langs)
+
+
+def _submit_auto_download(job_id: str, url: str, kind: str, choice: str, audio_langs: list[str]) -> None:
+    global _active_auto_downloads
+    with _auto_download_lock:
+        if _active_auto_downloads < _MAX_CONCURRENT_AUTO_DOWNLOADS:
+            _active_auto_downloads += 1
+            start_now = True
+        else:
+            # NOTE: NOT submitted to the executor yet - the job record (state
+            # "basliyor") already exists, so it still shows up as queued in
+            # the UI via _queue_position, exactly like a job waiting on a full
+            # executor normally would.
+            _pending_auto_downloads.append((job_id, url, kind, choice, audio_langs))
+            start_now = False
+    if start_now:
+        executor.submit(_run_auto_download_job, job_id, url, kind, choice, audio_langs)
+
+
+def _run_auto_download_job(job_id: str, url: str, kind: str, choice: str, audio_langs: list[str]) -> None:
+    try:
+        _run_job(job_id, url, kind, choice, [], audio_langs)
+    finally:
+        _finish_auto_download()
+
+
+def _finish_auto_download() -> None:
+    global _active_auto_downloads
+    next_job = None
+    with _auto_download_lock:
+        _active_auto_downloads -= 1
+        if _pending_auto_downloads:
+            next_job = _pending_auto_downloads.pop(0)
+            _active_auto_downloads += 1
+    if next_job:
+        job_id, url, kind, choice, audio_langs = next_job
+        executor.submit(_run_auto_download_job, job_id, url, kind, choice, audio_langs)
+
+
 # NOTE: yt-dlp downloads video and audio as separate streams named
 # "<stem>.f<format_id>.<ext>" and deletes them once ffmpeg has merged the two.
 # If the merge never runs - cancelled, ffmpeg failed, process killed - they
@@ -587,9 +637,7 @@ def _check_channel(channel: dict) -> None:
                 job_id = uuid.uuid4().hex
                 with jobs_lock:
                     jobs[job_id] = _new_job_record()
-                executor.submit(
-                    _run_job, job_id, v["url"], channel["choice_kind"], channel["choice"], [], audio_langs
-                )
+                _submit_auto_download(job_id, v["url"], channel["choice_kind"], channel["choice"], audio_langs)
         else:
             store.add_pending(
                 [
