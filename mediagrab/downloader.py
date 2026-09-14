@@ -82,6 +82,20 @@ def cookie_opts() -> dict:
     return {}
 
 
+def speed_limit_opts() -> dict:
+    """yt-dlp options for the configured download speed cap (empty when unlimited)."""
+    # NOTE: same one-directional import as cookie_opts() above.
+    from . import store
+
+    settings = store.get_settings()
+    mbps = settings.get("download_speed_limit_mbps", 0)
+    if not mbps or mbps <= 0:
+        return {}
+    # NOTE: yt-dlp's own option is bytes/sec; settings.json stores MB/s for
+    # human readability (see store.py's DEFAULT_SETTINGS).
+    return {"ratelimit": mbps * 1024 * 1024}
+
+
 def test_cookie_source() -> dict:
     """Check the configured cookie source actually loads, without downloading."""
     # NOTE: worth its own endpoint because a broken cookie source otherwise
@@ -757,6 +771,7 @@ def download(
             # NOTE: cookies apply to the download too, not just the probe -
             # age-gated or members-only media needs them at both stages.
             **cookie_opts(),
+            **speed_limit_opts(),
             "progress_hooks": [progress_hook],
             "postprocessor_hooks": [postprocessor_hook],
             # NOTE: since the filename has no ID, re-requesting the same video

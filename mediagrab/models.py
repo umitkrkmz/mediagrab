@@ -80,6 +80,8 @@ class SettingsResponse(BaseModel):
     # the file, yt-dlp reads them directly from disk.
     cookie_file: str
     default_audio_lang: str = ""
+    # NOTE: 0 means unlimited.
+    download_speed_limit_mbps: int = 0
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -87,6 +89,7 @@ class SettingsUpdateRequest(BaseModel):
     cookie_browser: str = "firefox"
     cookie_file: str = ""
     default_audio_lang: str = ""
+    download_speed_limit_mbps: int = 0
 
 
 class LoginRequest(BaseModel):

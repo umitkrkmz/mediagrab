@@ -11,6 +11,7 @@
   <nav class="settings-nav" id="settings-nav" aria-label="{{ ui.settings_page_title }}">
     <button type="button" class="settings-nav-item" data-tab="theme">{{ ui.settings_theme_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="audio-lang">{{ ui.settings_audio_lang_title }}</button>
+    <button type="button" class="settings-nav-item" data-tab="downloads">{{ ui.settings_downloads_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="cookies">{{ ui.settings_cookies_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="remote-access">{{ ui.settings_remote_access_title }}</button>
     <button type="button" class="settings-nav-item" data-tab="environment">{{ ui.settings_environment_title }}</button>
@@ -41,6 +42,48 @@
         <button type="button" id="default-audio-lang-save-btn">{{ ui.cookie_save }}</button>
       </div>
       <div id="default-audio-lang-status" class="cookie-status hidden" role="status"></div>
+    </div>
+
+    <div class="settings-section" data-panel="downloads">
+      <div class="section-title">{{ ui.settings_downloads_title }}</div>
+
+      <div class="settings-subsection">
+        <div class="section-subtitle">{{ ui.settings_speed_limit_title }}</div>
+        <p class="settings-hint">{{ ui.settings_speed_limit_hint }}</p>
+        <div class="cookie-modes" id="speed-limit-modes" role="radiogroup" aria-label="{{ ui.settings_speed_limit_title }}">
+          <button type="button" data-speed-limit="0" role="radio" aria-checked="false">{{ ui.settings_speed_limit_unlimited }}</button>
+          <button type="button" data-speed-limit="5" role="radio" aria-checked="false">5 MB/s</button>
+          <button type="button" data-speed-limit="10" role="radio" aria-checked="false">10 MB/s</button>
+          <button type="button" id="speed-limit-custom-btn" role="radio" aria-checked="false">{{ ui.settings_speed_limit_custom_btn }}</button>
+        </div>
+
+        <div class="speed-limit-info-table" id="speed-limit-info-table">
+          <div class="speed-limit-info-title">{{ ui.settings_speed_limit_table_title }}</div>
+          <div class="speed-limit-info-row">
+            <span>5 MB/s</span>
+            <span>= 40 Mbps</span>
+          </div>
+          <div class="speed-limit-info-row">
+            <span>10 MB/s</span>
+            <span>= 80 Mbps</span>
+          </div>
+          <div class="speed-limit-info-row" id="speed-limit-info-custom-row">
+            <span>{{ ui.settings_speed_limit_table_custom_label }}</span>
+            <span id="speed-limit-info-custom-value">—</span>
+          </div>
+          <p class="settings-hint">{{ ui.settings_speed_limit_table_hint }}</p>
+        </div>
+
+        <div id="speed-limit-custom-panel" class="cookie-panel hidden">
+          <label class="cookie-label" for="speed-limit-custom-input">{{ ui.settings_speed_limit_custom_label }}</label>
+          <input type="number" id="speed-limit-custom-input" min="1" step="1" placeholder="{{ ui.settings_speed_limit_custom_placeholder }}">
+          <div class="cookie-actions">
+            <button type="button" id="speed-limit-custom-save-btn">{{ ui.cookie_save }}</button>
+          </div>
+        </div>
+
+        <div id="speed-limit-status" class="cookie-status hidden" role="status"></div>
+      </div>
     </div>
 
     <div class="settings-section" data-panel="cookies">

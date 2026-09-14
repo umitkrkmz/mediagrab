@@ -48,6 +48,10 @@ DEFAULT_SETTINGS = {
     # auto-deleted in either mode, since there's no "other device" it was
     # relayed to.
     "remote_download_mode": "keep",  # "keep" | "relay"
+    # NOTE: 0 means unlimited (yt-dlp's own default). Stored in MB/s rather
+    # than yt-dlp's native bytes/sec so a hand-edited settings.json stays
+    # human-readable; downloader.py converts at the point of use.
+    "download_speed_limit_mbps": 0,
 }
 
 

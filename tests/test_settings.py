@@ -45,3 +45,17 @@ def test_saving_the_default_audio_lang_does_not_reset_cookies(settings_file):
     settings = store.get_settings()
     assert settings["cookie_mode"] == "file"
     assert settings["cookie_file"] == "/some/path/cookies.txt"
+
+
+def test_saving_the_speed_limit_does_not_reset_other_settings(settings_file):
+    store.save_settings(default_audio_lang="tr", cookie_mode="file", cookie_file="/some/path/cookies.txt")
+    store.save_settings(download_speed_limit_mbps=5)
+    settings = store.get_settings()
+    assert settings["default_audio_lang"] == "tr"
+    assert settings["cookie_mode"] == "file"
+
+
+def test_saving_other_settings_does_not_reset_the_speed_limit(settings_file):
+    store.save_settings(download_speed_limit_mbps=10)
+    store.save_settings(default_audio_lang="tr")
+    assert store.get_settings()["download_speed_limit_mbps"] == 10

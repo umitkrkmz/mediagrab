@@ -39,6 +39,16 @@ UI = {
         "settings_audio_lang_placeholder": "örn. tr, en, de",
         "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.tr.md",
         "settings_audio_lang_codes_link": "Dil kodlarını görüntüle →",
+        "settings_downloads_title": "İndirme Ayarları",
+        "settings_speed_limit_title": "Hız Sınırlama",
+        "settings_speed_limit_hint": "İndirmelerin ev ağınızın tüm bant genişliğini kullanmasını önlemek için bir üst sınır koyun.",
+        "settings_speed_limit_unlimited": "Sınırsız",
+        "settings_speed_limit_custom_btn": "Özel",
+        "settings_speed_limit_custom_label": "Özel hız (MB/s)",
+        "settings_speed_limit_custom_placeholder": "örn. 2",
+        "settings_speed_limit_table_title": "Hız karşılaştırması",
+        "settings_speed_limit_table_hint": "Ev interneti genelde Mbps (megabit) olarak satılır, MB/s (megabayt) ile karıştırmayın - 1 MB/s = 8 Mbps.",
+        "settings_speed_limit_table_custom_label": "Özel",
         "settings_cookies_title": "Çerezler",
         "settings_cookies_hint": (
             "Yaş sınırlı, üyelere özel veya giriş gerektiren içerikler için tarayıcı "
@@ -196,6 +206,16 @@ UI = {
         "settings_audio_lang_placeholder": "e.g. tr, en, de",
         "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.en.md",
         "settings_audio_lang_codes_link": "View language codes →",
+        "settings_downloads_title": "Download Settings",
+        "settings_speed_limit_title": "Speed Limit",
+        "settings_speed_limit_hint": "Cap download speed so it doesn't use your whole home network's bandwidth.",
+        "settings_speed_limit_unlimited": "Unlimited",
+        "settings_speed_limit_custom_btn": "Custom",
+        "settings_speed_limit_custom_label": "Custom speed (MB/s)",
+        "settings_speed_limit_custom_placeholder": "e.g. 2",
+        "settings_speed_limit_table_title": "Speed comparison",
+        "settings_speed_limit_table_hint": "Home internet is usually sold in Mbps (megabits), not MB/s (megabytes) - 1 MB/s = 8 Mbps.",
+        "settings_speed_limit_table_custom_label": "Custom",
         "settings_cookies_title": "Cookies",
         "settings_cookies_hint": (
             "Your browser session's cookies can be used for age-restricted, members-only "

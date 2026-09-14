@@ -429,6 +429,7 @@ const I18N = {
     settingsRemoteAccessWrongCurrentPassword: "Mevcut şifre yanlış.",
     settingsRemoteAccessPasswordSaved: "Şifre kaydedildi.",
     settingsRemoteAccessStorageSaved: "Depolama ayarı kaydedildi.",
+    settingsSpeedLimitInvalid: "Geçerli bir hız girin (en az 1 MB/s).",
     settingsRemoteAccessLoggedOut: "Çıkış yapıldı.",
     settingsRemoteAccessThisDevice: "Bu cihaz",
     settingsRemoteAccessSetPasswordBtn: "Şifreyi Kaydet",
@@ -755,6 +756,7 @@ const I18N = {
     settingsRemoteAccessWrongCurrentPassword: "Current password is incorrect.",
     settingsRemoteAccessPasswordSaved: "Password saved.",
     settingsRemoteAccessStorageSaved: "Storage setting saved.",
+    settingsSpeedLimitInvalid: "Enter a valid speed (at least 1 MB/s).",
     settingsRemoteAccessLoggedOut: "Logged out.",
     settingsRemoteAccessThisDevice: "This device",
     settingsRemoteAccessSetPasswordBtn: "Save Password",
@@ -2340,8 +2342,84 @@ const remoteAccessDevicesList = document.getElementById("remote-access-devices-l
 const remoteAccessStorageModes = document.getElementById("remote-access-storage-modes");
 const remoteAccessStorageKeepHint = document.getElementById("remote-access-storage-keep-hint");
 const remoteAccessStorageRelayHint = document.getElementById("remote-access-storage-relay-hint");
+const speedLimitModes = document.getElementById("speed-limit-modes");
+const speedLimitStatus = document.getElementById("speed-limit-status");
+const speedLimitCustomBtn = document.getElementById("speed-limit-custom-btn");
+const speedLimitCustomPanel = document.getElementById("speed-limit-custom-panel");
+const speedLimitCustomInput = document.getElementById("speed-limit-custom-input");
+const speedLimitCustomSaveBtn = document.getElementById("speed-limit-custom-save-btn");
+const speedLimitInfoCustomValue = document.getElementById("speed-limit-info-custom-value");
 
 let cookieMode = "off";
+let speedLimitMbps = 0;
+
+// NOTE: the three fixed buttons above cover the common cases; anything else
+// (the user typed their own number) is "custom" - there's no separate flag
+// for this in the stored value, a custom speed is just a plain MB/s number
+// that doesn't happen to match one of the presets.
+const SPEED_LIMIT_PRESETS = [0, 5, 10];
+// NOTE: separate from speedLimitMbps on purpose - mirrors cookieMode's "file"
+// button: clicking "Custom" reveals the input panel immediately (a purely
+// local UI choice, nothing saved yet), independent of whatever value is
+// currently actually saved. Saving a preset clears this back to false.
+let speedLimitCustomPanelOpen = false;
+
+function renderSpeedLimitMode() {
+  const isCustomValue = !SPEED_LIMIT_PRESETS.includes(speedLimitMbps);
+  const showCustomPanel = speedLimitCustomPanelOpen || isCustomValue;
+  speedLimitModes?.querySelectorAll("[data-speed-limit]").forEach((btn) => {
+    const active = !showCustomPanel && Number(btn.dataset.speedLimit) === speedLimitMbps;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", active ? "true" : "false");
+  });
+  speedLimitCustomBtn?.classList.toggle("active", showCustomPanel);
+  speedLimitCustomBtn?.setAttribute("aria-checked", showCustomPanel ? "true" : "false");
+  speedLimitCustomPanel?.classList.toggle("hidden", !showCustomPanel);
+  // NOTE: don't stomp on the input while the user is actively typing in it -
+  // only pre-fill it with the actually-saved value when it isn't focused.
+  if (isCustomValue && speedLimitCustomInput && document.activeElement !== speedLimitCustomInput) {
+    speedLimitCustomInput.value = speedLimitMbps;
+  }
+  updateSpeedLimitInfoRow();
+}
+
+// NOTE: MB/s is what yt-dlp/this settings panel work in, but home internet
+// plans are near-universally advertised in Mbps (megabits) - 1 MB/s = 8 Mbps.
+// Showing both next to each other is what avoids someone reading "5 MB/s" and
+// assuming it matches their "50 Mbps" plan number for number.
+function updateSpeedLimitInfoRow() {
+  if (!speedLimitInfoCustomValue) return;
+  const isCustomValue = !SPEED_LIMIT_PRESETS.includes(speedLimitMbps);
+  const showCustomPanel = speedLimitCustomPanelOpen || isCustomValue;
+  if (!showCustomPanel) {
+    speedLimitInfoCustomValue.textContent = "—";
+    return;
+  }
+  // NOTE: reflects whatever is currently TYPED, live, not just the last saved
+  // value - the whole point is to help decide on a number before saving it.
+  const typed = Number(speedLimitCustomInput?.value);
+  if (!Number.isFinite(typed) || typed <= 0) {
+    speedLimitInfoCustomValue.textContent = "—";
+    return;
+  }
+  speedLimitInfoCustomValue.textContent = `= ${typed * 8} Mbps`;
+}
+
+function saveCustomSpeedLimit() {
+  const value = Number(speedLimitCustomInput?.value);
+  if (!Number.isInteger(value) || value < 1) {
+    showSpeedLimitStatus(t().settingsSpeedLimitInvalid, "bad");
+    return;
+  }
+  saveSpeedLimit(value);
+}
+
+function showSpeedLimitStatus(text, kind) {
+  if (!speedLimitStatus) return;
+  speedLimitStatus.textContent = text;
+  speedLimitStatus.classList.remove("hidden", "ok", "bad");
+  speedLimitStatus.classList.add(kind);
+}
 
 function renderCookieMode() {
   cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
@@ -2368,6 +2446,8 @@ async function loadSettings() {
     const settings = await res.json();
     defaultAudioLang = settings.default_audio_lang || "";
     if (defaultAudioLangInput) defaultAudioLangInput.value = defaultAudioLang;
+    speedLimitMbps = settings.download_speed_limit_mbps || 0;
+    renderSpeedLimitMode();
 
     if (!cookieModes) return;
     const browsersRes = await fetch("/api/cookie-browsers");
@@ -2396,7 +2476,36 @@ function collectSettingsPayload() {
     cookie_browser: cookieBrowserSelect?.value || "firefox",
     cookie_file: cookieFileInput?.value || "",
     default_audio_lang: defaultAudioLangInput?.value || "",
+    download_speed_limit_mbps: speedLimitMbps,
   };
+}
+
+// NOTE: mirrors saveRemoteAccessStorageMode()'s pattern - a button click
+// saves immediately (no separate "save" button), reverting on failure.
+async function saveSpeedLimit(mbps) {
+  if (mbps === speedLimitMbps) return;
+  const previous = speedLimitMbps;
+  speedLimitMbps = mbps;
+  renderSpeedLimitMode();
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectSettingsPayload()),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      speedLimitMbps = previous;
+      renderSpeedLimitMode();
+      showSpeedLimitStatus(data.detail || t().cookieTestFailed, "bad");
+      return;
+    }
+    showSpeedLimitStatus(t().cookieSaved, "ok");
+  } catch (err) {
+    speedLimitMbps = previous;
+    renderSpeedLimitMode();
+    showSpeedLimitStatus(t().errNetwork + err.message, "bad");
+  }
 }
 
 async function saveCookieSettings() {
@@ -2733,6 +2842,22 @@ cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
 });
 cookieSaveBtn?.addEventListener("click", saveCookieSettings);
 cookieTestBtn?.addEventListener("click", testCookieSettings);
+speedLimitModes?.querySelectorAll("[data-speed-limit]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    speedLimitCustomPanelOpen = false;
+    saveSpeedLimit(Number(btn.dataset.speedLimit));
+  });
+});
+speedLimitCustomBtn?.addEventListener("click", () => {
+  speedLimitCustomPanelOpen = true;
+  renderSpeedLimitMode();
+  speedLimitCustomInput?.focus();
+});
+speedLimitCustomSaveBtn?.addEventListener("click", saveCustomSpeedLimit);
+speedLimitCustomInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") saveCustomSpeedLimit();
+});
+speedLimitCustomInput?.addEventListener("input", updateSpeedLimitInfoRow);
 defaultAudioLangSaveBtn?.addEventListener("click", saveDefaultAudioLang);
 remoteAccessToggle?.addEventListener("change", toggleRemoteAccess);
 remoteAccessPasswordSaveBtn?.addEventListener("click", saveRemoteAccessPassword);

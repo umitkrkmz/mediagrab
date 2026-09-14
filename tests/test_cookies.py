@@ -6,7 +6,9 @@ check the option yt-dlp receives, not any cookie content.
 """
 
 import pytest
+from fastapi.testclient import TestClient
 
+from mediagrab import app as app_module
 from mediagrab import downloader, store
 
 
@@ -125,3 +127,46 @@ def test_only_the_source_is_persisted(settings_file, cookies_txt):
 def test_supported_browsers_are_declared(settings_file):
     assert "firefox" in downloader.SUPPORTED_COOKIE_BROWSERS
     assert "chrome" in downloader.SUPPORTED_COOKIE_BROWSERS
+
+
+# --- download speed limit ----------------------------------------------------
+
+
+def test_defaults_to_unlimited_speed(settings_file):
+    assert store.get_settings()["download_speed_limit_mbps"] == 0
+
+
+def test_unlimited_passes_no_ratelimit(settings_file):
+    store.save_settings(download_speed_limit_mbps=0)
+    assert downloader.speed_limit_opts() == {}
+
+
+def test_a_limit_converts_mbps_to_bytes_per_second(settings_file):
+    store.save_settings(download_speed_limit_mbps=5)
+    assert downloader.speed_limit_opts() == {"ratelimit": 5 * 1024 * 1024}
+
+
+def test_a_ten_mbps_limit_converts_correctly(settings_file):
+    store.save_settings(download_speed_limit_mbps=10)
+    assert downloader.speed_limit_opts() == {"ratelimit": 10 * 1024 * 1024}
+
+
+def test_the_settings_route_refuses_a_negative_speed_limit(settings_file):
+    with TestClient(app_module.app) as client:
+        res = client.post(
+            "/api/settings",
+            json={"cookie_mode": "off", "cookie_browser": "firefox", "cookie_file": "", "download_speed_limit_mbps": -1},
+        )
+    assert res.status_code == 400
+    assert store.get_settings()["download_speed_limit_mbps"] == 0
+
+
+def test_the_settings_route_saves_a_valid_speed_limit(settings_file):
+    with TestClient(app_module.app) as client:
+        res = client.post(
+            "/api/settings",
+            json={"cookie_mode": "off", "cookie_browser": "firefox", "cookie_file": "", "download_speed_limit_mbps": 5},
+        )
+    assert res.status_code == 200
+    assert res.json()["download_speed_limit_mbps"] == 5
+    assert store.get_settings()["download_speed_limit_mbps"] == 5

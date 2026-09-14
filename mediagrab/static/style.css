@@ -2487,6 +2487,37 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.speed-limit-info-table {
+  max-width: 320px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  margin-bottom: 14px;
+}
+
+.speed-limit-info-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.speed-limit-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.speed-limit-info-row + .speed-limit-info-row {
+  border-top: 1px solid var(--border);
+}
+
+.speed-limit-info-table .settings-hint {
+  margin: 8px 0 0;
+}
+
 .cookie-label {
   display: block;
   font-size: 0.82rem;

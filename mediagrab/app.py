@@ -930,11 +930,14 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
         path = (req.cookie_file or "").strip()
         if not path or not os.path.isfile(path):
             raise HTTPException(status_code=400, detail="Cerez dosyasi bulunamadi")
+    if req.download_speed_limit_mbps < 0:
+        raise HTTPException(status_code=400, detail="Hiz siniri negatif olamaz")
     return store.save_settings(
         cookie_mode=req.cookie_mode,
         cookie_browser=req.cookie_browser,
         cookie_file=(req.cookie_file or "").strip(),
         default_audio_lang=(req.default_audio_lang or "").strip().lower(),
+        download_speed_limit_mbps=req.download_speed_limit_mbps,
     )
 
 
