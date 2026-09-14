@@ -147,6 +147,9 @@
           <input type="text" id="remote-access-address-input" readonly>
           <button type="button" id="remote-access-address-copy-btn">{{ ui.copy_btn }}</button>
         </div>
+        <p class="settings-hint hidden" id="remote-access-mdns-hint">
+          {{ ui.settings_remote_access_mdns_hint }} <code id="remote-access-mdns-address"></code>
+        </p>
         <div id="remote-access-qr" class="remote-access-qr"></div>
         <p class="settings-hint">{{ ui.settings_remote_access_qr_hint }}</p>
       </div>

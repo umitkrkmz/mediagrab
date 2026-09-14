@@ -72,9 +72,24 @@ async def lifespan(_app: FastAPI):
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
     threading.Thread(target=_check_all_channels, daemon=True).start()
-    if store.get_settings().get("home_server_mode"):
+    settings = store.get_settings()
+    if settings.get("home_server_mode"):
         threading.Thread(target=_periodic_channel_check_loop, daemon=True).start()
+    if store.remote_access_active(settings):
+        ip = lan_ip()
+        if ip:
+            port = int(os.environ.get("MEDIAGRAB_PORT", "8420"))
+            # NOTE: on a background thread, NOT awaited/blocking here -
+            # reproduced live: Zeroconf()/register_service can take several
+            # seconds (or hang) probing for a name collision, and running it
+            # synchronously in lifespan meant the ENTIRE app never finished
+            # starting up until it returned. mDNS is a best-effort convenience
+            # (see V2_PLANNING.md) - it must never be able to delay the app
+            # itself being reachable, since lan_url (unaffected by this) is
+            # already usable immediately.
+            threading.Thread(target=_register_mdns, args=(ip, port), daemon=True).start()
     yield
+    _close_mdns()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -231,6 +246,60 @@ def lan_ip() -> Optional[str]:
         return socket.gethostbyname(socket.gethostname())
     except OSError:
         return None
+
+
+# NOTE: the LAN IP above is always the primary, always-shown address - mDNS
+# is purely a convenience alongside it (Android Chrome's ".local" resolution
+# is historically unreliable, see V2_PLANNING.md's mDNS section). Registered
+# once at startup, matching the existing restart-on-toggle flow for remote
+# access - never dynamically re-registered while running.
+_zeroconf_instance = None
+_mdns_hostname: Optional[str] = None
+
+
+def _register_mdns(ip: str, port: int) -> None:
+    global _zeroconf_instance, _mdns_hostname
+    # NOTE: imported here, not at module scope - keeps the dependency optional
+    # in spirit even though it's declared in requirements.txt, and mirrors
+    # cookie_opts()/speed_limit_opts()'s own local-import pattern elsewhere in
+    # this codebase for something only needed in one place.
+    from zeroconf import ServiceInfo, Zeroconf
+
+    try:
+        zc = Zeroconf()
+        info = ServiceInfo(
+            "_http._tcp.local.",
+            "mediagrab._http._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=port,
+            server="mediagrab.local.",
+        )
+        # NOTE: allow_name_change lets the library resolve a collision (a
+        # second MediaGrab instance already on the same network) by trying
+        # "mediagrab-2", "mediagrab-3", etc. instead of just failing outright.
+        # Whatever it actually ends up registering is read back from `info`
+        # below - the address shown in Settings must be the address that was
+        # genuinely claimed, never a hardcoded assumption of "mediagrab.local".
+        zc.register_service(info, allow_name_change=True)
+        _zeroconf_instance = zc
+        _mdns_hostname = info.server.rstrip(".")
+    except Exception:
+        # NOTE: best-effort, deliberately broad - any failure here (a
+        # collision the library couldn't resolve, no multicast support on
+        # this network interface, etc.) must never take the whole app down.
+        # The LAN IP address always still works regardless.
+        _zeroconf_instance = None
+        _mdns_hostname = None
+
+
+def _close_mdns() -> None:
+    global _zeroconf_instance
+    if _zeroconf_instance is not None:
+        try:
+            _zeroconf_instance.close()
+        except Exception:
+            pass
+        _zeroconf_instance = None
 
 
 def _is_local_request(request: Request) -> bool:
@@ -749,15 +818,23 @@ def logout(request: Request) -> Response:
 def _remote_access_status(settings: dict, request: Request) -> dict:
     active = store.remote_access_active(settings)
     lan_url = None
+    mdns_url = None
     if active:
         ip = lan_ip()
         if ip:
             port = request.url.port or 8420
             lan_url = f"http://{ip}:{port}"
+        # NOTE: _mdns_hostname is None if registration never ran (not
+        # active), failed (collision, no multicast support, ...), or hasn't
+        # happened yet this process - lan_url above is always the one
+        # guaranteed-correct address either way.
+        if _mdns_hostname:
+            mdns_url = f"http://{_mdns_hostname}:{port}"
     return {
         "enabled": bool(settings.get("remote_access_enabled")),
         "has_password": bool(settings.get("remote_access_password_hash")),
         "lan_url": lan_url,
+        "mdns_url": mdns_url,
         "download_mode": settings.get("remote_download_mode", "keep"),
     }
 

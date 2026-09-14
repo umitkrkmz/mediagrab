@@ -8,3 +8,12 @@ jinja2>=3.1
 # postprocessing step ("module mutagen was not found"), which is exactly what
 # happened between v1.2.0 and v1.4.0. See the licence note in the README.
 mutagen>=1.47
+# NOTE: the one deliberate exception to "avoid new dependencies where
+# possible" (see auth.py's stdlib-only PBKDF2 for the usual default) -
+# publishes the "mediagrab.local" mDNS address shown in Settings -> Remote
+# Access, purely a convenience alongside the LAN IP (which stays the primary,
+# always-shown address). Ships platform-specific compiled wheels (not pure
+# Python), so this is worth remembering when Docker multi-arch builds happen
+# (see V2_PLANNING.md's Docker section) - confirm an aarch64/arm64 wheel
+# exists on PyPI for whatever Python version the image uses.
+zeroconf>=0.135

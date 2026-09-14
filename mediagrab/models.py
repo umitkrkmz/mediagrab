@@ -126,6 +126,10 @@ class RemoteAccessStatus(BaseModel):
     # beyond localhost, see store.remote_access_active) - showing a LAN
     # address before then would be a link that doesn't actually work yet.
     lan_url: Optional[str] = None
+    # NOTE: an extra, best-effort alternative alongside lan_url (which is
+    # always the primary, guaranteed-correct address) - None whenever mDNS
+    # registration never ran, failed, or hasn't happened yet this process.
+    mdns_url: Optional[str] = None
     download_mode: Literal["keep", "relay"] = "keep"
 
 

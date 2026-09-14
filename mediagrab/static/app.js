@@ -2362,6 +2362,8 @@ const remoteAccessAddressPanel = document.getElementById("remote-access-address-
 const remoteAccessAddressInput = document.getElementById("remote-access-address-input");
 const remoteAccessAddressCopyBtn = document.getElementById("remote-access-address-copy-btn");
 const remoteAccessQr = document.getElementById("remote-access-qr");
+const remoteAccessMdnsHint = document.getElementById("remote-access-mdns-hint");
+const remoteAccessMdnsAddress = document.getElementById("remote-access-mdns-address");
 const remoteAccessDevicesPanel = document.getElementById("remote-access-devices-panel");
 const remoteAccessDevicesList = document.getElementById("remote-access-devices-list");
 const remoteAccessStorageModes = document.getElementById("remote-access-storage-modes");
@@ -2707,7 +2709,7 @@ function showRemoteAccessStatus(text, kind) {
   remoteAccessStatus.classList.add(kind);
 }
 
-function renderRemoteAccessAddress(lanUrl) {
+function renderRemoteAccessAddress(lanUrl, mdnsUrl) {
   if (!remoteAccessAddressPanel) return;
   if (lanUrl) {
     remoteAccessAddressPanel.classList.remove("hidden");
@@ -2715,6 +2717,15 @@ function renderRemoteAccessAddress(lanUrl) {
     renderRemoteAccessQr(lanUrl);
   } else {
     remoteAccessAddressPanel.classList.add("hidden");
+  }
+  // NOTE: mdnsUrl is a best-effort EXTRA alongside lanUrl (which is always
+  // shown/used as the primary address, including in the QR code above) -
+  // never a replacement for it. See RemoteAccessStatus.mdns_url in models.py.
+  if (mdnsUrl && remoteAccessMdnsHint && remoteAccessMdnsAddress) {
+    remoteAccessMdnsAddress.textContent = mdnsUrl;
+    remoteAccessMdnsHint.classList.remove("hidden");
+  } else if (remoteAccessMdnsHint) {
+    remoteAccessMdnsHint.classList.add("hidden");
   }
 }
 
@@ -2753,7 +2764,7 @@ async function loadRemoteAccessStatus() {
     remoteAccessHasPassword = !!data.has_password;
     remoteAccessToggle.checked = !!data.enabled;
     remoteAccessDownloadMode = data.download_mode || "keep";
-    renderRemoteAccessAddress(data.lan_url);
+    renderRemoteAccessAddress(data.lan_url, data.mdns_url);
     renderRemoteAccessPasswordBtnLabel();
     renderRemoteAccessStorageMode();
   } catch (err) {

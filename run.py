@@ -2,6 +2,7 @@
 Equivalent to `uvicorn mediagrab.app:app --port 8420`, but also opens the
 browser automatically and handles the port-already-in-use case gracefully."""
 import http.client
+import os
 import socket
 import sys
 import threading
@@ -91,6 +92,14 @@ def main() -> None:
         # NOTE: _app_lan_ip is the exact same function Settings -> Remote
         # Access shows an address from - this print can never disagree with it.
         print(f"Uzaktan erisim acik / Remote access is on - LAN: http://{_app_lan_ip() or '?'}:{port}")
+
+    # NOTE: the actual port (after the free-port fallback above) is only ever
+    # decided here - app.py's lifespan() reads this to register the correct
+    # port for mDNS, since it has no other way to know it (uvicorn doesn't
+    # pass it through to the ASGI app). A direct `uvicorn mediagrab.app:app`
+    # launch (bypassing run.py) never sets this, so mDNS falls back to 8420
+    # in that case - an accepted limitation for a non-default launch method.
+    os.environ["MEDIAGRAB_PORT"] = str(port)
 
     try:
         uvicorn.run(app, host=bind_host, port=port)

@@ -271,7 +271,7 @@ def test_remote_access_status_never_exposes_the_password_hash(client):
     _enable_remote_access(client, password="whatever-secret")
     res = client.post("/api/login", json={"password": "whatever-secret"})
     body = client.get("/api/remote-access").json()
-    assert set(body.keys()) == {"enabled", "has_password", "lan_url", "download_mode"}
+    assert set(body.keys()) == {"enabled", "has_password", "lan_url", "mdns_url", "download_mode"}
     assert "whatever-secret" not in str(res.cookies)
     assert "whatever-secret" not in json.dumps(body)
 
