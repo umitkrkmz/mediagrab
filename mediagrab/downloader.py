@@ -160,6 +160,7 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
     for height in sorted(best_by_height.keys(), reverse=True):
         f = best_by_height[height]
         size = f.get("filesize") or f.get("filesize_approx")
+        size_bytes = int(size) if size else None
         size_label = human_size(size)
         if not size:
             # NOTE: tbr (average kbps) times the video's duration gives a
@@ -172,6 +173,7 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
                 if known_ceiling:
                     estimate = min(estimate, known_ceiling)
                 size_label = f"~{human_size(estimate)}"
+                size_bytes = int(estimate)
         vcodec = (f.get("vcodec") or "?").split(".")[0]
         result.append(
             {
@@ -180,6 +182,11 @@ def _dedupe_video_formats(formats: list[dict], duration: int = 0) -> list[dict]:
                 "ext": f.get("ext", "?"),
                 "vcodec": vcodec,
                 "size": size_label,
+                # NOTE: the raw byte count behind `size` above (real or
+                # estimated) - kept separately so app.py's disk-space check
+                # (see /api/download) can compare against actual free space
+                # without re-deriving it from the human-readable string.
+                "size_bytes": size_bytes,
             }
         )
     return result

@@ -13,6 +13,9 @@ class VideoFormat(BaseModel):
     ext: str
     vcodec: str
     size: str
+    # NOTE: the raw byte count behind `size` (real or tbr-estimated), used by
+    # the disk-space check on download start - see DownloadRequest below.
+    size_bytes: Optional[int] = None
 
 
 class SubtitleOption(BaseModel):
@@ -55,6 +58,12 @@ class DownloadRequest(BaseModel):
     # two or more requests a single file with all of them as separate,
     # selectable audio tracks (video downloads only - see downloader.py).
     audio_langs: list[str] = []
+    # NOTE: the selected video format's size_bytes, echoed back by the
+    # client - only ever known for a probed video format (see VideoFormat
+    # above). None for audio/subtitle/transcript downloads and for anything
+    # queued without a prior probe (e.g. a playlist bulk download) - the
+    # disk-space check in app.py falls back to an absolute floor then.
+    estimated_size_bytes: Optional[int] = None
 
 
 class DownloadStartResponse(BaseModel):

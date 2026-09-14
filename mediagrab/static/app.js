@@ -364,6 +364,7 @@ const I18N = {
     errBlocked: "Site isteği reddetti (muhtemelen bot koruması).",
     errRemoved: "Bu video artık mevcut değil veya kaldırılmış.",
     errUnsupportedSite: "Bu link tanınan bir siteden değil ya da desteklenmiyor.",
+    errInsufficientDisk: "Diskte yeterli boş alan yok. Yer açıp tekrar deneyin.",
     errNetworkIssue: "Ağ bağlantısı sorunu — internet bağlantınızı kontrol edip tekrar deneyin.",
     historyEmpty: "Henüz indirme yok",
     historyNoMatches: "Aramayla eşleşen indirme yok",
@@ -689,6 +690,7 @@ const I18N = {
     errBlocked: "The site refused the request (likely bot protection).",
     errRemoved: "This video is no longer available or has been removed.",
     errUnsupportedSite: "This link isn't from a recognized or supported site.",
+    errInsufficientDisk: "Not enough free disk space. Make some room and try again.",
     errNetworkIssue: "Network connection issue — check your internet connection and try again.",
     historyEmpty: "No downloads yet",
     historyNoMatches: "No downloads match your search",
@@ -828,6 +830,7 @@ const ERROR_PATTERNS = [
   { patterns: ["cloudflare", "http error 403"], key: "errBlocked" },
   { patterns: ["video unavailable", "has been removed"], key: "errRemoved" },
   { patterns: ["unsupported url", "no extractor"], key: "errUnsupportedSite" },
+  { patterns: ["yetersiz disk alani"], key: "errInsufficientDisk" },
   {
     // NOTE: "unable to download webpage" alone is yt-dlp's generic wrapper
     // for ANY fetch failure (DNS, timeout, refused, actual 403s, actual
@@ -1369,11 +1372,25 @@ function queuePlaylistRange(kind, choice) {
 }
 
 async function startDownload(url, kind, choice, subtitleLangs, title, audioLangs) {
+  // NOTE: only ever known for a probed VIDEO format - lastProbe.info.video is
+  // absent for a playlist (no format list at all) and irrelevant for
+  // audio/subtitle/transcript kinds (no size estimate exists for those).
+  // Left undefined otherwise, which JSON.stringify simply omits from the
+  // request body - the server then falls back to its own absolute floor.
+  const matchedFormat =
+    kind === "video" && lastProbe?.info?.video ? lastProbe.info.video.find((f) => f.format_id === choice) : null;
   try {
     const res = await fetch("/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, kind, choice, subtitle_langs: subtitleLangs || [], audio_langs: audioLangs || [] }),
+      body: JSON.stringify({
+        url,
+        kind,
+        choice,
+        subtitle_langs: subtitleLangs || [],
+        audio_langs: audioLangs || [],
+        estimated_size_bytes: matchedFormat?.size_bytes,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {

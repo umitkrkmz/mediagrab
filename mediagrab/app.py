@@ -4,6 +4,7 @@ import json
 import re
 import locale
 import os
+import shutil
 import socket
 import sys
 import threading
@@ -320,8 +321,33 @@ def _job_cancelled(job_id: str) -> bool:
         return bool(job and job.get("cancel_requested"))
 
 
+# NOTE: 1 GB is the fallback floor when there's no size estimate to compare
+# against (audio/subtitle/transcript downloads, and anything queued without a
+# prior probe - e.g. a channel's auto-download or a playlist bulk download).
+# Not meant to guarantee the download itself fits, just to catch the "disk is
+# already basically full" case before yt-dlp/ffmpeg fail confusingly mid-write.
+_MIN_FREE_DISK_BYTES = 1024**3
+# NOTE: require some headroom over the estimate rather than an exact fit - the
+# estimate can be a bit low (tbr-based, see _dedupe_video_formats), and other
+# things on the same disk (the OS, other apps) still need room to breathe.
+_DISK_SPACE_SAFETY_MARGIN = 1.1
+
+
+def _has_enough_disk_space(estimated_size_bytes: Optional[int]) -> bool:
+    free = shutil.disk_usage(downloader.DOWNLOAD_DIR).free
+    if estimated_size_bytes:
+        return free >= estimated_size_bytes * _DISK_SPACE_SAFETY_MARGIN
+    return free >= _MIN_FREE_DISK_BYTES
+
+
 def _run_job(
-    job_id: str, url: str, kind: str, choice: str, subtitle_langs: list[str], audio_langs: Optional[list[str]] = None
+    job_id: str,
+    url: str,
+    kind: str,
+    choice: str,
+    subtitle_langs: list[str],
+    audio_langs: Optional[list[str]] = None,
+    estimated_size_bytes: Optional[int] = None,
 ) -> None:
     def on_progress(d: dict) -> None:
         # NOTE: this hook is the only place we get to interrupt yt-dlp - it
@@ -359,6 +385,15 @@ def _run_job(
     # executor's 3 worker slots, so check once more before starting any work.
     if _job_cancelled(job_id):
         _set_job(job_id, state="iptal", speed=None, eta=None)
+        return
+
+    # NOTE: re-checked here (not just in the /api/download route that queued
+    # this job) because disk space can change while a job waits behind the
+    # executor's 3 worker slots - a playlist bulk download is exactly the
+    # case where an earlier file in the same batch can fill the disk before
+    # this one's turn comes up.
+    if not _has_enough_disk_space(estimated_size_bytes):
+        _set_job(job_id, state="hata", error="Yetersiz disk alani")
         return
 
     try:
@@ -753,10 +788,17 @@ def _queue_position(job: dict) -> Optional[int]:
 
 @app.post("/api/download", response_model=DownloadStartResponse)
 def start_download(req: DownloadRequest) -> dict:
+    # NOTE: checked again inside _run_job right before the download actually
+    # starts (see its own comment) - this check here is just so a request
+    # that's already doomed never even gets a job_id / queue slot.
+    if not _has_enough_disk_space(req.estimated_size_bytes):
+        raise HTTPException(status_code=507, detail="Yetersiz disk alani")
     job_id = uuid.uuid4().hex
     with jobs_lock:
         jobs[job_id] = _new_job_record()
-    executor.submit(_run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs)
+    executor.submit(
+        _run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs, req.estimated_size_bytes
+    )
     return {"job_id": job_id}
 
 

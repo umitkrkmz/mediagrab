@@ -75,8 +75,12 @@ def test_size_is_estimated_from_bitrate_when_filesize_is_missing():
     # neither filesize nor filesize_approx at all - tbr is all there is.
     formats = [{"format_id": "x", "height": 1080, "tbr": 6463.92, "vcodec": "vp09", "ext": "mp4"}]
     result = downloader._dedupe_video_formats(formats, duration=2398)
-    expected = downloader.human_size(6463.92 * 1000 / 8 * 2398)
+    estimate = 6463.92 * 1000 / 8 * 2398
+    expected = downloader.human_size(estimate)
     assert result[0]["size"] == f"~{expected}"
+    # NOTE: the raw byte count behind the label above - app.py's disk-space
+    # check (see /api/download) needs this as a number, not a "~512 MB" string.
+    assert result[0]["size_bytes"] == int(estimate)
 
 
 def test_a_real_filesize_is_shown_without_the_estimate_prefix():
@@ -87,14 +91,19 @@ def test_a_real_filesize_is_shown_without_the_estimate_prefix():
     result = downloader._dedupe_video_formats(formats, duration=600)
     assert result[0]["size"] == downloader.human_size(50_000_000)
     assert "~" not in result[0]["size"]
+    assert result[0]["size_bytes"] == 50_000_000
 
 
 def test_size_is_unknown_without_enough_data_to_estimate():
     no_tbr = [{"format_id": "x", "height": 480, "vcodec": "vp9", "ext": "webm"}]
-    assert downloader._dedupe_video_formats(no_tbr, duration=600)[0]["size"] == "?"
+    result_no_tbr = downloader._dedupe_video_formats(no_tbr, duration=600)
+    assert result_no_tbr[0]["size"] == "?"
+    assert result_no_tbr[0]["size_bytes"] is None
 
     no_duration = [{"format_id": "y", "height": 480, "tbr": 700, "vcodec": "vp9", "ext": "webm"}]
-    assert downloader._dedupe_video_formats(no_duration, duration=0)[0]["size"] == "?"
+    result_no_duration = downloader._dedupe_video_formats(no_duration, duration=0)
+    assert result_no_duration[0]["size"] == "?"
+    assert result_no_duration[0]["size_bytes"] is None
 
 
 def test_a_wildly_inflated_tbr_is_capped_by_a_same_height_sibling():
