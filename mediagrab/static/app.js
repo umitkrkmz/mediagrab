@@ -2364,6 +2364,8 @@ const remoteAccessAddressCopyBtn = document.getElementById("remote-access-addres
 const remoteAccessQr = document.getElementById("remote-access-qr");
 const remoteAccessMdnsHint = document.getElementById("remote-access-mdns-hint");
 const remoteAccessMdnsAddress = document.getElementById("remote-access-mdns-address");
+const remoteAccessQrMdnsItem = document.getElementById("remote-access-qr-mdns-item");
+const remoteAccessQrMdns = document.getElementById("remote-access-qr-mdns");
 const remoteAccessDevicesPanel = document.getElementById("remote-access-devices-panel");
 const remoteAccessDevicesList = document.getElementById("remote-access-devices-list");
 const remoteAccessStorageModes = document.getElementById("remote-access-storage-modes");
@@ -2714,18 +2716,23 @@ function renderRemoteAccessAddress(lanUrl, mdnsUrl) {
   if (lanUrl) {
     remoteAccessAddressPanel.classList.remove("hidden");
     if (remoteAccessAddressInput) remoteAccessAddressInput.value = lanUrl;
-    renderRemoteAccessQr(lanUrl);
+    renderRemoteAccessQr(remoteAccessQr, lanUrl);
   } else {
     remoteAccessAddressPanel.classList.add("hidden");
   }
   // NOTE: mdnsUrl is a best-effort EXTRA alongside lanUrl (which is always
-  // shown/used as the primary address, including in the QR code above) -
-  // never a replacement for it. See RemoteAccessStatus.mdns_url in models.py.
+  // shown/used as the primary address) - never a replacement for it. See
+  // RemoteAccessStatus.mdns_url in models.py. Its own QR code is a separate,
+  // clearly-labeled one next to the IP's - scanning the wrong one on a device
+  // where ".local" doesn't resolve would otherwise look like a silent failure.
   if (mdnsUrl && remoteAccessMdnsHint && remoteAccessMdnsAddress) {
     remoteAccessMdnsAddress.textContent = mdnsUrl;
     remoteAccessMdnsHint.classList.remove("hidden");
-  } else if (remoteAccessMdnsHint) {
-    remoteAccessMdnsHint.classList.add("hidden");
+    remoteAccessQrMdnsItem?.classList.remove("hidden");
+    renderRemoteAccessQr(remoteAccessQrMdns, mdnsUrl);
+  } else {
+    remoteAccessMdnsHint?.classList.add("hidden");
+    remoteAccessQrMdnsItem?.classList.add("hidden");
   }
 }
 
@@ -2733,10 +2740,10 @@ function renderRemoteAccessAddress(lanUrl, mdnsUrl) {
 // "update" method - re-rendering means clearing the container and building a
 // fresh instance, which is fine here since this only ever runs once per
 // Settings page load / remote-access status refresh, not on every keystroke.
-function renderRemoteAccessQr(lanUrl) {
-  if (!remoteAccessQr || typeof QRCode === "undefined") return;
-  remoteAccessQr.innerHTML = "";
-  new QRCode(remoteAccessQr, { text: lanUrl, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+function renderRemoteAccessQr(container, text) {
+  if (!container || typeof QRCode === "undefined") return;
+  container.innerHTML = "";
+  new QRCode(container, { text, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
 }
 
 // NOTE: the button reads "Update" once a password already exists, rather

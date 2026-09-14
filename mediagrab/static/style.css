@@ -1838,11 +1838,31 @@ button:disabled {
 
 .remote-access-qr {
   display: inline-block;
-  margin-top: 12px;
   padding: 10px;
   background: #fff;
   border-radius: 10px;
   line-height: 0;
+}
+
+.remote-access-qr-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.remote-access-qr-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.remote-access-qr-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .remote-access-password-field {

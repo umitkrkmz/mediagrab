@@ -150,8 +150,17 @@
         <p class="settings-hint hidden" id="remote-access-mdns-hint">
           {{ ui.settings_remote_access_mdns_hint }} <code id="remote-access-mdns-address"></code>
         </p>
-        <div id="remote-access-qr" class="remote-access-qr"></div>
         <p class="settings-hint">{{ ui.settings_remote_access_qr_hint }}</p>
+        <div class="remote-access-qr-row">
+          <div class="remote-access-qr-item">
+            <div id="remote-access-qr" class="remote-access-qr"></div>
+            <p class="remote-access-qr-label">{{ ui.settings_remote_access_qr_ip_label }}</p>
+          </div>
+          <div class="remote-access-qr-item hidden" id="remote-access-qr-mdns-item">
+            <div id="remote-access-qr-mdns" class="remote-access-qr"></div>
+            <p class="remote-access-qr-label">mediagrab.local</p>
+          </div>
+        </div>
       </div>
 
       <div class="cookie-panel" id="remote-access-storage-panel">
