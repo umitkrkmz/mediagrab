@@ -11,6 +11,24 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.0.0] — 2026-09-15
+
+#### Eklenen
+
+- **Ev Sunucusu Modu** (Ayarlar → Uzaktan Erişim) — bir Raspberry Pi gibi 7/24 açık bir makinede çalıştıranlar için: takip listeniz siz uygulamayı açmasanız bile her 3 saatte bir otomatik kontrol edilir, ve aynı ağdaki cihazlardan LAN IP'ye ek olarak `http://mediagrab.local:8420` gibi hatırlaması kolay bir mDNS adresiyle de erişilebilir. Uzaktan Erişim'den bağımsız bir ayar
+- **İki ayrı, etiketli QR kod** — Ayarlar sayfası artık hem LAN IP hem de mDNS adresi için ayrı ayrı QR kod gösteriyor, hangisinin hangisi olduğu altlarında yazıyor
+- **Disk alanı kalkanı** — tahmini boyutu kalan disk alanını aşacak bir indirme baştan reddedilir; hem indirme isteği anında hem de gerçek indirme başlamadan hemen önce tekrar kontrol edilir
+- **İndirme hızı sınırlama** (Ayarlar) — isteğe bağlı bir üst hız sınırı belirlenebilir (hazır seçenekler veya özel Mbps değeri)
+- **Ayarları yedekle / içe aktar** (Ayarlar) — tüm ayarlar ve takip listesi (şifre hariç) tek bir dosyaya dışa aktarılıp başka bir kuruluma aktarılabilir
+- **Otomatik indirme kuyruğunda manuel indirmeye ayrılmış slot** — kanal otomatik indirmeleri artık manuel bir indirmeyi süresiz bekletmiyor; paylaşılan indirme havuzunda en az bir slot her zaman manuel indirme için ayrılıyor
+- **Docker desteği** — MediaGrab artık Python veya Git kurmadan, doğrudan bir Docker imajından (`ghcr.io/umitkrkmz/mediagrab`) çalıştırılabilir. Bir container her zaman `0.0.0.0`'a bağlanır; ilk çalıştırmada `MEDIAGRAB_INITIAL_PASSWORD` ortam değişkeni zorunludur ve yoksa başlamayı reddeder — böylece bir container hiçbir zaman şifresiz, açık durumda kalmaz. yt-dlp güncellemesi kalıcı bir klasöre kurulur (image yeniden oluşturulsa bile kaybolmaz); diğer bağımlılıklar yalnızca yeni bir image çekilerek güncellenir
+- **Windows kurulum programında "Docker ile kur"** — Docker/Compose/daemon hazırlığını kontrol eden, bir klasör ve ilk yönetici şifresi isteyen, gerekli `docker-compose.yml`'yi kendisi yazıp başlatan ayrı bir sihirbaz akışı
+
+#### Docker paketleme (geliştirici notu)
+
+- `Dockerfile`, `docker-compose.yml`, `.dockerignore` — bkz. [docs/README.tr.md](docs/README.tr.md#yöntem-c-docker-her-platform)
+- `.github/workflows/docker.yml` — QEMU + Buildx ile amd64 build ve gerçek container smoke-test her zaman çalışır; `v*` etiketiyle push edilen sürümlerde ayrıca amd64+arm64 multi-arch build yapılıp `ghcr.io/umitkrkmz/mediagrab`'a gönderilir
+
 ### [1.10.0] — 2026-09-13
 
 #### Eklenen
@@ -214,6 +232,24 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.0.0] — 2026-09-15
+
+#### Added
+
+- **Home Server Mode** (Settings → Remote Access) — for anyone running MediaGrab on a machine that's on 24/7, like a Raspberry Pi: your followed list is checked automatically every 3 hours even if you never open the app, and other devices on the network can reach you at an easy-to-remember mDNS address, `http://mediagrab.local:8420`, alongside your LAN IP. Independent of Remote Access
+- **Two separate, labeled QR codes** — the Settings page now shows a QR code for the LAN IP and another for the mDNS address, each labeled underneath
+- **Disk-space shield** — a download whose estimated size would exceed the free disk space left is refused up front, checked both when the download is requested and again right before the real download starts
+- **Download speed limiting** (Settings) — set an optional overall speed cap (preset options or a custom Mbps value)
+- **Backup / restore settings** (Settings) — export all your settings and followed channels (minus your password) into one file and import them into another install
+- **A reserved slot for manual downloads in the auto-download queue** — channel auto-downloads no longer indefinitely block a manual download; the shared download pool always keeps at least one slot free for a manual one
+- **Docker support** — MediaGrab can now run straight from a Docker image (`ghcr.io/umitkrkmz/mediagrab`) with no Python or Git install needed. A container always binds to `0.0.0.0`; the first run requires a `MEDIAGRAB_INITIAL_PASSWORD` environment variable and refuses to start without one, so a container is never left open with no login. Updating yt-dlp installs into a folder that persists across image rebuilds; every other dependency only updates by pulling a new image
+- **"Install with Docker" in the Windows installer** — a separate wizard flow that checks Docker/Compose/daemon readiness, asks for a folder and an initial admin password, and writes and starts the required `docker-compose.yml` itself
+
+#### Docker packaging (developer note)
+
+- `Dockerfile`, `docker-compose.yml`, `.dockerignore` — see [docs/README.en.md](docs/README.en.md#method-c-docker-any-platform)
+- `.github/workflows/docker.yml` — always builds for amd64 with QEMU + Buildx and runs a real container smoke test; on a `v*` tag push, also builds a multi-arch (amd64+arm64) image and pushes it to `ghcr.io/umitkrkmz/mediagrab`
 
 ### [1.10.0] — 2026-09-13
 

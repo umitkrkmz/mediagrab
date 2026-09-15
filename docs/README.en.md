@@ -11,8 +11,11 @@
 - [Installation](#installation)
   - [Method A: Easy install (Windows)](#method-a-easy-install-windows-mediagrabsetupexe)
   - [Method B: Manual install (any platform)](#method-b-manual-install-from-source-any-platform)
+  - [Method C: Docker (any platform)](#method-c-docker-any-platform)
 - [Running](#running)
 - [How Channel Following Works](#how-channel-following-works)
+- [Remote Access (From Your Local Network)](#remote-access-from-your-local-network)
+- [Home Server Mode](#home-server-mode)
 - [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
 - [Project structure](#project-structure)
@@ -48,6 +51,10 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 - **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Channel following** (`/channels`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service - see the note below.
 - **Remote access** (`/settings`) — set a password and turn it on, and your phone or another computer on the same Wi-Fi/network can connect to MediaGrab from its own browser and download on its own; see the dedicated section below for details.
+- **Home Server Mode** (`/settings`) — for anyone running MediaGrab on a machine that's on 24/7, like a Raspberry Pi: periodic (every 3 hours) automatic channel checking, and an easy-to-remember `mediagrab.local` address; see the dedicated section below for details.
+- **Docker support** — run it in a container without installing Python or Git; one click from the Windows installer, or `docker compose up -d` by hand — see below for details.
+- **Download speed limiting** and a **disk-space shield** (`/settings`) — set an optional overall speed cap, and a download is refused up front when there isn't enough free disk space left to finish it
+- **Backup / restore settings** (`/settings`) — export all your settings and followed channels (minus your password) into one file and import them into another install
 - **Download history** — its own page (`/history`), switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all
 - **Light / dark theme** — follows your system setting, or pick it by hand from `/settings` or the header toggle
 - **Cancel a download** — stop a running download from the panel; partial files are cleaned up automatically
@@ -62,7 +69,7 @@ Paste a YouTube or YouTube Music link (a single video, a playlist, or an album).
 
 ## Installation
 
-On Windows there are two paths: **easy install** (a ready-made `.exe`, no typing commands) or **manual install** (git clone + pip, works on every platform).
+There are three paths: **easy install** (Windows-only, a ready-made `.exe`, no typing commands), **manual install** (git clone + pip, works on every platform), or **Docker** (in a container, no Python/Git needed — works on every platform).
 
 ### Method A: Easy install (Windows, `MediaGrabSetup.exe`)
 
@@ -132,7 +139,7 @@ Afterwards **open a new terminal** (a PATH update doesn't reach an already-open 
 
 Once install finishes, just double-click the **`MediaGrab Baslat.bat`** file it created — no terminal needed (or use the Desktop/Start Menu shortcut if you added one in step 3).
 
-To update or remove later: run `MediaGrabSetup.exe` again and click **Onar / Güncelle** (Repair/Update) or **Kaldır** (Remove) — your downloads and followed-channel list are preserved either way.
+To update or remove later: run `MediaGrabSetup.exe` again and click **Repair / Update** or **Remove** — your downloads and followed-channel list are preserved either way.
 
 ### Method B: Manual install (from source, any platform)
 
@@ -195,6 +202,37 @@ sudo apt install ffmpeg
 
 Verify with: `ffmpeg -version`
 
+### Method C: Docker (any platform)
+
+Run it in a container without installing Python or Git. First [install Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + the Compose plugin on Linux).
+
+**Easy way on Windows:** run `MediaGrabSetup.exe` and click **"Install with Docker"** on the welcome page. The wizard checks that Docker is installed and running, asks for a folder and an initial admin password, writes the `docker-compose.yml` for you, and starts it with `docker compose up -d` — no terminal commands needed.
+
+**By hand (any platform):**
+
+```bash
+git clone https://github.com/umitkrkmz/mediagrab.git
+cd mediagrab
+```
+
+Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` with a real password — it's only ever read the very first time the container starts with no password already set; after that it can safely stay in the file, it's simply never read again. On Linux, `network_mode: host` is on by default (needed so the app sees your real LAN IP and so `mediagrab.local` works); on Windows/Mac, Docker Desktop doesn't support that, so comment that line out and uncomment the `ports: ["8420:8420"]` lines below it instead.
+
+```bash
+docker compose up -d
+```
+
+The repo's compose file currently uses `build: .`, so this command builds the image locally from the `Dockerfile` the first time (can take a few minutes); later runs reuse the built image. From another device, go to `http://<this-computer's-LAN-IP>:8420`. Your downloads, settings, and followed channels are kept in `./data/`, outside the container - they survive a rebuild or the container being recreated.
+
+**Updating:** update yt-dlp from the Settings page with one click, same as always (it installs into a folder that persists even across a rebuild). Every other dependency (FastAPI, ffmpeg, etc.) is baked into the image; updating those means pulling the latest source and rebuilding:
+
+```bash
+git pull && docker compose up -d --build
+```
+
+> Once an official image is published under a version tag (`v2.0.0`, say) at `ghcr.io/umitkrkmz/mediagrab`, you can replace `docker-compose.yml`'s `build: .` line with `image: ghcr.io/umitkrkmz/mediagrab:latest` (as its own comment shows) and use `docker compose pull && docker compose up -d` from then on — the Windows installer's "Install with Docker" option already targets that published image.
+
+The "update dependencies" button in Settings is disabled in Docker and reminds you of this — it can't update or rebuild the image itself.
+
 ## Running
 
 With the virtual environment active, from the project root:
@@ -232,6 +270,15 @@ You can run MediaGrab on one computer and open it from your phone or another dev
 - **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once a file has been fully sent to a device, this computer's copy is deleted right after. Downloads you make from this computer itself (the host's own browser) are never affected by this setting - it only applies to files sent to another device.
 
 > **Security note:** this connection runs over plain HTTP, not HTTPS - only use it on a home/office network you trust, and never forward the port to expose it directly to the internet. Sessions are kept in memory only; whenever the server restarts (an update, the computer shutting down, etc.) everyone has to log back in with the password - a deliberate simplification, since a personal/local tool doesn't need sessions to survive on disk.
+
+## Home Server Mode
+
+Normally MediaGrab only runs while you have it open, and channel following only checks once per launch (see "How Channel Following Works" above). If you're running it on a machine that stays on 24/7, like a Raspberry Pi, you can change that from `/settings` → **Remote Access** tab → **Home Server Mode**:
+
+- **Periodic channel checking** — your followed list is checked automatically every 3 hours, even if you never open the app; channels set to "Auto-download" start downloading a new upload as soon as the next check finds it.
+- **The `mediagrab.local` address** — alongside your LAN IP (`http://192.168.x.x:8420`), other devices on the network can also reach you at the easy-to-remember `http://mediagrab.local:8420` (works on operating systems with mDNS/Bonjour support - Windows, macOS, most Linux distros; in Docker it only works on Linux with `network_mode: host`, not on Windows/Mac Docker Desktop). The Settings page shows two separate, clearly labeled QR codes - one for the IP, one for this address - so you can just scan and go from your phone.
+
+Home Server Mode is independent of Remote Access: you can turn on either one alone, or both together.
 
 ## Tests
 
@@ -293,7 +340,10 @@ indirilenler/       # downloaded files, auto-organized into per-channel subfolde
 channels.json       # followed channels (not in git)
 settings.json       # cookie source and default audio-language settings (not in git)
 run.py              # entry point for `python run.py`
-setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases)
+setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases, with its Docker mode)
+Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
+docker-compose.yml  # example compose file (for a manual Docker install)
+.dockerignore
 tests/              # pytest suite (no network required)
 docs/               # this file, its Turkish counterpart, and the language code reference (language-codes.*.md)
 maps/               # detailed project map and route map (test-guarded, for AI tools and contributors)
@@ -323,6 +373,7 @@ README.md
 | [`pydantic`](https://github.com/pydantic/pydantic) | [MIT](https://github.com/pydantic/pydantic/blob/main/LICENSE) | data validation |
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML templating |
 | [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **not imported by MediaGrab** — yt-dlp uses it to embed cover art into Opus files |
+| [`zeroconf`](https://github.com/python-zeroconf/python-zeroconf) | [LGPL-2.1-or-later](https://github.com/python-zeroconf/python-zeroconf/blob/master/LICENSE) | publishes the `mediagrab.local` (mDNS) address used by Home Server Mode — unlike mutagen, **this one IS imported directly by MediaGrab's own code** (`_register_mdns`, on a background thread; fails silently and never affects the rest of the app). LGPL permits use by code under any license, GPL-3.0 included, so this isn't a conflict |
 | [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ or GPL-2+](https://www.ffmpeg.org/legal.html) (depends on the build) | NOT bundled — the user installs it separately on their own system; tag/cover-art reading and duration are also done through it via subprocess |
 
 **About `mutagen`:** MediaGrab's source currently contains no `import mutagen` — yt-dlp uses it internally, and `pip` fetches it into your own environment; we neither bundle nor redistribute it. That's exactly why v1.8.0 and earlier could stay MIT: GPL's copyleft obligation only attaches once you combine and distribute GPL code, and we never did. From v1.9.0 on, that's no longer a requirement, just a fact — MediaGrab itself is GPL-3.0, so importing `mutagen` (GPL-2.0-or-later, compatible with GPL-3.0) directly in the future wouldn't be a problem either way. `ffmpeg` is unchanged: never redistributed, only invoked as a separate program via `subprocess`.

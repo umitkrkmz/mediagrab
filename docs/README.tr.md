@@ -11,8 +11,11 @@
 - [Kurulum](#kurulum)
   - [Yöntem A: Kolay kurulum (Windows)](#yöntem-a-kolay-kurulum-windows-mediagrabsetupexe)
   - [Yöntem B: Elle kurulum (her platform)](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform)
+  - [Yöntem C: Docker (her platform)](#yöntem-c-docker-her-platform)
 - [Çalıştırma](#çalıştırma)
 - [Kanal Takibi Nasıl Çalışır](#kanal-takibi-nasıl-çalışır)
+- [Uzaktan Erişim (Yerel Ağdan)](#uzaktan-erişim-yerel-ağdan)
+- [Ev Sunucusu Modu](#ev-sunucusu-modu)
 - [Testler](#testler)
 - [Sorun Giderme](#sorun-giderme)
 - [Proje yapısı](#proje-yapısı)
@@ -48,6 +51,10 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 - **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
 - **Kanal takibi** (`/channels`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil — bkz. aşağıdaki not.
 - **Uzaktan erişim** (`/settings`) — bir şifre belirleyip açtığınızda, aynı Wi-Fi/ağdaki telefon veya başka bir bilgisayar tarayıcıdan MediaGrab'e bağlanıp kendi başına indirme yapabilir; detaylar için aşağıdaki bölüme bakın.
+- **Ev Sunucusu Modu** (`/settings`) — bir Raspberry Pi gibi 7/24 açık bir makinede çalıştıranlar için: periyodik (3 saatte bir) otomatik kanal kontrolü ve hatırlaması kolay `mediagrab.local` adresi; detaylar için aşağıdaki bölüme bakın.
+- **Docker desteği** — Python veya Git kurmadan, doğrudan bir container'da çalıştırabilirsiniz; Windows kurulum programında tek tıkla, veya elle `docker compose up -d` ile — detaylar için aşağıya bakın.
+- **İndirme hızı sınırlama** ve **disk alanı kalkanı** (`/settings`) — isteğe bağlı bir üst hız sınırı belirleyebilir, disk alanı bir indirmeyi bitirmeye yetmeyecek kadar azaldığında indirme baştan reddedilir
+- **Ayarları yedekle / içe aktar** (`/settings`) — tüm ayarlarınızı ve takip listenizi tek bir dosyaya (şifreniz hariç) dışa aktarıp başka bir kuruluma aktarabilirsiniz
 - **İndirme geçmişi** — ayrı bir sayfada (`/history`), kapak resimli kart görünümü veya kompakt liste görünümü arasında geçiş yapılabilir; başlığa göre arama, kanala göre ve dosya türüne göre (diskteki gerçek uzantılardan otomatik oluşan) filtreleme, tekrar indirme, silme, tümünü silme
 - **Açık / koyu tema** — sistem ayarını takip eder, `/settings` sayfasından veya başlıktaki düğmeyle elle de seçilebilir
 - **İndirmeyi iptal etme** — süren bir indirmeyi panelden durdurun; yarım kalan dosyalar otomatik temizlenir
@@ -62,7 +69,7 @@ Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapı�
 
 ## Kurulum
 
-Windows'ta iki yol var: **kolay kurulum** (hazır `.exe`, terminal komutu yazmadan) veya **elle kurulum** (git clone + pip, her platformda çalışır).
+Üç yol var: **kolay kurulum** (Windows'a özel, hazır `.exe`, terminal komutu yazmadan), **elle kurulum** (git clone + pip, her platformda çalışır) veya **Docker** (container içinde, Python/Git kurmadan — her platformda çalışır).
 
 ### Yöntem A: Kolay kurulum (Windows, `MediaGrabSetup.exe`)
 
@@ -195,6 +202,37 @@ sudo apt install ffmpeg
 
 Doğrulamak için: `ffmpeg -version`
 
+### Yöntem C: Docker (her platform)
+
+Python veya Git kurmadan, doğrudan bir Docker container'ında çalıştırabilirsiniz. Önce [Docker Desktop'ı kurun](https://www.docker.com/products/docker-desktop/) (veya Linux'ta Docker Engine + Compose plugin).
+
+**Windows'ta kolay yol:** `MediaGrabSetup.exe`'yi çalıştırın, ana sayfadan **"Docker ile kur"**a tıklayın. Sihirbaz Docker'ın kurulu ve çalışır olduğunu kontrol eder, bir klasör ve ilk yönetici şifresi ister, gerekli `docker-compose.yml` dosyasını kendisi yazıp `docker compose up -d` ile başlatır — terminal komutu yazmanıza gerek kalmaz.
+
+**Elle (her platform):**
+
+```bash
+git clone https://github.com/umitkrkmz/mediagrab.git
+cd mediagrab
+```
+
+Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü gerçek bir şifreyle değiştirin — bu şifre yalnızca container ilk kez ayağa kalkarken, henüz bir şifre yokken kullanılır; sonrasında güvenle dosyada kalabilir, bir daha okunmaz. Linux'ta `network_mode: host` satırı varsayılan olarak açık (gerçek LAN IP'nin görünmesi ve `mediagrab.local` adresinin çalışması için gerekli); Windows/Mac'te Docker Desktop bunu desteklemediğinden o satırı yorum satırı yapıp altındaki `ports: ["8420:8420"]` satırlarını açın.
+
+```bash
+docker compose up -d
+```
+
+Repodaki compose dosyası şu an `build: .` kullanıyor, yani bu komut imajı ilk seferde `Dockerfile`'dan yerel olarak derler (birkaç dakika sürebilir); sonraki çalıştırmalarda derlenmiş imaj kullanılır. Başka bir cihazdan `http://<bu-bilgisayarın-LAN-IP'si>:8420` adresine gidin. İndirdikleriniz, ayarlarınız ve takip listeniz `./data/` klasöründe, container'ın dışında kalıcı olarak saklanır — imaj yeniden derlense veya container yeniden oluşturulsa bile kaybolmaz.
+
+**Güncelleme:** yt-dlp'yi Ayarlar sayfasından her zamanki gibi tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yeniden derlense bile kaybolmaz). Diğer tüm bağımlılıklar (FastAPI, ffmpeg vb.) imaja gömülüdür; bunları güncellemek için kaynak kodu çekip yeniden derlemeniz gerekir:
+
+```bash
+git pull && docker compose up -d --build
+```
+
+> Bir sürüm etiketiyle (`v2.0.0` gibi) resmi bir imaj yayınlandığında (`ghcr.io/umitkrkmz/mediagrab`), `docker-compose.yml`'deki `build: .` satırını dosyanın kendi yorumunda gösterildiği gibi `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirip bundan sonra `docker compose pull && docker compose up -d` kullanabilirsiniz — Windows kurulum programının "Docker ile kur" seçeneği zaten bu yayınlanmış imajı hedefler.
+
+Ayarlar sayfasındaki "bağımlılıkları güncelle" düğmesi Docker'da devre dışıdır ve bunu size hatırlatır — kendisi imaj güncellemesi/derlemesi yapamaz.
+
 ## Çalıştırma
 
 Sanal ortam etkinken, proje kök dizininden:
@@ -232,6 +270,15 @@ MediaGrab'ı bir bilgisayarda çalıştırıp aynı Wi-Fi/ağdaki telefonunuzdan
 - **Depolama modu** — **Bende Kalsın** (varsayılan): indirilen dosyalar her zamanki gibi bu bilgisayarda `indirilenler/` klasöründe kalıcı olarak durur; kişisel bilgisayar için önerilen mod. **Cihaza Aktar**: depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız, bir dosya bir cihaza tam olarak gönderildikten hemen sonra bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan (host'un kendi tarayıcısından) yaptığınız indirmeler bu ayardan hiçbir zaman etkilenmez — yalnızca başka bir cihaza gönderilen dosyalar için geçerlidir.
 
 > **Güvenlik notu:** Bu bağlantı düz HTTP üzerinden çalışır (HTTPS değildir) — yalnızca güvendiğiniz bir ev/ofis ağında kullanın, yönlendirici (router) ayarlarından doğrudan internete açmayın. Oturumlar bellekte tutulur; sunucu yeniden başladığında (güncelleme, bilgisayarın kapanması vb.) herkes tekrar şifreyle giriş yapmalıdır — bu bilinçli bir sadeleştirme, kişisel/lokal bir araç için diskte kalıcı oturum tutmaya gerek görülmedi.
+
+## Ev Sunucusu Modu
+
+Normalde MediaGrab yalnızca siz açtığınızda çalışır ve kanal takibini de o anda, bir kez kontrol eder (bkz. yukarıdaki "Kanal Takibi Nasıl Çalışır"). Bir Raspberry Pi gibi 7/24 açık bir makinede çalıştırıyorsanız, `/settings` → **Uzaktan Erişim** sekmesindeki **Ev Sunucusu Modu**'nu açarak bunu değiştirebilirsiniz:
+
+- **Periyodik kanal kontrolü** — takip listeniz, siz uygulamayı açmasanız bile her 3 saatte bir otomatik olarak kontrol edilir; "Otomatik indir" modundaki kanallar yeni video çıkar çıkmaz (bir sonraki kontrolde) indirilmeye başlar.
+- **`mediagrab.local` adresi** — LAN IP'nize (`http://192.168.x.x:8420`) ek olarak, aynı ağdaki cihazlardan hatırlaması kolay `http://mediagrab.local:8420` adresiyle de erişebilirsiniz (mDNS/Bonjour destekleyen işletim sistemlerinde — Windows, macOS, çoğu Linux dağıtımı çalışır; Docker'da yalnızca Linux'ta `network_mode: host` ile çalışır, Windows/Mac Docker Desktop'ta çalışmaz). Ayarlar sayfasında IP ve bu adres için ayrı ayrı, hangisinin hangisi olduğu etiketli iki QR kod görürsünüz — telefonunuzla okutup direkt açabilirsiniz.
+
+Ev Sunucusu Modu, Uzaktan Erişim'den bağımsız bir ayardır: birini açıp diğerini kapalı bırakabilir, ya da ikisini birlikte kullanabilirsiniz.
 
 ## Testler
 
@@ -293,7 +340,10 @@ indirilenler/       # indirilen dosyalar, kanal adına göre alt klasörlenir (g
 channels.json       # takip edilen kanallar (git'e dahil değil)
 settings.json       # çerez ve varsayılan ses dili ayarları (git'e dahil değil)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
-setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı)
+setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı, Docker moduyla birlikte)
+Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)
+docker-compose.yml  # örnek compose dosyası (elle Docker kurulumu için)
+.dockerignore
 tests/              # pytest paketi (ağ gerektirmez)
 docs/               # bu dosya, İngilizce karşılığı ve dil kodu sözlüğü (language-codes.*.md)
 maps/               # ayrıntılı proje haritası ve rota haritası (test-korumalı, AI araçları ve katkıcılar için)
@@ -323,6 +373,7 @@ README.md
 | [`pydantic`](https://github.com/pydantic/pydantic) | [MIT](https://github.com/pydantic/pydantic/blob/main/LICENSE) | veri doğrulama |
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML şablonlama |
 | [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **MediaGrab bunu import etmez** — yt-dlp, Opus dosyalarına kapak resmi gömmek için kullanır |
+| [`zeroconf`](https://github.com/python-zeroconf/python-zeroconf) | [LGPL-2.1-or-later](https://github.com/python-zeroconf/python-zeroconf/blob/master/LICENSE) | Ev Sunucusu Modu'ndaki `mediagrab.local` (mDNS) adresini yayınlar — mutagen'in aksine **MediaGrab'ın kendi kodu tarafından doğrudan import edilir** (`_register_mdns`, arka planda bir thread'de; hata durumunda sessizce devre dışı kalır). LGPL, GPL-3.0 dahil her lisanstan kodun onu kullanmasına izin verdiği için bu bir sorun oluşturmaz |
 | [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ veya GPL-2+](https://www.ffmpeg.org/legal.html) (derlemeye göre değişir) | projeye dahil DEĞİL — kullanıcı kendi sistemine ayrıca kurar; etiket/kapak okuma ve süre hesaplama da subprocess ile buradan yapılır |
 
 **`mutagen` hakkında:** MediaGrab'ın kaynak kodunda şu an `mutagen` importu **yoktur**; onu yt-dlp kendi içinde kullanır ve `pip` kullanıcının kendi ortamına indirir — biz onu paketlemiyor, dağıtmıyoruz. v1.8.0 ve öncesinde MIT kalabilmemizin sebebi tam olarak buydu: GPL'in copyleft yükümlülüğü ancak GPL kodu *birleştirip dağıttığınızda* devreye giriyor, biz hiç birleştirmediğimiz için MIT geçerliydi. v1.9.0'dan itibaren bu artık bir zorunluluk değil, tercih meselesi — MediaGrab kendisi GPL-3.0 olduğu için `mutagen`'i (GPL-2.0-or-later, GPL-3.0 ile uyumlu) ileride doğrudan import etsek bile sorun olmaz. `ffmpeg` için durum değişmedi: dağıtıma hiç dahil değil, yalnızca ayrı bir program olarak `subprocess` ile çağrılıyor.
