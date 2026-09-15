@@ -65,6 +65,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `setup_mediagrab.spec` | PyInstaller spec for `MediaGrabSetup.exe` (built by CI on tag push) |
 | `MediaGrab.spec` | Legacy PyInstaller spec for bundling the app itself; not built by CI, kept for reference |
 | `.github/workflows/release.yml` | On `v*` tag: run tests → build installer exe → SHA256 → smoke-start the exe → GitHub Release |
+| `.github/workflows/docker.yml` | Builds the Docker image (QEMU + Buildx), smoke-starts an amd64 build locally; on a `v*` tag only, also builds+pushes a multi-arch (amd64+arm64) image to `ghcr.io/<owner>/mediagrab` tagged `latest` and the version |
 | `.github/ISSUE_TEMPLATE/bug_report.yml`, `.github/ISSUE_TEMPLATE/feature_request.yml`, `.github/ISSUE_TEMPLATE/config.yml` | Issue forms linked from the in-app Feedback button |
 | `requirements.txt` | Runtime deps (fastapi, uvicorn, yt-dlp, pydantic, jinja2, mutagen — the last one only because yt-dlp needs it for Opus cover art; zeroconf — the mDNS convenience address, the one deliberate exception to "avoid new dependencies", see its own comment) |
 | `requirements-dev.txt` | pytest, httpx2 (only for `fastapi.testclient.TestClient`, real HTTP round trips against the auth middleware) |

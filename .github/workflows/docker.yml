@@ -1,0 +1,100 @@
+# Builds the Docker image and, on a version tag, publishes it as a
+# multi-arch (amd64 + arm64) image to ghcr.io/<owner>/mediagrab.
+#
+# arm64 is built for Raspberry Pi users (see V2_PLANNING.md's Docker
+# section) - zeroconf ships a manylinux aarch64 wheel, so this is a normal
+# cross-build, not a from-source compile.
+name: Docker
+
+on:
+  push:
+    tags: ["v*"]
+  # NOTE: lets the Dockerfile be exercised from the Actions tab without
+  # cutting a release, so a broken build is found before tag day - mirrors
+  # release.yml's own workflow_dispatch. Never pushes to the registry.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write # required to push to ghcr.io
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/mediagrab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        # NOTE: lets this amd64 runner build the arm64 half of the image.
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build a single-platform image for the smoke test
+        # NOTE: built and loaded into the local Docker daemon (not pushed)
+        # first, so a broken Dockerfile is caught before any multi-arch build
+        # or registry push - mirrors release.yml's "smoke-test before
+        # publish" pattern.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: mediagrab:smoke-test
+
+      - name: Smoke-test the image
+        # NOTE: a real container start, not just "did the build succeed" -
+        # catches a Dockerfile that builds fine but fails at runtime (missing
+        # ffmpeg, a broken CMD, etc). Mirrors release.yml's exe smoke test.
+        run: |
+          docker run -d --name mediagrab-smoke \
+            -e MEDIAGRAB_INITIAL_PASSWORD=smoke-test-password \
+            -e MEDIAGRAB_PORT=8420 \
+            -p 8420:8420 \
+            mediagrab:smoke-test
+          ok=""
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8420/ > /dev/null; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ok" ]; then
+            echo "container never responded on :8420"
+            docker logs mediagrab-smoke
+            exit 1
+          fi
+          echo "container responded"
+          docker rm -f mediagrab-smoke
+
+      - name: Log in to ghcr.io
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract the version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the multi-arch image
+        # NOTE: only runs on a version tag - a workflow_dispatch run stops at
+        # the smoke test above and never touches the registry.
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}

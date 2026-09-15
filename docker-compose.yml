@@ -13,8 +13,9 @@
 services:
   mediagrab:
     build: .
-    # NOTE: once published, swap the line above for:
-    #   image: umitkrkmz/mediagrab:latest
+    # NOTE: once published (see .github/workflows/docker.yml), swap the line
+    # above for:
+    #   image: ghcr.io/umitkrkmz/mediagrab:latest
     container_name: mediagrab
     restart: unless-stopped
     # NOTE: Linux only - lets the app see a device's REAL LAN IP (needed for
