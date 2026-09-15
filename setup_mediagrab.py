@@ -26,7 +26,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import tkinter as tk
+import urllib.request
 import webbrowser
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
@@ -34,6 +36,8 @@ REPO_URL = "https://github.com/umitkrkmz/mediagrab.git"
 GIT_DOWNLOAD_URL = "https://git-scm.com/downloads"
 PYTHON_DOWNLOAD_URL = "https://www.python.org/downloads/"
 FFMPEG_DOWNLOAD_URL = "https://www.ffmpeg.org/download.html"
+DOCKER_DOWNLOAD_URL = "https://www.docker.com/products/docker-desktop/"
+DOCKER_IMAGE = "ghcr.io/umitkrkmz/mediagrab:latest"
 USER_DATA_ENTRIES = ("indirilenler", "channels.json", "settings.json")
 
 # NOTE: the app's own code uses list[dict] (3.9+) but no 3.10-only syntax, so
@@ -142,12 +146,34 @@ STRINGS = {
         "welcome_repair_desc": "Mevcut kurulumu güncelleyin ya da bozulduysa onarın.",
         "welcome_remove_desc": "MediaGrab'ı kaldırın — indirdikleriniz ve ayarlarınız korunur.",
         "docker": "Docker ile kur",
-        "docker_desc": "Docker imajından çalıştırma — henüz hazır değil.",
-        "docker_soon_title": "Yapım aşamasında",
-        "docker_soon": (
-            "Docker ile kurulum henüz hazır değil; sonraki bir sürümde gelecek.\n\n"
-            "Şimdilik \"Kur\" ile kaynak koddan kurabilirsiniz."
+        "docker_desc": "Docker imajından çalıştırın — Python veya Git kurmanıza gerek kalmaz.",
+        "docker_page_title": "Docker ile Kurulum",
+        "docker_intro": (
+            "MediaGrab, seçtiğiniz klasöre yazılacak bir docker-compose.yml ile Docker "
+            "imajından çalıştırılır. İndirdikleriniz, ayarlarınız ve takip listeniz aynı "
+            "klasördeki data/ alt klasöründe saklanır."
         ),
+        "docker_status_missing": "Docker: bulunamadı ✗",
+        "docker_status_no_compose": "Docker bulundu ama 'docker compose' desteklenmiyor ✗ — Docker Desktop'ı güncelleyin",
+        "docker_status_not_running": "Docker bulundu ama çalışmıyor ✗ — Docker Desktop'ı açın",
+        "docker_status_ready": "Docker: bulundu ve çalışıyor ✓",
+        "docker_download": "Docker Desktop indir",
+        "docker_folder_intro": "docker-compose.yml ve verileriniz bu klasöre yazılacak:",
+        "docker_password_label": "İlk yönetici şifresi:",
+        "docker_password_hint": "Ayarlar sayfasından uzaktan erişim için kullanılacak. En az 8 karakter.",
+        "docker_install_btn": "Kur ve Başlat",
+        "err_docker_password_title": "Şifre çok kısa",
+        "err_docker_password_short": "Şifre en az 8 karakter olmalı.",
+        "err_docker_not_responding": (
+            "Container başlatıldı ama http://localhost:8420 yanıt vermedi. "
+            "'docker compose logs' ile inceleyin."
+        ),
+        "log_docker_data_dirs": "Veri klasörleri hazırlanıyor...",
+        "log_docker_writing_compose": "docker-compose.yml yazılıyor...",
+        "log_docker_pulling": "Docker imajı indirilip başlatılıyor (ilk seferde biraz sürebilir)...",
+        "log_docker_done": "MediaGrab Docker'da çalışıyor: http://localhost:8420",
+        "open_browser": "Tarayıcıda Aç",
+        "progress_title_docker": "Docker ile kuruluyor…",
         "remembered_install": "Son kurulum: {folder}",
         "next": "İleri →",
         "back": "← Geri",
@@ -286,12 +312,34 @@ STRINGS = {
         "welcome_repair_desc": "Update an existing install, or repair it if it's broken.",
         "welcome_remove_desc": "Remove MediaGrab — your downloads and settings are kept.",
         "docker": "Install with Docker",
-        "docker_desc": "Run from a Docker image — not ready yet.",
-        "docker_soon_title": "Coming soon",
-        "docker_soon": (
-            "Installing with Docker isn't ready yet; it's planned for a later version.\n\n"
-            "For now, use \"Install\" to install from source."
+        "docker_desc": "Run from a Docker image — no Python or Git needed.",
+        "docker_page_title": "Install with Docker",
+        "docker_intro": (
+            "MediaGrab runs from a Docker image, using a docker-compose.yml written into the "
+            "folder you choose. Your downloads, settings, and followed channels are kept in "
+            "that folder's data/ subfolder."
         ),
+        "docker_status_missing": "Docker: not found ✗",
+        "docker_status_no_compose": "Docker found but 'docker compose' isn't supported ✗ — update Docker Desktop",
+        "docker_status_not_running": "Docker found but not running ✗ — open Docker Desktop",
+        "docker_status_ready": "Docker: found and running ✓",
+        "docker_download": "Download Docker Desktop",
+        "docker_folder_intro": "docker-compose.yml and your data will be written to this folder:",
+        "docker_password_label": "Initial admin password:",
+        "docker_password_hint": "Used for remote access from the Settings page. At least 8 characters.",
+        "docker_install_btn": "Install and Start",
+        "err_docker_password_title": "Password too short",
+        "err_docker_password_short": "The password must be at least 8 characters.",
+        "err_docker_not_responding": (
+            "The container started but http://localhost:8420 didn't respond. "
+            "Check 'docker compose logs'."
+        ),
+        "log_docker_data_dirs": "Preparing data folders...",
+        "log_docker_writing_compose": "Writing docker-compose.yml...",
+        "log_docker_pulling": "Pulling and starting the Docker image (this can take a while the first time)...",
+        "log_docker_done": "MediaGrab is running in Docker: http://localhost:8420",
+        "open_browser": "Open in Browser",
+        "progress_title_docker": "Installing with Docker…",
         "remembered_install": "Last install: {folder}",
         "next": "Next →",
         "back": "← Back",
@@ -462,6 +510,60 @@ def ffmpeg_install_command() -> str:
     return "sudo apt install ffmpeg"
 
 
+def docker_status():
+    """('missing' | 'no_compose' | 'not_running' | 'ready', docker_path or None).
+
+    Three checks, cheapest first: the CLI itself, the `compose` plugin (a
+    static version print - no daemon needed), then the daemon actually being
+    reachable (`docker info`) - Docker Desktop can be installed but not
+    started, which `docker compose up` would otherwise fail at with a less
+    obvious error.
+    """
+    docker_path = find_tool("docker")
+    if not docker_path:
+        return "missing", None
+    if not _run_probe([docker_path, "compose", "version"]):
+        return "no_compose", docker_path
+    if not _run_probe([docker_path, "info", "--format", "{{.ServerVersion}}"]):
+        return "not_running", docker_path
+    return "ready", docker_path
+
+
+def docker_compose_yaml(password: str) -> str:
+    """docker-compose.yml for this installer's Docker mode.
+
+    Uses bridge networking + a mapped port rather than the repo's own
+    docker-compose.yml (`network_mode: host`) - Docker Desktop on Windows,
+    the only platform this installer runs on, doesn't support host
+    networking. mDNS (mediagrab.local) won't work under bridge networking
+    either; every client is simply treated as remote, same as documented in
+    the repo's docker-compose.yml.
+    """
+    # NOTE: the whole "KEY=VALUE" list item must sit inside the YAML quotes,
+    # not just the value - `- KEY="VALUE"` is an UNQUOTED YAML plain scalar
+    # whose literal text is KEY="VALUE", so compose's own KEY=VALUE splitter
+    # hands the container a value that still has the quote characters baked
+    # into it. Confirmed with `docker compose config`: that form resolved to
+    # a password of '"the-real-password"', not the-real-password.
+    escaped = password.replace("\\", "\\\\").replace('"', '\\"')
+    return (
+        "services:\n"
+        "  mediagrab:\n"
+        f"    image: {DOCKER_IMAGE}\n"
+        "    container_name: mediagrab\n"
+        "    restart: unless-stopped\n"
+        "    ports:\n"
+        '      - "8420:8420"\n'
+        "    environment:\n"
+        f'      - "MEDIAGRAB_INITIAL_PASSWORD={escaped}"\n'
+        "    volumes:\n"
+        "      - ./data/indirilenler:/app/indirilenler\n"
+        "      - ./data/settings.json:/app/settings.json\n"
+        "      - ./data/channels.json:/app/channels.json\n"
+        "      - ./data/pip-packages:/data/pip-packages\n"
+    )
+
+
 CLOUD_MARKERS = ("onedrive", "dropbox", "google drive", "googledrive", "icloud", "yandex.disk")
 
 
@@ -595,11 +697,13 @@ def forget_last_install_dir() -> None:
 MODE_INSTALL = "install"
 MODE_REPAIR = "repair"
 MODE_REMOVE = "remove"
+MODE_DOCKER = "docker"
 
 PROGRESS_TITLE_KEYS = {
     MODE_INSTALL: "progress_title_install",
     MODE_REPAIR: "progress_title_repair",
     MODE_REMOVE: "progress_title_remove",
+    MODE_DOCKER: "progress_title_docker",
 }
 
 
@@ -623,6 +727,10 @@ class SetupApp(tk.Tk):
         self.ffprobe_ver = None
         self.desktop_shortcut_var = tk.BooleanVar(value=False)
         self.start_shortcut_var = tk.BooleanVar(value=False)
+        self.docker_folder = self.base_dir
+        self.docker_path = None
+        self.docker_ready = False
+        self.docker_password_var = tk.StringVar()
         self.log_queue: queue.Queue = queue.Queue()
         self._poll_after_id = None
         self._job_running = False
@@ -670,6 +778,7 @@ class SetupApp(tk.Tk):
             "folder": self._build_folder_page(),
             "summary": self._build_summary_page(),
             "progress": self._build_progress_page(),
+            "docker": self._build_docker_page(),
         }
         for page in self.pages.values():
             page.grid(row=0, column=0, sticky="nsew")
@@ -696,6 +805,8 @@ class SetupApp(tk.Tk):
             self._render_folder_page()
         elif name == "summary":
             self._render_summary()
+        elif name == "docker":
+            self._render_docker_page()
 
     def _new_page(self, heading_key: str):
         """A blank wizard page: heading on top, nav bar pinned to the bottom, body between."""
@@ -737,7 +848,7 @@ class SetupApp(tk.Tk):
             ttk.Label(frame, text=self.t(desc_key), style="Muted.TLabel").pack(anchor="w", pady=(2, 12))
 
         ttk.Separator(frame, orient="horizontal").pack(fill="x", pady=(4, 12))
-        ttk.Button(frame, text=self.t("docker"), command=self._docker_soon).pack(fill="x", ipady=4)
+        ttk.Button(frame, text=self.t("docker"), command=self._start_docker_mode).pack(fill="x", ipady=4)
         ttk.Label(frame, text=self.t("docker_desc"), style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
 
         self.remembered_label = ttk.Label(frame, text="", style="Muted.TLabel", wraplength=620, justify="left")
@@ -751,8 +862,10 @@ class SetupApp(tk.Tk):
         else:
             self.remembered_label.config(text="")
 
-    def _docker_soon(self):
-        messagebox.showinfo(self.t("docker_soon_title"), self.t("docker_soon"))
+    def _start_docker_mode(self):
+        self.mode = MODE_DOCKER
+        self.docker_password_var.set("")
+        self._show_page("docker")
 
     def _start_mode(self, mode: str):
         self.mode = mode
@@ -1023,6 +1136,144 @@ class SetupApp(tk.Tk):
             return False
         return True
 
+    # ---------- docker ----------
+
+    def _build_docker_page(self):
+        frame, _heading, body, nav = self._new_page("docker_page_title")
+        ttk.Label(
+            body, text=self.t("docker_intro"), style="Muted.TLabel", wraplength=620, justify="left"
+        ).pack(anchor="w", pady=(0, 12))
+
+        status_row = ttk.Frame(body)
+        status_row.pack(fill="x", pady=4)
+        self.docker_status_label = ttk.Label(status_row, text=f"Docker: {self.t('checking')}")
+        self.docker_status_label.pack(side="left")
+        self.docker_download_btn = ttk.Button(
+            status_row, text=self.t("docker_download"), command=lambda: webbrowser.open(DOCKER_DOWNLOAD_URL)
+        )
+        self.docker_download_btn.pack(side="right")
+
+        ttk.Separator(body, orient="horizontal").pack(fill="x", pady=12)
+
+        ttk.Label(
+            body, text=self.t("docker_folder_intro"), style="Muted.TLabel", wraplength=620, justify="left"
+        ).pack(anchor="w")
+        folder_row = ttk.Frame(body)
+        folder_row.pack(fill="x", pady=(4, 14))
+        self.docker_folder_label = ttk.Label(
+            folder_row, text="", style="Path.TLabel", wraplength=480, justify="left"
+        )
+        self.docker_folder_label.pack(side="left", fill="x", expand=True)
+        ttk.Button(folder_row, text=self.t("browse"), command=self._choose_docker_folder).pack(
+            side="right", padx=(10, 0)
+        )
+
+        password_row = ttk.Frame(body)
+        password_row.pack(fill="x", pady=(0, 4))
+        ttk.Label(password_row, text=self.t("docker_password_label")).pack(side="left")
+        ttk.Entry(password_row, textvariable=self.docker_password_var, show="*", width=24).pack(
+            side="left", padx=(8, 0)
+        )
+        ttk.Label(
+            body, text=self.t("docker_password_hint"), style="Muted.TLabel", wraplength=620, justify="left"
+        ).pack(anchor="w")
+
+        ttk.Button(nav, text=self.t("back"), command=lambda: self._show_page("welcome")).pack(side="left")
+        self.docker_install_btn = ttk.Button(
+            nav, text=self.t("docker_install_btn"), style="Primary.TButton", command=self._start_docker_job
+        )
+        self.docker_install_btn.pack(side="right")
+        ttk.Button(nav, text=self.t("refresh"), command=self._refresh_docker_status).pack(side="right", padx=(0, 8))
+        return frame
+
+    def _render_docker_page(self):
+        self.docker_folder_label.config(text=self.docker_folder)
+        self._refresh_docker_status()
+
+    def _refresh_docker_status(self):
+        refresh_path_from_registry()
+        status, docker_path = docker_status()
+        self.docker_path = docker_path
+        self.docker_ready = status == "ready"
+        label_key = {
+            "missing": "docker_status_missing",
+            "no_compose": "docker_status_no_compose",
+            "not_running": "docker_status_not_running",
+            "ready": "docker_status_ready",
+        }[status]
+        self.docker_status_label.config(
+            text=self.t(label_key), style="Ok.TLabel" if self.docker_ready else "Bad.TLabel"
+        )
+        self.docker_download_btn.config(state="disabled" if self.docker_path else "normal")
+        self.docker_install_btn.config(state="normal" if self.docker_ready else "disabled")
+
+    def _choose_docker_folder(self):
+        chosen = filedialog.askdirectory(initialdir=self.docker_folder, mustexist=True)
+        if not chosen:
+            return
+        chosen = os.path.abspath(chosen)
+        if is_unsafe_target(chosen):
+            messagebox.showerror(self.t("err_unsafe_title"), self.t("err_unsafe", folder=chosen))
+            return
+        self.docker_folder = chosen
+        self.docker_folder_label.config(text=self.docker_folder)
+
+    def _start_docker_job(self):
+        if self._job_running:
+            return
+        if is_unsafe_target(self.docker_folder):
+            messagebox.showerror(self.t("err_unsafe_title"), self.t("err_unsafe", folder=self.docker_folder))
+            return
+        password = self.docker_password_var.get()
+        if len(password) < 8:
+            messagebox.showerror(self.t("err_docker_password_title"), self.t("err_docker_password_short"))
+            return
+        self._run_async(lambda: self._do_docker_install(password))
+
+    def _do_docker_install(self, password: str) -> bool:
+        os.makedirs(self.docker_folder, exist_ok=True)
+        self.log(self.t("log_docker_data_dirs"))
+        data_dir = os.path.join(self.docker_folder, "data")
+        os.makedirs(os.path.join(data_dir, "indirilenler"), exist_ok=True)
+        os.makedirs(os.path.join(data_dir, "pip-packages"), exist_ok=True)
+        for name in ("settings.json", "channels.json"):
+            path = os.path.join(data_dir, name)
+            if not os.path.exists(path):
+                # NOTE: must exist as a FILE before the first `docker compose
+                # up` - Docker creates a missing bind-mount source as a
+                # directory instead, which would silently break every future
+                # read/write. store.py treats an empty file the same as a
+                # missing one (falls back to defaults), so this is safe.
+                open(path, "w", encoding="utf-8").close()
+
+        self.log(self.t("log_docker_writing_compose"))
+        compose_path = os.path.join(self.docker_folder, "docker-compose.yml")
+        with open(compose_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(docker_compose_yaml(password))
+
+        self.log(self.t("log_docker_pulling"))
+        if not self._run_cmd([self.docker_path, "compose", "up", "-d"], cwd=self.docker_folder):
+            return False
+        if not self._wait_for_docker_container():
+            self.log(self.t("err_docker_not_responding"))
+            return False
+        self.log(self.t("log_docker_done"))
+        return True
+
+    def _wait_for_docker_container(self, timeout: int = 30) -> bool:
+        # NOTE: `docker compose up -d` returning 0 only means Docker started
+        # the container - it doesn't mean the app inside is up (it could
+        # fail fast, e.g. on a password quoting bug). A real HTTP probe is
+        # the same discipline as the CI workflow's own smoke test.
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                urllib.request.urlopen("http://localhost:8420/", timeout=2)
+                return True
+            except OSError:
+                time.sleep(1)
+        return False
+
     # ---------- summary ----------
 
     def _build_summary_page(self):
@@ -1126,6 +1377,9 @@ class SetupApp(tk.Tk):
         return frame
 
     def _launch_app(self):
+        if self.mode == MODE_DOCKER:
+            webbrowser.open("http://localhost:8420")
+            return
         launcher = os.path.join(self.base_dir, _launcher_name())
         if not os.path.isfile(launcher):
             return
@@ -1178,7 +1432,11 @@ class SetupApp(tk.Tk):
         if ok and self.mode in (MODE_INSTALL, MODE_REPAIR):
             save_last_install_dir(self.base_dir)
             if os.path.isfile(os.path.join(self.base_dir, _launcher_name())):
+                self.launch_btn.config(text=self.t("launch"))
                 self.launch_btn.pack(side="left", ipady=4)
+        elif ok and self.mode == MODE_DOCKER:
+            self.launch_btn.config(text=self.t("open_browser"))
+            self.launch_btn.pack(side="left", ipady=4)
         elif ok and self.mode == MODE_REMOVE:
             # NOTE: only forget the remembered folder if it's the one that was
             # just emptied - removing some other, older install must not lose it.

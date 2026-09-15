@@ -298,6 +298,176 @@ def test_a_failed_job_remembers_nothing(setup_mod, app, tmp_path):
     assert setup_mod.load_last_install_dir() is None
 
 
+# --- Docker install mode ------------------------------------------------------
+
+
+def test_docker_status_missing_when_docker_not_on_path(setup_mod, monkeypatch):
+    monkeypatch.setattr(setup_mod, "find_tool", lambda *a: None)
+    status, path = setup_mod.docker_status()
+    assert (status, path) == ("missing", None)
+
+
+def test_docker_status_no_compose_when_compose_plugin_absent(setup_mod, monkeypatch):
+    monkeypatch.setattr(setup_mod, "find_tool", lambda *a: "/usr/bin/docker")
+    monkeypatch.setattr(setup_mod, "_run_probe", lambda cmd: "" if cmd[1] == "compose" else "x")
+    status, _path = setup_mod.docker_status()
+    assert status == "no_compose"
+
+
+def test_docker_status_not_running_when_daemon_unreachable(setup_mod, monkeypatch):
+    monkeypatch.setattr(setup_mod, "find_tool", lambda *a: "/usr/bin/docker")
+
+    def fake_probe(cmd):
+        return "Docker Compose version v2.20.0" if cmd[1] == "compose" else ""
+
+    monkeypatch.setattr(setup_mod, "_run_probe", fake_probe)
+    status, _path = setup_mod.docker_status()
+    assert status == "not_running"
+
+
+def test_docker_status_ready_when_everything_available(setup_mod, monkeypatch):
+    monkeypatch.setattr(setup_mod, "find_tool", lambda *a: "/usr/bin/docker")
+    monkeypatch.setattr(setup_mod, "_run_probe", lambda cmd: "ok")
+    status, path = setup_mod.docker_status()
+    assert (status, path) == ("ready", "/usr/bin/docker")
+
+
+def test_docker_compose_yaml_references_the_published_image(setup_mod):
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    assert setup_mod.DOCKER_IMAGE in yaml_text
+    assert "build:" not in yaml_text
+
+
+def test_docker_compose_yaml_uses_bridge_networking_not_host(setup_mod):
+    # NOTE: unlike the repo's own docker-compose.yml, this installer only ever
+    # runs on Windows, where Docker Desktop doesn't support host networking.
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    assert "network_mode" not in yaml_text
+    assert '"8420:8420"' in yaml_text
+
+
+def test_docker_compose_yaml_mounts_the_same_volumes_as_the_repo_compose_file(setup_mod):
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    for path in ("./data/indirilenler:/app/indirilenler", "./data/settings.json:/app/settings.json",
+                 "./data/channels.json:/app/channels.json", "./data/pip-packages:/data/pip-packages"):
+        assert path in yaml_text
+
+
+def test_docker_compose_yaml_quotes_the_whole_environment_item_not_just_the_value(setup_mod):
+    # NOTE: regression test for a bug caught via `docker compose config` -
+    # quoting only the value (`- KEY="VALUE"`) is an UNQUOTED YAML plain
+    # scalar, so compose's KEY=VALUE splitter hands the container a password
+    # with literal quote characters baked in. The quotes must wrap the whole
+    # "KEY=VALUE" item instead.
+    yaml_text = setup_mod.docker_compose_yaml("simple-password-1")
+    assert '- "MEDIAGRAB_INITIAL_PASSWORD=simple-password-1"' in yaml_text
+    assert 'MEDIAGRAB_INITIAL_PASSWORD="simple-password-1"' not in yaml_text
+
+
+def test_docker_compose_yaml_escapes_quotes_and_backslashes(setup_mod):
+    password = 'pa"ss\\word'
+    yaml_text = setup_mod.docker_compose_yaml(password)
+    # NOTE: the quotes must wrap the WHOLE "KEY=VALUE" item, not just the
+    # value - `- KEY="VALUE"` is an unquoted YAML plain scalar whose literal
+    # text includes the quote characters, corrupting the real password (see
+    # docker_compose_yaml's own comment for how this was caught).
+    match = re.search(r'"MEDIAGRAB_INITIAL_PASSWORD=((?:[^"\\]|\\.)*)"', yaml_text)
+    assert match, "password line not found or not a properly-quoted YAML scalar"
+    # NOTE: reverses the generator's own escaping (each \X -> X) and checks it
+    # round-trips back to the exact original password.
+    restored = re.sub(r"\\(.)", r"\1", match.group(1))
+    assert restored == password
+
+
+def test_docker_install_creates_data_files_without_clobbering_existing(setup_mod, app, tmp_path):
+    app.docker_folder = str(tmp_path / "DockerInstall")
+    app._run_cmd = lambda cmd, cwd: True
+    app._wait_for_docker_container = lambda: True
+
+    # NOTE: a real followed-channels file already sitting there (e.g. a
+    # second run of Docker install) must survive untouched.
+    data_dir = os.path.join(app.docker_folder, "data")
+    os.makedirs(data_dir)
+    existing_channels = os.path.join(data_dir, "channels.json")
+    with open(existing_channels, "w", encoding="utf-8") as f:
+        f.write('{"channels": [{"id": "keep-me"}]}')
+
+    assert app._do_docker_install("a-real-password") is True
+
+    # bind-mount sources must be real FILES, never directories (Docker
+    # creates a missing one as a directory, which breaks every future read).
+    assert os.path.isdir(os.path.join(data_dir, "indirilenler"))
+    assert os.path.isfile(os.path.join(data_dir, "settings.json"))
+    with open(existing_channels, encoding="utf-8") as f:
+        assert "keep-me" in f.read()
+
+    compose_path = os.path.join(app.docker_folder, "docker-compose.yml")
+    with open(compose_path, encoding="utf-8") as f:
+        assert "a-real-password" in f.read()
+
+
+def test_docker_install_fails_when_compose_up_fails(setup_mod, app, tmp_path):
+    app.docker_folder = str(tmp_path / "Fail")
+    app._run_cmd = lambda cmd, cwd: False
+    app._wait_for_docker_container = lambda: True
+    assert app._do_docker_install("a-real-password") is False
+
+
+def test_docker_install_fails_when_container_never_responds(setup_mod, app, tmp_path):
+    app.docker_folder = str(tmp_path / "NoResponse")
+    app._run_cmd = lambda cmd, cwd: True
+    app._wait_for_docker_container = lambda: False
+    assert app._do_docker_install("a-real-password") is False
+
+
+def test_docker_job_rejects_a_short_password_without_starting(setup_mod, app, monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(setup_mod.messagebox, "showerror", lambda *a, **k: calls.append(a))
+    app.mode = setup_mod.MODE_DOCKER
+    app.docker_folder = str(tmp_path)
+    app.docker_password_var.set("short")
+    app._start_docker_job()
+    assert calls, "expected a password-too-short dialog"
+    assert not app._job_running
+
+
+def test_docker_job_rejects_an_unsafe_folder_without_starting(setup_mod, app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(setup_mod.messagebox, "showerror", lambda *a, **k: calls.append(a))
+    app.mode = setup_mod.MODE_DOCKER
+    app.docker_folder = os.path.expanduser("~")
+    app.docker_password_var.set("a-real-password")
+    app._start_docker_job()
+    assert calls, "expected an unsafe-folder dialog"
+    assert not app._job_running
+
+
+def test_docker_install_button_disabled_until_docker_is_ready(setup_mod, app, monkeypatch):
+    monkeypatch.setattr(setup_mod, "docker_status", lambda: ("missing", None))
+    app._start_docker_mode()
+    assert str(app.docker_install_btn.cget("state")) == "disabled"
+
+    monkeypatch.setattr(setup_mod, "docker_status", lambda: ("ready", "docker"))
+    app._refresh_docker_status()
+    assert str(app.docker_install_btn.cget("state")) == "normal"
+
+
+def test_docker_page_renders_in_both_languages(setup_mod, app, monkeypatch):
+    monkeypatch.setattr(setup_mod, "docker_status", lambda: ("ready", "docker"))
+    for lang in ("tr", "en"):
+        app._set_lang(lang)
+        app._start_docker_mode()
+        assert app.current_page == "docker"
+        app.update_idletasks()
+
+
+def test_finishing_docker_install_offers_to_open_the_browser_not_the_launcher(setup_mod, app):
+    app.mode = setup_mod.MODE_DOCKER
+    app._show_page("progress")
+    app._on_job_done(True)
+    assert app.launch_btn.cget("text") == app.t("open_browser")
+
+
 # --- version probing ---------------------------------------------------------
 
 

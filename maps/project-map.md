@@ -61,7 +61,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `Dockerfile` | `python:3.12-slim` + ffmpeg + `requirements.txt`, no venv (see its own comment on why that matters for `PYTHONUSERBASE`) |
 | `docker-compose.yml` | Example compose file: `network_mode: host` (Linux - real LAN IP + mDNS need it), volumes for `indirilenler/`/`settings.json`/`channels.json`/`pip-packages` (the last one is the yt-dlp `PYTHONUSERBASE` override), `MEDIAGRAB_INITIAL_PASSWORD` |
 | `.dockerignore` | Keeps the host's own `settings.json`/`channels.json`/`indirilenler/` out of the build context - those only ever belong in volumes, never baked into an image |
-| `setup_mediagrab.py` | Windows installer wizard (tkinter): welcome (install/repair/remove, TR/EN, Docker placeholder) → requirements → folder → summary → log. Remembers the last install folder in `%LOCALAPPDATA%/MediaGrab/installer.json`. Stdlib-only by design |
+| `setup_mediagrab.py` | Windows installer wizard (tkinter): welcome (install/repair/remove, TR/EN) → requirements → folder → summary → log. A separate "Docker ile kur" path: checks `docker`/`docker compose`/daemon readiness, writes a bridge-networked `docker-compose.yml` referencing the published `ghcr.io/umitkrkmz/mediagrab` image into a chosen folder, runs `docker compose up -d`, then polls `http://localhost:8420` for a real response before declaring success. Remembers the last (source) install folder in `%LOCALAPPDATA%/MediaGrab/installer.json`. Stdlib-only by design |
 | `setup_mediagrab.spec` | PyInstaller spec for `MediaGrabSetup.exe` (built by CI on tag push) |
 | `MediaGrab.spec` | Legacy PyInstaller spec for bundling the app itself; not built by CI, kept for reference |
 | `.github/workflows/release.yml` | On `v*` tag: run tests → build installer exe → SHA256 → smoke-start the exe → GitHub Release |
@@ -91,7 +91,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `tests/test_deps.py` | Version parsing, ffmpeg banner parsing, `requirements.txt` parsing, `mutagen` declared |
 | `tests/test_i18n.py` | TR/EN key parity, no empty strings, placeholders match |
 | `tests/test_frontend.py` | Pure `app.js` helpers run under Node (skipped without Node); shipped-file sanity |
-| `tests/test_setup.py` | Installer: stdlib-only, no `mediagrab` import, string tables, probes, folder safety, remembered-folder state, and every wizard page rendered on one shared Tk root |
+| `tests/test_setup.py` | Installer: stdlib-only, no `mediagrab` import, string tables, probes, folder safety, remembered-folder state, every wizard page rendered on one shared Tk root, and the Docker install mode (`docker_status()` branching, generated `docker-compose.yml` content/escaping, data-file safety, password/folder validation) |
 | `tests/test_maps.py` | Keeps `maps/` in sync with the repo (every file listed, every route listed) |
 
 ## Docs
