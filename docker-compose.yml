@@ -1,0 +1,39 @@
+# NOTE: see docs/README.tr.md / docs/README.en.md's "Ev Sunucusu" / "Home
+# Server" section for the full walkthrough. The short version:
+#
+#   1. Change MEDIAGRAB_INITIAL_PASSWORD below to a real password.
+#   2. docker compose up -d
+#   3. Visit http://<this machine's LAN IP>:8420 from another device.
+#
+# MEDIAGRAB_INITIAL_PASSWORD is only ever read the very first time the
+# container starts with no password already set (see app.py's
+# _ensure_docker_has_a_password) - safe to leave it in this file afterwards,
+# it's simply never read again once a real password exists in settings.json.
+
+services:
+  mediagrab:
+    build: .
+    # NOTE: once published, swap the line above for:
+    #   image: umitkrkmz/mediagrab:latest
+    container_name: mediagrab
+    restart: unless-stopped
+    # NOTE: Linux only - lets the app see a device's REAL LAN IP (needed for
+    # its local-vs-remote client detection, see app.py's _is_local_request)
+    # instead of a NATed Docker-bridge address, and is required for the
+    # mediagrab.local mDNS address to work at all (see V2_PLANNING.md). On
+    # Docker Desktop (Windows/Mac), remove this line and uncomment `ports`
+    # below instead - every remote client is then simply treated as "not
+    # local" (there's no desktop to reveal a file on anyway in that setup).
+    network_mode: host
+    # ports:
+    #   - "8420:8420"
+    environment:
+      - MEDIAGRAB_INITIAL_PASSWORD=change-this-password
+      - MEDIAGRAB_PORT=8420
+    volumes:
+      - ./data/indirilenler:/app/indirilenler
+      - ./data/settings.json:/app/settings.json
+      - ./data/channels.json:/app/channels.json
+      # NOTE: survives the container being recreated from a fresh image -
+      # see the Dockerfile's PYTHONUSERBASE comment.
+      - ./data/pip-packages:/data/pip-packages

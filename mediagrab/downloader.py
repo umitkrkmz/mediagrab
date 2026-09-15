@@ -13,7 +13,7 @@ from typing import Callable, Optional
 from yt_dlp import YoutubeDL
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
-from .paths import app_dir
+from .paths import app_dir, is_docker
 
 
 class ProbeError(Exception):
@@ -980,9 +980,19 @@ def update_ytdlp() -> dict:
     # activate anything, or guess a path. Installing "in place" like this is
     # safe because pip only replaces files on disk; the already-imported
     # yt_dlp module in memory is untouched until the process restarts.
+    #
+    # In Docker, "in place" would mean the container's own (ephemeral)
+    # filesystem - gone the next time the image is updated/recreated. --user
+    # instead installs into PYTHONUSERBASE (set in the Dockerfile to a
+    # volume-mounted path), which survives that. Python's own site.py gives
+    # user-site packages import priority over the regular site-packages
+    # automatically (see V2_PLANNING.md), so no other code needs to know this
+    # override exists - outside Docker, --user is simply not used, matching
+    # the exact command that already worked before this existed.
+    pip_args = ["--user"] if is_docker() else []
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
+            [sys.executable, "-m", "pip", "install", *pip_args, "--upgrade", "yt-dlp"],
             capture_output=True,
             text=True,
             timeout=120,

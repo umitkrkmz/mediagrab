@@ -46,7 +46,7 @@ from .models import (
     StatusResponse,
     YtdlpVersionResponse,
 )
-from .paths import resource_dir
+from .paths import is_docker, resource_dir
 
 
 # NOTE: the running event loop, captured once at startup by `lifespan` below -
@@ -54,6 +54,36 @@ from .paths import resource_dir
 # THREADS, see `_run_job`) can safely hand a value to an asyncio.Queue that
 # only the main event loop thread is allowed to touch directly.
 _event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _ensure_docker_has_a_password() -> None:
+    # NOTE: a container always binds to 0.0.0.0 (see run.py) - unlike a
+    # desktop install, there's no "just runs on localhost until you opt in"
+    # default to fall back on. Without this check, a freshly-started
+    # container (no password ever set yet) would be reachable from the whole
+    # network with NO login required at all. Refusing to start is
+    # deliberate: a silent "works but wide open" default is worse than a
+    # loud one-time setup step. Only fires when NO password has EVER been
+    # set - if one exists but remote access was later turned off on
+    # purpose, that's a real choice, not a missing setup step, so it's left
+    # alone.
+    settings = store.get_settings()
+    if settings.get("remote_access_password_hash"):
+        return
+    initial_password = os.environ.get("MEDIAGRAB_INITIAL_PASSWORD")
+    if not initial_password:
+        raise RuntimeError(
+            "Docker'da ilk calistirmada MEDIAGRAB_INITIAL_PASSWORD ortam degiskeni "
+            "gerekli - bkz. docker-compose.yml. "
+            "(A MEDIAGRAB_INITIAL_PASSWORD environment variable is required the "
+            "first time MediaGrab runs in Docker - see docker-compose.yml.)"
+        )
+    salt, password_hash = auth.hash_password(initial_password)
+    store.save_settings(
+        remote_access_enabled=True,
+        remote_access_password_salt=salt,
+        remote_access_password_hash=password_hash,
+    )
 
 
 @asynccontextmanager
@@ -68,6 +98,8 @@ async def lifespan(_app: FastAPI):
     # Raspberry Pi/mini PC, or a desktop someone chooses to keep open) - see
     # _periodic_channel_check_loop. The one-time check below still always
     # runs either way.
+    if is_docker():
+        _ensure_docker_has_a_password()
     global _event_loop
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
@@ -1205,11 +1237,22 @@ def ffmpeg_version() -> dict:
 
 @app.get("/api/dependencies")
 def dependencies() -> dict:
-    return deps.check_dependencies()
+    # NOTE: is_docker tells the Settings page whether to offer the update
+    # button below at all - a container's own filesystem changes (unlike
+    # yt-dlp's, which use a volume-mounted PYTHONUSERBASE override, see
+    # downloader.update_ytdlp) don't survive the image being recreated, so
+    # "update in place" would be silently undone the next time someone pulls
+    # a new image. See the route below, which refuses the same way server-side.
+    return {**deps.check_dependencies(), "is_docker": is_docker()}
 
 
 @app.post("/api/dependencies-update")
 def dependencies_update() -> dict:
+    if is_docker():
+        raise HTTPException(
+            status_code=400,
+            detail="Docker'da bagimliliklar image icine gomulu - guncellemek icin 'docker pull' yapin.",
+        )
     result = deps.update_dependencies()
     if result["ok"]:
         # NOTE: the freshly installed packages are only picked up by a new

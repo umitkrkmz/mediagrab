@@ -1,0 +1,21 @@
+# NOTE: keeps the build context small and, more importantly, never lets the
+# HOST machine's own user data (settings.json, channels.json, indirilenler/)
+# accidentally end up baked into an image - those only ever belong in the
+# volumes docker-compose.yml mounts at runtime.
+.venv/
+venv/
+env/
+.git/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.spec
+tests/
+V2_PLANNING.md
+indirilenler/
+settings.json
+channels.json
+requirements-dev.txt
+.claude/

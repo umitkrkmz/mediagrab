@@ -43,6 +43,7 @@ const depsStatus = document.getElementById("deps-status");
 const depsList = document.getElementById("deps-list");
 const depsActions = document.getElementById("deps-actions");
 const depsUpdateBtn = document.getElementById("deps-update-btn");
+const depsDockerHint = document.getElementById("deps-docker-hint");
 const depsUpdateStatus = document.getElementById("deps-update-status");
 
 const LANG_KEY = "mediagrab_lang";
@@ -2264,6 +2265,17 @@ async function loadDependencies() {
       .join("");
   }
 
+  // NOTE: the update button installs packages into the container's own
+  // (ephemeral) filesystem in Docker - gone the next time the image is
+  // recreated, so it's replaced with a "docker pull" pointer instead. yt-dlp
+  // is the one exception (see downloader.update_ytdlp's PYTHONUSERBASE
+  // override) and keeps its own always-shown button elsewhere on this page.
+  if (info.is_docker) {
+    depsActions?.classList.add("hidden");
+    depsDockerHint?.classList.toggle("hidden", !outdated);
+    return;
+  }
+  depsDockerHint?.classList.add("hidden");
   depsActions?.classList.toggle("hidden", !outdated);
 }
 

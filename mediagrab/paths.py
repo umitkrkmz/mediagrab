@@ -23,3 +23,19 @@ def resource_dir(*parts: str) -> str:
     """
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, *parts)
+
+
+def is_docker() -> bool:
+    """True when running inside a Docker container.
+
+    `/.dockerenv` is created by the container runtime itself (Docker, and
+    most compatible runtimes) - no environment variable or build-time flag
+    needed, so this works even for an image someone else built. Used to
+    change two things: run.py's bind-host decision (a fresh container has no
+    password yet, so it must not silently bind to loopback-only - see
+    app.py's lifespan) and which self-update buttons stay usable (only
+    yt-dlp's, via a PYTHONUSERBASE override - see downloader.update_ytdlp)
+    since a container's own filesystem changes don't survive being
+    recreated from a fresh image.
+    """
+    return os.path.exists("/.dockerenv")

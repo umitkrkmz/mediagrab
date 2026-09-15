@@ -13,6 +13,7 @@ import webbrowser
 import uvicorn
 
 from mediagrab.app import app, lan_ip as _app_lan_ip
+from mediagrab.paths import is_docker
 from mediagrab.store import get_settings, remote_access_active
 
 # NOTE: HOST is what THIS process uses to reach the server itself (probing
@@ -80,14 +81,27 @@ def main() -> None:
         print(f"Bunun yerine boş bir port kullanılıyor / Using a free port instead: {fallback}")
         port = fallback
 
-    threading.Thread(target=_open_browser, args=(port,), daemon=True).start()
+    in_docker = is_docker()
+    # NOTE: no desktop/browser exists inside a container - opening one there
+    # would just be a silent no-op at best.
+    if not in_docker:
+        threading.Thread(target=_open_browser, args=(port,), daemon=True).start()
 
     # NOTE: only listen beyond localhost when Settings -> Remote Access is
     # both turned on AND a password is set (remote_access_active checks
     # both - see its docstring in store.py) - the exact same condition the
     # app's own login gate uses, so "requires a login" and "reachable from
     # the network at all" can never drift apart.
-    bind_host = "0.0.0.0" if remote_access_active(get_settings()) else HOST
+    #
+    # A container is the one exception - it ALWAYS binds to 0.0.0.0
+    # regardless of that setting. A fresh container has no password yet, so
+    # requiring remote_access_active() first would make Settings itself
+    # unreachable (you'd need to already be in to turn on the thing that
+    # lets you in). app.py's lifespan (_ensure_docker_has_a_password)
+    # refuses to start at all unless a password already exists or
+    # MEDIAGRAB_INITIAL_PASSWORD provides one, so this is never "wide open
+    # with no login" in practice.
+    bind_host = "0.0.0.0" if (in_docker or remote_access_active(get_settings())) else HOST
     if bind_host != HOST:
         # NOTE: _app_lan_ip is the exact same function Settings -> Remote
         # Access shows an address from - this print can never disagree with it.
