@@ -215,7 +215,7 @@ git clone https://github.com/umitkrkmz/mediagrab.git
 cd mediagrab
 ```
 
-Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` with a real password — it's only ever read the very first time the container starts with no password already set; after that it can safely stay in the file, it's simply never read again. On Linux, `network_mode: host` is on by default (needed so the app sees your real LAN IP and so `mediagrab.local` works); on Windows/Mac, Docker Desktop doesn't support that, so comment that line out and uncomment the `ports: ["8420:8420"]` lines below it instead.
+Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` with a real password — it's only ever read the very first time the container starts with no password already set; after that it can safely stay in the file, it's simply never read again. On Linux, `network_mode: host` is on by default (needed so the app sees your real LAN IP and so `mediagrab.local` works); **on Windows/Mac**, Docker Desktop doesn't support that, so comment that line out and uncomment the `ports: ["8420:8420"]` lines below it instead — **and** uncomment the `MEDIAGRAB_HOST_LAN_IP` line right below that, filling in your real LAN IP (find it with `ipconfig` on Windows or `ip addr` / `hostname -I` on Mac/Linux); otherwise the connection address/QR code shown in Settings displays the container's own unreachable internal address instead (the Windows installer's "Install with Docker" option does this step for you automatically - it only matters for a manual install).
 
 ```bash
 docker compose up -d

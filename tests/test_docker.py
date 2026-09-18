@@ -1,6 +1,7 @@
-"""Tests for Docker-specific behaviour: detection (paths.is_docker) and the
+"""Tests for Docker-specific behaviour: detection (paths.is_docker), the
 mandatory-first-password check that runs before anything else in Docker
-(app.py's _ensure_docker_has_a_password).
+(app.py's _ensure_docker_has_a_password), and the MEDIAGRAB_HOST_LAN_IP
+override for lan_ip().
 
 NOTE: see V2_PLANNING.md's Docker section for why this exists - a container
 always binds to 0.0.0.0 (run.py), unlike a desktop install's "just runs on
@@ -225,3 +226,25 @@ def test_dependencies_update_still_works_outside_docker(dep_client_settings, mon
 
     assert res.status_code == 200
     assert res.json()["ok"] is True
+
+
+# --- lan_ip(): MEDIAGRAB_HOST_LAN_IP override --------------------------------
+
+
+def test_lan_ip_uses_the_host_override_when_set(monkeypatch):
+    # NOTE: this is the actual bug - inside a bridge-networked Docker
+    # container (Docker Desktop on Windows/Mac), the plain socket call below
+    # resolves to the container's OWN internal bridge IP (e.g. 172.19.0.2),
+    # not the host's real LAN IP - unreachable from any other device, or even
+    # the host's own browser. setup_mediagrab.py's Docker install flow sets
+    # this env var (computed on the host, before the container exists) to
+    # work around it.
+    monkeypatch.setenv("MEDIAGRAB_HOST_LAN_IP", "192.168.1.50")
+    monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "172.19.0.2")
+    assert app_module.lan_ip() == "192.168.1.50"
+
+
+def test_lan_ip_falls_back_to_the_socket_call_without_the_override(monkeypatch):
+    monkeypatch.delenv("MEDIAGRAB_HOST_LAN_IP", raising=False)
+    monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "10.1.2.3")
+    assert app_module.lan_ip() == "10.1.2.3"

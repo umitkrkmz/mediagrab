@@ -333,7 +333,7 @@ def test_docker_status_ready_when_everything_available(setup_mod, monkeypatch):
 
 
 def test_docker_compose_yaml_references_the_published_image(setup_mod):
-    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password", None)
     assert setup_mod.DOCKER_IMAGE in yaml_text
     assert "build:" not in yaml_text
 
@@ -341,13 +341,13 @@ def test_docker_compose_yaml_references_the_published_image(setup_mod):
 def test_docker_compose_yaml_uses_bridge_networking_not_host(setup_mod):
     # NOTE: unlike the repo's own docker-compose.yml, this installer only ever
     # runs on Windows, where Docker Desktop doesn't support host networking.
-    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password", None)
     assert "network_mode" not in yaml_text
     assert '"8420:8420"' in yaml_text
 
 
 def test_docker_compose_yaml_mounts_the_same_volumes_as_the_repo_compose_file(setup_mod):
-    yaml_text = setup_mod.docker_compose_yaml("a-real-password")
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password", None)
     for path in ("./data/indirilenler:/app/indirilenler", "./data/settings.json:/app/settings.json",
                  "./data/channels.json:/app/channels.json", "./data/pip-packages:/data/pip-packages"):
         assert path in yaml_text
@@ -359,14 +359,14 @@ def test_docker_compose_yaml_quotes_the_whole_environment_item_not_just_the_valu
     # scalar, so compose's KEY=VALUE splitter hands the container a password
     # with literal quote characters baked in. The quotes must wrap the whole
     # "KEY=VALUE" item instead.
-    yaml_text = setup_mod.docker_compose_yaml("simple-password-1")
+    yaml_text = setup_mod.docker_compose_yaml("simple-password-1", None)
     assert '- "MEDIAGRAB_INITIAL_PASSWORD=simple-password-1"' in yaml_text
     assert 'MEDIAGRAB_INITIAL_PASSWORD="simple-password-1"' not in yaml_text
 
 
 def test_docker_compose_yaml_escapes_quotes_and_backslashes(setup_mod):
     password = 'pa"ss\\word'
-    yaml_text = setup_mod.docker_compose_yaml(password)
+    yaml_text = setup_mod.docker_compose_yaml(password, None)
     # NOTE: the quotes must wrap the WHOLE "KEY=VALUE" item, not just the
     # value - `- KEY="VALUE"` is an unquoted YAML plain scalar whose literal
     # text includes the quote characters, corrupting the real password (see
@@ -377,6 +377,45 @@ def test_docker_compose_yaml_escapes_quotes_and_backslashes(setup_mod):
     # round-trips back to the exact original password.
     restored = re.sub(r"\\(.)", r"\1", match.group(1))
     assert restored == password
+
+
+def test_docker_compose_yaml_embeds_the_host_lan_ip_when_known(setup_mod):
+    # NOTE: regression test for the actual bug this was built to fix - inside
+    # a bridge-networked container, app.py's lan_ip() can only see the
+    # container's own internal bridge IP (unreachable from anywhere else,
+    # even the host's own browser), not the real LAN IP other devices need.
+    # MEDIAGRAB_HOST_LAN_IP, computed on the HOST by this installer and baked
+    # in here, is how app.py's lan_ip() works around that (see its comment).
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password", "192.168.1.50")
+    assert '- "MEDIAGRAB_HOST_LAN_IP=192.168.1.50"' in yaml_text
+
+
+def test_docker_compose_yaml_omits_the_host_lan_ip_line_when_unknown(setup_mod):
+    # NOTE: must not write a line with a literal "None" in it - that would be
+    # a worse address than having no override at all (lan_ip() would fall
+    # back to its own, still-wrong-but-at-least-not-crashing, socket call).
+    yaml_text = setup_mod.docker_compose_yaml("a-real-password", None)
+    assert "MEDIAGRAB_HOST_LAN_IP" not in yaml_text
+
+
+def test_detect_host_lan_ip_returns_a_string_or_none(setup_mod):
+    # NOTE: loose on purpose - the real value depends on the machine running
+    # the test, this only pins the contract callers rely on.
+    result = setup_mod.detect_host_lan_ip()
+    assert result is None or isinstance(result, str)
+
+
+def test_docker_install_writes_the_detected_host_lan_ip_into_the_compose_file(setup_mod, app, tmp_path, monkeypatch):
+    monkeypatch.setattr(setup_mod, "detect_host_lan_ip", lambda: "10.0.0.42")
+    app.docker_folder = str(tmp_path / "DockerLanIp")
+    app._run_cmd = lambda cmd, cwd: True
+    app._wait_for_docker_container = lambda: True
+
+    assert app._do_docker_install("a-real-password") is True
+
+    compose_path = os.path.join(app.docker_folder, "docker-compose.yml")
+    with open(compose_path, encoding="utf-8") as f:
+        assert '"MEDIAGRAB_HOST_LAN_IP=10.0.0.42"' in f.read()
 
 
 def test_docker_install_creates_data_files_without_clobbering_existing(setup_mod, app, tmp_path):

@@ -215,7 +215,7 @@ git clone https://github.com/umitkrkmz/mediagrab.git
 cd mediagrab
 ```
 
-Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü gerçek bir şifreyle değiştirin — bu şifre yalnızca container ilk kez ayağa kalkarken, henüz bir şifre yokken kullanılır; sonrasında güvenle dosyada kalabilir, bir daha okunmaz. Linux'ta `network_mode: host` satırı varsayılan olarak açık (gerçek LAN IP'nin görünmesi ve `mediagrab.local` adresinin çalışması için gerekli); Windows/Mac'te Docker Desktop bunu desteklemediğinden o satırı yorum satırı yapıp altındaki `ports: ["8420:8420"]` satırlarını açın.
+Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü gerçek bir şifreyle değiştirin — bu şifre yalnızca container ilk kez ayağa kalkarken, henüz bir şifre yokken kullanılır; sonrasında güvenle dosyada kalabilir, bir daha okunmaz. Linux'ta `network_mode: host` satırı varsayılan olarak açık (gerçek LAN IP'nin görünmesi ve `mediagrab.local` adresinin çalışması için gerekli); **Windows/Mac'te** Docker Desktop bunu desteklemediğinden o satırı yorum satırı yapıp altındaki `ports: ["8420:8420"]` satırlarını açın — **ve** hemen altındaki `MEDIAGRAB_HOST_LAN_IP` satırının yorumunu kaldırıp `ipconfig` (Windows) ile bulduğunuz gerçek LAN IP'nizi yazın; aksi halde Ayarlar sayfasındaki bağlantı adresi/QR kod, container'ın ulaşılamaz iç ağ adresini gösterir (Windows kurulum programının "Docker ile kur" seçeneği bunu sizin için otomatik yapar, elle kurulumda bu adım gerekli).
 
 ```bash
 docker compose up -d

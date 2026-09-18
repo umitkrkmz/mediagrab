@@ -11,6 +11,12 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.0.1] — 2026-09-18
+
+#### Düzeltilen
+
+- **Docker'da (Windows/Mac) Ayarlar → Uzaktan Erişim'deki bağlantı adresi ve QR kodları yanlış IP gösteriyordu** — `lan_ip()`, bridge ağlı bir container içinden çağrıldığında Windows/Mac host'un gerçek LAN IP'sini değil, container'ın kendi iç Docker bridge IP'sini (ör. `172.19.0.2`) döndürüyordu; bu adrese ne başka bir cihaz ne de host'un kendisi ulaşabiliyordu. Windows kurulum programının "Docker ile kur" akışı artık gerçek LAN IP'yi host üzerinde tespit edip `docker-compose.yml`'e otomatik gömüyor (`MEDIAGRAB_HOST_LAN_IP`); elle Docker kurulumu için de aynı değişken `docker-compose.yml`'e talimatıyla birlikte eklendi. Gerçek bir Android telefondan doğrulandı
+
 ### [2.0.0] — 2026-09-15
 
 #### Eklenen
@@ -232,6 +238,12 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.0.1] — 2026-09-18
+
+#### Fixed
+
+- **In Docker (Windows/Mac), the connection address and QR codes in Settings → Remote Access showed the wrong IP** — `lan_ip()`, called from inside a bridge-networked container, resolved to the container's own internal Docker bridge IP (e.g. `172.19.0.2`) instead of the Windows/Mac host's real LAN IP - unreachable from any other device, or even from the host itself. The Windows installer's "Install with Docker" flow now detects the real LAN IP on the host and bakes it into `docker-compose.yml` automatically (`MEDIAGRAB_HOST_LAN_IP`); a manual Docker install got the same variable added to `docker-compose.yml`, with instructions. Verified from a real Android phone
 
 ### [2.0.0] — 2026-09-15
 

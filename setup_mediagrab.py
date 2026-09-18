@@ -21,6 +21,7 @@ import os
 import queue
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -529,15 +530,33 @@ def docker_status():
     return "ready", docker_path
 
 
-def docker_compose_yaml(password: str) -> str:
+def detect_host_lan_ip():
+    """Best-effort LAN IP of the machine this installer is running ON.
+
+    Only ever called from the installer PROCESS itself, never from inside
+    the Docker container it goes on to create - that's what makes it
+    correct. app.py's own lan_ip(), called at the same call site
+    (socket.gethostbyname(socket.gethostname())) but running INSIDE a
+    bridge-networked container, resolves to the container's own internal
+    bridge IP instead (e.g. 172.19.0.2) - unreachable from any other device,
+    or even from the host's own browser. Baking the host's real IP in here
+    (as MEDIAGRAB_HOST_LAN_IP, read by app.py's lan_ip()) works around that.
+    """
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return None
+
+
+def docker_compose_yaml(password: str, host_lan_ip) -> str:
     """docker-compose.yml for this installer's Docker mode.
 
     Uses bridge networking + a mapped port rather than the repo's own
     docker-compose.yml (`network_mode: host`) - Docker Desktop on Windows,
     the only platform this installer runs on, doesn't support host
-    networking. mDNS (mediagrab.local) won't work under bridge networking
-    either; every client is simply treated as remote, same as documented in
-    the repo's docker-compose.yml.
+    networking. mDNS (mediagrab.local) still won't resolve for OTHER devices
+    under bridge networking (multicast can't cross it), but the LAN IP
+    address/QR code now works correctly thanks to host_lan_ip below.
     """
     # NOTE: the whole "KEY=VALUE" list item must sit inside the YAML quotes,
     # not just the value - `- KEY="VALUE"` is an UNQUOTED YAML plain scalar
@@ -546,6 +565,7 @@ def docker_compose_yaml(password: str) -> str:
     # into it. Confirmed with `docker compose config`: that form resolved to
     # a password of '"the-real-password"', not the-real-password.
     escaped = password.replace("\\", "\\\\").replace('"', '\\"')
+    lan_ip_line = f'      - "MEDIAGRAB_HOST_LAN_IP={host_lan_ip}"\n' if host_lan_ip else ""
     return (
         "services:\n"
         "  mediagrab:\n"
@@ -556,6 +576,7 @@ def docker_compose_yaml(password: str) -> str:
         '      - "8420:8420"\n'
         "    environment:\n"
         f'      - "MEDIAGRAB_INITIAL_PASSWORD={escaped}"\n'
+        f"{lan_ip_line}"
         "    volumes:\n"
         "      - ./data/indirilenler:/app/indirilenler\n"
         "      - ./data/settings.json:/app/settings.json\n"
@@ -1249,7 +1270,7 @@ class SetupApp(tk.Tk):
         self.log(self.t("log_docker_writing_compose"))
         compose_path = os.path.join(self.docker_folder, "docker-compose.yml")
         with open(compose_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(docker_compose_yaml(password))
+            f.write(docker_compose_yaml(password, detect_host_lan_ip()))
 
         self.log(self.t("log_docker_pulling"))
         if not self._run_cmd([self.docker_path, "compose", "up", "-d"], cwd=self.docker_folder):

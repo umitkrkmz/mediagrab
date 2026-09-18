@@ -19,18 +19,30 @@ services:
     container_name: mediagrab
     restart: unless-stopped
     # NOTE: Linux only - lets the app see a device's REAL LAN IP (needed for
-    # its local-vs-remote client detection, see app.py's _is_local_request)
-    # instead of a NATed Docker-bridge address, and is required for the
-    # mediagrab.local mDNS address to work at all (see V2_PLANNING.md). On
-    # Docker Desktop (Windows/Mac), remove this line and uncomment `ports`
-    # below instead - every remote client is then simply treated as "not
-    # local" (there's no desktop to reveal a file on anyway in that setup).
+    # its local-vs-remote client detection, see app.py's _is_local_request,
+    # AND for the address shown in Settings -> Remote Access / the
+    # mediagrab.local mDNS name, see app.py's lan_ip()) instead of a NATed
+    # Docker-bridge address. On Docker Desktop (Windows/Mac), remove this
+    # line and uncomment `ports` below instead - every remote client is then
+    # simply treated as "not local" (there's no desktop to reveal a file on
+    # anyway in that setup), AND you must set MEDIAGRAB_HOST_LAN_IP below by
+    # hand (see its own comment) or the shown address will be wrong.
     network_mode: host
     # ports:
     #   - "8420:8420"
     environment:
       - MEDIAGRAB_INITIAL_PASSWORD=change-this-password
       - MEDIAGRAB_PORT=8420
+      # NOTE: Docker Desktop (Windows/Mac) ONLY, and only if you switched to
+      # `ports` above - without network_mode: host, lan_ip() can only see
+      # this container's own internal bridge IP (e.g. 172.19.0.2), which is
+      # unreachable from any other device, or even from the host's own
+      # browser. Find your real LAN IP with `ipconfig` (Windows) or
+      # `ip addr` / `hostname -I` (Linux/Mac) and uncomment this with that
+      # value - it's what other devices see in Settings -> Remote Access and
+      # in the QR code. Not needed with network_mode: host (Linux) above,
+      # where lan_ip() already gets this right on its own.
+      # - MEDIAGRAB_HOST_LAN_IP=192.168.1.50
     volumes:
       - ./data/indirilenler:/app/indirilenler
       - ./data/settings.json:/app/settings.json

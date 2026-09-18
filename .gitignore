@@ -36,6 +36,3 @@ desktop.ini
 build/
 dist/
 settings.json
-
-# Geçici planlama notları (yayımlanmadan önce silinir, repoya girmez)
-V2_PLANNING.md

@@ -274,6 +274,19 @@ def lan_ip() -> Optional[str]:
     # NOTE: shared with run.py's own startup print AND the Settings ->
     # Remote Access address panel - both must always agree on what "the LAN
     # address" is, so there's exactly one implementation of it.
+    #
+    # Inside a bridge-networked Docker container (Docker Desktop on
+    # Windows/Mac - see docker-compose.yml), gethostbyname(gethostname())
+    # resolves to the container's OWN internal bridge IP (e.g. 172.19.0.2) -
+    # unreachable from any other device, and even from the host's own
+    # browser (Docker Desktop's VM sits in between). MEDIAGRAB_HOST_LAN_IP is
+    # set by setup_mediagrab.py's Docker install flow (computed on the HOST,
+    # before the container even exists, where this same socket call is
+    # correct) to work around exactly that; a manual docker-compose install
+    # can set the same variable by hand - see that file's own comment.
+    override = os.environ.get("MEDIAGRAB_HOST_LAN_IP")
+    if override:
+        return override
     try:
         return socket.gethostbyname(socket.gethostname())
     except OSError:
