@@ -2330,7 +2330,18 @@ function showSettingsTab(tabId) {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-current", active ? "true" : "false");
   });
+  // NOTE: below the .settings-nav-toggle breakpoint this list is a
+  // collapsible dropdown (see style.css) - closing it once a category is
+  // picked gets it out of the way of the panel it just opened. A no-op
+  // otherwise (no "nav-open" class to remove, and harmless on desktop).
+  settingsNav?.classList.remove("nav-open");
 }
+
+const settingsNavToggle = document.getElementById("settings-nav-toggle");
+settingsNavToggle?.addEventListener("click", () => {
+  const isOpen = settingsNav.classList.toggle("nav-open");
+  settingsNavToggle.setAttribute("aria-expanded", String(isOpen));
+});
 
 if (settingsNav) {
   settingsNav.querySelectorAll(".settings-nav-item").forEach((btn) => {
@@ -3049,18 +3060,32 @@ urlInput?.addEventListener("paste", () => {
     if (urlInput.value.trim()) probe();
   }, 0);
 });
-pasteBtn?.addEventListener("click", async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text && text.trim()) {
-      urlInput.value = text.trim();
-      probe();
+if (pasteBtn && (!window.isSecureContext || !navigator.clipboard?.readText)) {
+  // NOTE: the Clipboard read API is entirely absent (no permission prompt to
+  // even deny) on any non-HTTPS origin other than localhost/127.0.0.1 -
+  // exactly MediaGrab's own Remote Access, which is plain HTTP by design
+  // (see the README's security note). That's every device connecting over
+  // the LAN, desktop or mobile - a dedicated paste-shortcut button can never
+  // work there, so it's hidden rather than sitting there doing nothing (a
+  // focus()-and-hope fallback was tried and confirmed NOT to read as "did
+  // something" on a real phone). Long-pressing the field for the OS's own
+  // Paste option still works and still auto-resolves via the "paste" event
+  // handler below - no functionality is actually lost, only the shortcut.
+  pasteBtn.hidden = true;
+} else {
+  pasteBtn?.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        urlInput.value = text.trim();
+        probe();
+      }
+    } catch (err) {
+      // NOTE: clipboard read can be denied by the browser (permissions) - the
+      // user can still paste manually into the input, so fail silently.
     }
-  } catch (err) {
-    // NOTE: clipboard read can be denied by the browser (permissions) - the
-    // user can still paste manually into the input, so fail silently.
-  }
-});
+  });
+}
 langSwitch?.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
 });
@@ -3099,6 +3124,16 @@ function updateHeaderHeightVar() {
 }
 updateHeaderHeightVar();
 window.addEventListener("resize", updateHeaderHeightVar);
+
+// NOTE: below the .nav-toggle breakpoint (see style.css), the nav is a
+// collapsible vertical list instead of always-visible links - closed by
+// default, since the page's own heading already says where you are.
+const navToggle = document.getElementById("nav-toggle");
+const siteNavEl = document.getElementById("site-nav");
+navToggle?.addEventListener("click", () => {
+  const isOpen = siteNavEl.classList.toggle("nav-open");
+  navToggle.setAttribute("aria-expanded", String(isOpen));
+});
 
 // NOTE: while following the OS (no explicit choice), track live changes to it
 // so the icon doesn't go stale if the system flips theme on a schedule.

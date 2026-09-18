@@ -29,7 +29,8 @@
       <span class="brand-mark">M</span>
       <span class="brand-name">MediaGrab</span>
     </a>
-    <nav class="site-nav">
+    <button type="button" id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="{{ ui.nav_toggle }}">☰</button>
+    <nav class="site-nav" id="site-nav">
       <a href="/?lang={{ lang }}" id="nav-home" class="{{ 'active' if active == 'home' else '' }}" aria-current="{{ 'page' if active == 'home' else 'false' }}">{{ ui.nav_home }}</a>
       <a href="/history?lang={{ lang }}" id="nav-history" class="{{ 'active' if active == 'history' else '' }}" aria-current="{{ 'page' if active == 'history' else 'false' }}">{{ ui.nav_history }}</a>
       <a href="/channels?lang={{ lang }}" id="nav-channels" class="{{ 'active' if active == 'channels' else '' }}" aria-current="{{ 'page' if active == 'channels' else 'false' }}">{{ ui.nav_channels }}</a>

@@ -427,13 +427,37 @@ body {
   color: var(--text-on-accent);
 }
 
+.nav-toggle {
+  display: none;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.nav-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  box-shadow: none;
+}
+
 @media (max-width: 860px) {
   /* NOTE: brand + 5 nav links + theme and language switches can't fit on one
      line below roughly 860px - they used to overflow the header box (measured
      408px of content in a 375px box on a phone), pushing the "EN" button
-     outside the visible area. Wrapping the nav onto its own full-width second
-     row fixes that; the nav itself scrolls horizontally as a last resort on
-     very narrow screens instead of overflowing again.
+     outside the visible area. A horizontally-scrollable single row (an
+     earlier version of this fix) technically worked but never comfortably
+     fit "Desteklenen Siteler" and friends on a real phone either, and
+     starting collapsed with nothing highlighted told the user nothing about
+     where they were. A menu button that expands the same links into a
+     vertical list is the standard mobile pattern instead - nothing to fit
+     sideways, and the current page is already named by its own on-page
+     heading, not just the nav.
      The breakpoint moved 560 -> 860 when the 5th nav item was added. */
   .site-header-inner {
     flex-wrap: wrap;
@@ -441,22 +465,42 @@ body {
     padding: 12px 14px;
   }
 
+  /* NOTE: touch-target sizing - measured live at 33-37px square/tall, below
+     the ~44px minimum Apple/Google both recommend for a comfortable tap,
+     and packed close enough together (10px gaps) that a mis-tap lands on
+     the neighbor. Mouse pointers don't need this, so it's scoped to mobile
+     rather than changed for everyone. */
+  .nav-toggle,
+  .theme-toggle {
+    display: flex;
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lang-switch button {
+    min-height: 32px;
+    padding: 8px 12px;
+  }
+
   .site-nav {
     order: 3;
     width: 100%;
-    justify-content: center;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
   }
 
-  .site-nav::-webkit-scrollbar {
-    display: none;
+  .site-nav.nav-open {
+    max-height: 320px;
   }
 
   .site-nav a {
-    padding: 6px 8px;
-    font-size: 0.82rem;
-    white-space: nowrap;
+    padding: 10px 14px;
+    font-size: 0.9rem;
   }
 }
 
@@ -650,6 +694,35 @@ body {
 #history-list.view-list .history-actions button {
   flex: none;
   padding: 6px 14px;
+}
+
+@media (max-width: 640px) {
+  /* NOTE: the list view packs thumbnail + name + meta ("6 MB · 18 Eyl 2026
+     19:27") + two buttons into ONE row - comfortable on desktop, but at
+     phone widths there simply isn't room: the date got clipped and the
+     buttons sat jammed against the edge (confirmed live on a real phone).
+     Wrapping the row onto two lines (thumb+name, then meta+actions) gives
+     each its own full width instead of fighting over one cramped line.
+     Placed AFTER the rules above on purpose - same selector specificity, so
+     source order decides, and a block earlier in the file would lose. */
+  #history-list.view-list .history-card {
+    flex-wrap: wrap;
+  }
+
+  #history-list.view-list .history-card-link {
+    flex: 1 1 100%;
+  }
+
+  #history-list.view-list .history-body {
+    justify-content: space-between;
+  }
+
+  #history-list.view-list .history-actions {
+    flex: 1 1 100%;
+    width: auto;
+    justify-content: flex-end;
+    padding: 0 12px 10px;
+  }
 }
 
 /* --- Footer --- */
@@ -1305,11 +1378,20 @@ button:disabled {
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.format-tab:hover {
+/* NOTE: the generic `button:hover` rule (accent background + glow) has higher
+   specificity than `.format-tab`'s own `background: none`, so hovering a tab
+   painted it accent-blue - and on the ACTIVE tab that put accent-coloured
+   text on an accent background, unreadable. Restating background/shadow with
+   :not(:disabled) (same specificity trick the other tab-like buttons use)
+   keeps the hover a plain colour change. */
+.format-tab:hover:not(:disabled) {
+  background: none;
+  box-shadow: none;
   color: var(--text);
 }
 
-.format-tab.active {
+.format-tab.active,
+.format-tab.active:hover:not(:disabled) {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
@@ -1935,13 +2017,45 @@ button:disabled {
 @media (max-width: 720px) {
   .settings-layout {
     flex-direction: column;
+    /* NOTE: NOT the desktop 32px - flex `gap` reserves that space around
+       EVERY child regardless of its own size, so a collapsed (0-height)
+       .settings-nav still got 32px above AND below it (confirmed live: a
+       64px dead gap between the menu button and the panel content, closed
+       or open). .settings-panels gets its own fixed margin-top instead, so
+       the spacing is the same whether the dropdown is open or closed. */
+    gap: 0;
+  }
+
+  .settings-nav-toggle {
+    display: flex;
+    margin-bottom: 4px;
+  }
+
+  .settings-panels {
+    margin-top: 20px;
   }
 
   .settings-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+    /* NOTE: same reasoning as .site-nav's own mobile fix above - 8 category
+       names, several of them long ("Varsayılan Ses Parçası"), never
+       comfortably fit a single horizontally-scrollable row on a real phone
+       either. A menu button that expands the same buttons into a vertical
+       list needs nothing to fit sideways, and the panel's own heading
+       already names the open category. */
+    flex-direction: column;
     width: auto;
     position: static;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+  }
+
+  .settings-nav.nav-open {
+    max-height: 400px;
+  }
+
+  .settings-nav-item {
+    white-space: nowrap;
   }
 }
 
@@ -2213,6 +2327,31 @@ button:disabled {
 .channel-item .remove-btn:hover:not(:disabled) {
   background: var(--danger-bg-alt);
   box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  /* NOTE: thumb + info + badge + two buttons all fighting over one row left
+     almost no width for .channel-info, and .meta (unlike .name) had no
+     white-space/ellipsis guard - so its text wrapped onto several lines,
+     the row grew tall, and the vertically-centered badge ended up floating
+     in the middle of that tall block, visually overlapping the wrapped
+     text (confirmed live). Truncating .meta to one line and moving the
+     buttons to their own row below fixes both problems at once. */
+  .channel-item {
+    flex-wrap: wrap;
+  }
+
+  .channel-item .meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .channel-item .channel-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
 }
 
 /* --- pending-videos banner (home page) --- */
@@ -2622,4 +2761,26 @@ button:disabled {
 
 .cookie-privacy {
   margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  /* NOTE: iOS Safari auto-zooms the whole page when a focused input/select's
+     font-size is under 16px - these were sized smaller (0.88-0.95rem) for
+     visual density, invisible on desktop but a jarring, unwanted zoom on
+     every iPhone the moment one of them is tapped. 16px removes the trigger
+     without changing how any of these look above this breakpoint. Placed at
+     the end of the file on purpose - same selectors, same specificity as
+     each one's own base rule above, so source order decides and a block
+     any earlier here would lose (bit this exact way once already, see
+     the history list-view fix's own note). */
+  #history-search,
+  #history-channel-filter,
+  #history-type-filter,
+  .settings-add-form #channel-url-input,
+  .settings-add-form select,
+  .cookie-panel input[type="text"],
+  .cookie-panel select,
+  .playlist-bulk input[type="number"] {
+    font-size: 16px;
+  }
 }

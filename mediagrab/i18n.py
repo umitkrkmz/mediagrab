@@ -20,6 +20,7 @@ UI = {
         "nav_sites": "Desteklenen Siteler",
         "nav_settings": "Ayarlar",
         "nav_about": "Hakkında",
+        "nav_toggle": "Menü",
         "channels_page_title": "Kanal Takibi",
         "channels_page_intro": (
             "Kanal takibi şimdilik yalnızca YouTube kanallarını destekler."
@@ -205,6 +206,7 @@ UI = {
         "nav_sites": "Supported Sites",
         "nav_settings": "Settings",
         "nav_about": "About",
+        "nav_toggle": "Menu",
         "channels_page_title": "Channel Following",
         "channels_page_intro": "Channel following currently supports YouTube channels only.",
         "settings_ffmpeg_title": "ffmpeg / ffprobe",
