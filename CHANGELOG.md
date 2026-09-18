@@ -11,6 +11,24 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.1.0] — 2026-09-18
+
+#### Eklenen
+
+- **Mobil uyumlu arayüz** — dar ekranlarda üst menü ve Ayarlar sayfasının kategori listesi artık ☰ simgesiyle açılıp kapanan dikey listeler; Ayarlar'da bir kategori seçilince menü kendiliğinden kapanıyor. Masaüstü görünüm değişmedi
+- **Yeniden düzenlenen kılavuzlar ve ekran görüntüleri** — `docs/README.tr.md` / `README.en.md` baştan düzenlendi: "Hızlı başlangıç" tablosu, 5 adımlı örnek senaryolar, özelliklerin 5 gruba bölünmesi, yeni "Mobil Kullanım" bölümü; gerçek ekran görüntüleri (`docs/images/`) ve ana README'de bir hero görseli
+
+#### Düzeltilen
+
+- **Telefonda üst menü kırpılıyordu** — dar ekranda taşan menü satırı `justify-content: center` yüzünden iki tarafa eşit taşıyordu; ilk sekme ("Ana Sayfa") sola, son sekme sağa doğru görünmez oluyordu. Yerini açılır menü aldı
+- **Telefonda "Panodan yapıştır" düğmesi hiçbir şey yapmıyordu** — tarayıcılar panoyu okuma API'sini yalnızca HTTPS/`localhost` üzerinde açar; uzaktan erişim düz HTTP olduğu için düğme LAN'daki hiçbir cihazda çalışamazdı. Bu durumda düğme artık gösterilmiyor (alana uzun basıp "Yapıştır" hâlâ çalışıyor ve linki yine otomatik çözümlüyor); `localhost`'ta davranış aynı
+- **Kanallar sayfasında rozet, metnin üzerine biniyordu** — dar ekranda "Son kontrol" satırı çok satıra bölünüp satırı uzatıyor, dikey ortalanmış "BİLDİR/OTOMATİK" rozeti o bloğun ortasında yüzüyordu. Metin tek satırda kısaltılıyor, butonlar kendi satırına iniyor
+- **Geçmiş sayfasının liste görünümü telefonda sıkışıyordu** — küçük resim, isim, tarih ve iki buton tek satıra sığmıyor, tarih kesiliyordu; artık iki satıra bölünüyor
+- **Ayarlar'ın kategori menüsünde boşluk** — masaüstü için ayarlanmış boşluk mobilde de uygulanıp menü kapalıyken bile ~64px boş alan bırakıyordu
+- **iPhone'da bazı alanlara dokununca sayfa yakınlaşıyordu** — Geçmiş arama/filtreleri, kanal linki, çerez ayarları ve playlist aralık kutusunun yazı boyutu 16px'in altındaydı (iOS Safari bu durumda otomatik yakınlaştırır); mobilde 16px'e çıkarıldı
+- **Küçük simge butonları telefonda zor dokunuluyordu** — menü, tema ve dil butonları 24-37px'ti, mobilde 32-40px'e büyütüldü
+- **"Video" sekmesinin üzerine gelince yazı okunmuyordu** — genel `button:hover` kuralı sekmenin şeffaf zeminini ezip aktif sekmede vurgu rengini vurgu rengi üzerine bindiriyordu
+
 ### [2.0.1] — 2026-09-18
 
 #### Düzeltilen
@@ -238,6 +256,24 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.1.0] — 2026-09-18
+
+#### Added
+
+- **A mobile-friendly interface** — on narrow screens the top menu and the Settings page's category list are now vertical lists that open and close with a ☰ icon; picking a category in Settings closes the menu by itself. The desktop layout is unchanged
+- **Reworked guides and screenshots** — `docs/README.tr.md` / `README.en.md` were reorganized: a "Quick start" table, five step-by-step example scenarios, the features split into five groups, a new "Using It On Mobile" section; real screenshots (`docs/images/`) and a hero image in the main README
+
+#### Fixed
+
+- **The top menu was clipped on phones** — on a narrow screen the overflowing nav row spilled evenly off both edges because of `justify-content: center`, so the first tab ("Home") was cut off on the left and the last on the right. Replaced by the collapsible menu
+- **The "Paste from clipboard" button did nothing on a phone** — browsers only expose the clipboard-reading API on HTTPS/`localhost`, and Remote Access is plain HTTP, so the button could never work on any device on the LAN. It's now hidden in that situation (long-pressing the field and choosing "Paste" still works, and still resolves the link automatically); behaviour on `localhost` is unchanged
+- **On the Channels page the badge overlapped the text** — on a narrow screen the "Last checked" line wrapped over several lines, making the row tall, and the vertically-centered "NOTIFY/AUTO" badge floated in the middle of that block. The text is now truncated to one line and the buttons move to their own row
+- **The History list view was cramped on phones** — thumbnail, name, date and two buttons couldn't fit on one row and the date was clipped; it now wraps onto two lines
+- **Dead space in the Settings category menu** — the gap meant for desktop also applied on mobile, leaving ~64px of blank space even when the menu was closed
+- **Tapping some fields zoomed the page on iPhone** — the History search/filters, the channel link box, the cookie settings and the playlist range box used a font size under 16px (iOS Safari auto-zooms in that case); raised to 16px on mobile
+- **Small icon buttons were hard to tap on a phone** — the menu, theme and language buttons were 24-37px; enlarged to 32-40px on mobile
+- **The "Video" tab's label was unreadable on hover** — the generic `button:hover` rule overrode the tab's transparent background, stacking the accent colour on the accent colour for the active tab
 
 ### [2.0.1] — 2026-09-18
 

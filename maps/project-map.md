@@ -36,17 +36,17 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 
 | File | Purpose |
 |---|---|
-| `mediagrab/templates/base.html` | Layout: sticky header + nav (home, history, channels, supported sites, settings, about), theme toggle, TR/EN switch, footer, download dock container; loads `style.css`/`app.js` with `asset_version` |
-| `mediagrab/templates/index.html` | Home: hero, URL input + paste + resolve, `#card` (filled by `renderCard` / `renderPlaylist` in JS), pending-channel banner, recent downloads |
+| `mediagrab/templates/base.html` | Layout: sticky header + nav (home, history, channels, supported sites, settings, about - a ☰ `#nav-toggle` dropdown below 860px), theme toggle, TR/EN switch, footer, download dock container; loads `style.css`/`app.js` with `asset_version` |
+| `mediagrab/templates/index.html` | Home: hero, URL input + paste (hidden by app.js outside a secure context - HTTP remote access has no clipboard API) + resolve, `#card` (filled by `renderCard` / `renderPlaylist` in JS), pending-channel banner, recent downloads |
 | `mediagrab/templates/history.html` | History: search, channel filter, dynamic type filter, grid/list toggle, `#history-list` |
 | `mediagrab/templates/item.html` | One downloaded file: metadata, reveal-in-explorer, in-page preview player, JSON sidecar link |
 | `mediagrab/templates/channels.html` | Follow a channel (notify / auto-download), followed list |
-| `mediagrab/templates/settings.html` | Sidebar tabs (`data-tab`/`data-panel`, hash-routed): theme, default audio track (+ language-codes link), cookies, remote access (enable toggle, LAN address, storage mode keep/relay, password change, connected devices), version checks (yt-dlp/ffmpeg/deps), feedback |
+| `mediagrab/templates/settings.html` | Sidebar tabs (a ☰ dropdown below 720px; `data-tab`/`data-panel`, hash-routed): theme, default audio track (+ language-codes link), cookies, remote access (enable toggle, LAN address, storage mode keep/relay, password change, connected devices), version checks (yt-dlp/ffmpeg/deps), feedback |
 | `mediagrab/templates/supported_sites.html` | Categorised, clickable site chips with brand colour + local logo (Jinja macro) |
 | `mediagrab/templates/about.html` | What MediaGrab is, GPL-3.0 licence, GitHub/issues/changelog links (inline TR/EN) |
 | `mediagrab/templates/login.html` | Standalone (doesn't extend base.html - no nav to pages behind the gate) password prompt shown only when remote access is active and there's no valid session |
 | `mediagrab/static/app.js` | All client logic, one file, plain script (top-level functions are globals). Sections in order: DOM roots → theme → `I18N` (TR/EN, incl. `audioTrackNames` code→name map) → state (`lastProbe`, `selectedSubtitles`, `selectedAudioLangs`) → home page (`probe`, `renderCard` with audio/video tabs + description, `renderPlaylist`, `startDownload`) → download dock (`ensureJobEventStream`/`applyJobUpdate`, one shared `/api/events` SSE connection, localStorage-tracked job ids) → `loadClientInfo`/`isLocalClient`/`revealFile` (reveal-in-explorer on the host vs a real `/download` for a LAN device) → history (`loadHistory`, filters, view mode) → channels/pending → settings (yt-dlp/ffmpeg/deps, tab routing `showSettingsTab`, cookies, default audio lang, remote access: `toggleRemoteAccess`, `saveRemoteAccessStorageMode`/`renderRemoteAccessStorageMode` (keep/relay), `saveRemoteAccessPassword`, `loadRemoteAccessDevices`/`revokeRemoteAccessDevice`) → `updateHeaderHeightVar` (sticky preview offset) |
-| `mediagrab/static/style.css` | All styles; design tokens on `:root` (`--bg`, `--surface`, `--accent`, …), dark-first with light overrides; `.result-layout` (1/3 preview sticky : 2/3 options), `.format-tabs`, `.settings-layout`, `#history-list.view-list`, `.sites-chip`, `.download-dock` |
+| `mediagrab/static/style.css` | All styles; design tokens on `:root` (`--bg`, `--surface`, `--accent`, …), dark-first with light overrides; `.result-layout` (1/3 preview sticky : 2/3 options), `.format-tabs`, `.settings-layout`, mobile rules (`.nav-toggle` dropdowns, wrapped list/channel rows, 16px form fields against iOS zoom - each media block sits AFTER the base rule it overrides, same specificity so source order decides), `#history-list.view-list`, `.sites-chip`, `.download-dock` |
 | `mediagrab/static/sw.js` | PWA service worker (served at `/sw.js` by `app.py`) |
 | `mediagrab/static/manifest.json` | PWA manifest |
 | `mediagrab/static/qrcode.js` | Third-party (MIT, davidshimjs/qrcodejs), unmodified - local file, not CDN-loaded, matching the app's offline/local philosophy. Only loaded on `/settings` (see its `<script>` tag there); renders the remote-access LAN address as a scannable QR code |
@@ -102,6 +102,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `README.md` | Short landing page: what it is, install links, licence split, legal |
 | `docs/README.tr.md`, `docs/README.en.md` | Full guides: features, install (installer + from source), running, channels, troubleshooting, structure, licences |
 | `docs/language-codes.tr.md`, `docs/language-codes.en.md` | ISO 639-1 code ↔ name tables (linked from Settings → Default Audio Track) |
+| `docs/images/` | Screenshots used by the guides and the main README (`<name>-tr.png` / `<name>-en.png` per language, plus `hero.png`). Taken from an isolated instance with sample data (Blender's open-licensed films), dark theme; the phone shots are taken over the LAN address so they show what a real remote phone sees |
 | `maps/project-map.md`, `maps/site-map.md` | This file and the route map |
 | `CHANGELOG.md` | Per-release notes, TR then EN |
 | `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md` | Contributor guide, vulnerability reporting, rules for AI tools |

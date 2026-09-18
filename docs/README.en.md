@@ -6,7 +6,9 @@
 
 **Contents**
 
+- [Quick start](#quick-start)
 - [What it does](#what-it-does)
+- [Example scenarios](#example-scenarios)
 - [Features](#features)
 - [Installation](#installation)
   - [Method A: Easy install (Windows)](#method-a-easy-install-windows-mediagrabsetupexe)
@@ -16,6 +18,7 @@
 - [How Channel Following Works](#how-channel-following-works)
 - [Remote Access (From Your Local Network)](#remote-access-from-your-local-network)
 - [Home Server Mode](#home-server-mode)
+- [Using It On Mobile](#using-it-on-mobile)
 - [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
 - [Project structure](#project-structure)
@@ -27,44 +30,111 @@
 
 Paste a link, download it. A local, personal-use video/audio downloader.
 
+![Home page](images/home-en.png)
+
+## Quick start
+
+| Path | Best for | Needs |
+|---|---|---|
+| [Windows easy install](#method-a-easy-install-windows-mediagrabsetupexe) | Windows users who'd rather not type terminal commands | Git, Python, ffmpeg |
+| [Docker](#method-c-docker-any-platform) | An always-on machine (Raspberry Pi, mini PC), or anyone who'd rather not install Python | Docker |
+| [Manual install](#method-b-manual-install-from-source-any-platform) | Any platform, developers | Git, Python, ffmpeg |
+
+Once installed, open `http://localhost:8420` in your browser. Full steps are in [Installation](#installation) below.
+
 ## What it does
 
 Paste a YouTube or YouTube Music link (a single video, a playlist, or an album). MediaGrab resolves it, lists the available audio/video qualities and any subtitle languages, and downloads whichever option you pick straight to your disk. Beyond YouTube, many other sites supported by yt-dlp (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more — [full list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) work through the same flow; channel following, however, currently supports YouTube channels only.
 
+## Example scenarios
+
+### 1. Downloading one video or song
+
+1. Paste a YouTube (or other supported site) link into the box on the home page — it resolves automatically the moment you paste.
+2. Pick the quality you want from the **Audio** or **Video** tab (or, in a hurry, "Best audio" / "Best video" downloads in one click).
+3. The download progresses in the panel at the bottom of the page; when it's done, click **Download file** and it opens in your file explorer with the file selected.
+
+![A resolved video](images/resolve-en.png)
+
+![The download panel](images/dock-en.png)
+
+### 2. Downloading a whole playlist
+
+Paste the playlist link; the videos are listed with covers, titles and durations. Click one to download it individually, or pick a range (e.g. 1–19) and **queue them all with one click**.
+
+### 3. Using it from your phone
+
+1. On the computer, go to **Settings → Remote Access**, set a password and turn on "Allow access from the local network".
+2. Open the address (or scan the QR code) shown in that same panel in your phone's browser.
+3. Log in with the password; paste a link and download — the file goes straight to your phone.
+
+![The Remote Access panel](images/settings-remote-en.png)
+
+<p align="center">
+  <img src="images/mobile-home-en.png" width="280" alt="MediaGrab on a phone">
+  &nbsp;&nbsp;
+  <img src="images/mobile-menu-en.png" width="280" alt="MediaGrab on a phone">
+</p>
+
+### 4. An always-on home server on a Raspberry Pi
+
+1. Install MediaGrab with [Docker](#method-c-docker-any-platform).
+2. Turn on **Settings → Remote Access → Home Server Mode**: your followed list is checked every 3 hours even if you never open the app.
+3. Add a channel from **Channels** in **Auto-download** mode and new uploads download by themselves. If you set the storage mode to **Relay To Device**, a file is deleted from the Pi once it has been sent to your device.
+
+![The Channels page](images/channels-en.png)
+
+### 5. Moving your setup to another computer
+
+**Settings → Backup → Export** saves all your settings and your followed list into one file; **Import** restores it on the new install. Your remote-access password is not included in the backup.
+
 ## Features
+
+### Downloading
 
 - **Audio** — Opus / M4A (remuxed, no re-encoding, no quality loss) or MP3 (re-encoded for universal compatibility)
 - **Video** — every available resolution, auto-merged with audio into an mp4; when YouTube reports no real filesize, an estimate (`~1.2 GB`) is computed from the average bitrate
-- **Audio track (dub) selection, more than one at once** — pick the language you want when a video has more than one dub, or pick several at once (e.g. original + Turkish) to get them embedded as separate tracks in a `.mkv`. Only shows up when the video actually has a dub, and picking nothing gets you the original. Multi-select only applies to video downloads; a single pick works for audio too. Save a default language in `/settings` so you don't have to click a chip every time — channel auto-download uses it too (single language). Not sure of a code? Check the [language code reference](language-codes.en.md)
-- **Subtitles** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them
-- **Transcript download** — for videos with subtitles (manual or auto-generated), you can separately download a plain-text transcript (`.txt`)
-- **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link; one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
+- **Audio track (dub) selection, more than one at once** — pick the language you want when a video has more than one dub, or pick several at once (e.g. original + Turkish) to get them embedded as separate tracks in a `.mkv`. Only shows up when the video actually has a dub, and picking nothing gets you the original. Multi-select only applies to video downloads; a single pick works for audio too. Save a default language in `/settings` — channel auto-download uses it too (single language). Not sure of a code? Check the [language code reference](language-codes.en.md)
+- **Subtitles and transcripts** — check off manually-provided subtitle languages and they download together with whichever video you pick, sharing the same filename (`video.mp4` + `video.en.srt`) so media players auto-match them. For videos with subtitles (manual or auto-generated), you can also separately download a plain-text transcript (`.txt`)
+- **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; download one individually, or pick a range and queue them all with one click
+- **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more). The `/supported-sites` page has a short list of popular ones (each with its brand color, linking to the site's homepage)
+- **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL
+- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`)
+- **Cancel a download, and existing files are protected** — stop a running download from the panel (partial files are cleaned up); if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
+- **Download speed limiting and a disk-space shield** (`/settings`) — set an optional overall speed cap; a download is refused up front when there isn't enough free disk space left to finish it
+- **Cookie support** (`/settings`) — use your browser session's cookies for age-restricted, members-only or sign-in-required content: either a `cookies.txt` file (works everywhere) or straight from the browser. Your cookies are never copied; only the source name is stored
+- **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
+
+### Ease of use
+
+- **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link (secure contexts only, see [Using It On Mobile](#using-it-on-mobile)); one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
 - **Persistent download panel** — track multiple downloads at once, with an estimated time remaining alongside the speed; progress survives page navigation and even closing and reopening the app
 - **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
-- **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
-- **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; click one to download it individually, or pick a range (e.g. 1–19) and **queue them all with one click**
-- **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more)
-- **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL; also downloadable from the item detail page
-- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`), so files stay organized in your file explorer or media library apps
-- **Supported Sites page** (`/supported-sites`) — a short, categorized list of popular sites yt-dlp supports, with a link to the full list (1700+ sites); each one carries its site's brand color/logo and links to that site's homepage
-- **About page** (`/about`) — what the project is, its GPL-3.0 license, and links to the source code and feedback
-- **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
-- **Channel following** (`/channels`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service - see the note below.
-- **Remote access** (`/settings`) — set a password and turn it on, and your phone or another computer on the same Wi-Fi/network can connect to MediaGrab from its own browser and download on its own; see the dedicated section below for details.
-- **Home Server Mode** (`/settings`) — for anyone running MediaGrab on a machine that's on 24/7, like a Raspberry Pi: periodic (every 3 hours) automatic channel checking, and an easy-to-remember `mediagrab.local` address; see the dedicated section below for details.
-- **Docker support** — run it in a container without installing Python or Git; one click from the Windows installer, or `docker compose up -d` by hand — see below for details.
-- **Download speed limiting** and a **disk-space shield** (`/settings`) — set an optional overall speed cap, and a download is refused up front when there isn't enough free disk space left to finish it
-- **Backup / restore settings** (`/settings`) — export all your settings and followed channels (minus your password) into one file and import them into another install
-- **Download history** — its own page (`/history`), switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all
-- **Light / dark theme** — follows your system setting, or pick it by hand from `/settings` or the header toggle
-- **Cancel a download** — stop a running download from the panel; partial files are cleaned up automatically
-- **Existing files are protected** — if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
-- **Cookie support** (`/settings`) — use your browser session's cookies for age-restricted, members-only or sign-in-required content: either a `cookies.txt` file (works everywhere) or straight from the browser. Your cookies are never copied; only the source name is stored
-- **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
-- **Feedback** (`/settings`) — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature
-- **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
 - **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
-- **Turkish / English UI** — follows your system locale by default, switchable by hand
+- **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
+- **Mobile-friendly interface** — a collapsible menu on small screens, touch-sized buttons, comfortable on phones and tablets
+- **Light / dark theme and Turkish / English UI** — both follow your system setting by default, and can be switched by hand
+
+### Library and following
+
+- **Download history** (`/history`) — switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all
+
+![Download history](images/history-en.png)
+
+- **Channel following** (`/channels`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service (except in Home Server Mode) — see [How Channel Following Works](#how-channel-following-works)
+
+### Access and hosting
+
+- **Remote access** (`/settings`) — set a password and turn it on, and your phone or another computer on the same Wi-Fi/network can connect to MediaGrab from its own browser and download on its own; see [Remote Access](#remote-access-from-your-local-network)
+- **Home Server Mode** (`/settings`) — for anyone running MediaGrab on a machine that's on 24/7, like a Raspberry Pi: periodic (every 3 hours) automatic channel checking, and an easy-to-remember `mediagrab.local` address; see [Home Server Mode](#home-server-mode)
+- **Docker support** — run it in a container without installing Python or Git; one click from the Windows installer, or `docker compose up -d` by hand — see [Method C](#method-c-docker-any-platform)
+- **Backup / restore settings** (`/settings`) — export all your settings and followed channels (minus your password) into one file and import them into another install
+
+### Maintenance
+
+- **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
+- **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
+- **Feedback and About** — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature (`/settings`); the `/about` page covers the project, its GPL-3.0 license, and source links
 - **No** database, account system, or cloud connection — runs only on this machine
 
 ## Installation
@@ -280,6 +350,15 @@ Normally MediaGrab only runs while you have it open, and channel following only 
 
 Home Server Mode is independent of Remote Access: you can turn on either one alone, or both together.
 
+## Using It On Mobile
+
+When you open MediaGrab from a phone or tablet through [Remote Access](#remote-access-from-your-local-network), the interface adapts to the small screen:
+
+- **Collapsible menu** — on a narrow screen the top menu and the Settings page's category list become vertical lists that open and close with the ☰ icon; picking a category closes the menu by itself.
+- **Touch-sized buttons** — the small icon buttons (menu, theme, language) are enlarged on phones.
+- **Why is there no paste button?** Browsers only expose the clipboard-reading API in a secure context (HTTPS or `localhost`). Remote Access runs over plain HTTP, so that button can't work on a phone and isn't shown. **Long-press the link field and choose "Paste"** — the link still resolves automatically the moment it's pasted.
+- **`mediagrab.local` sometimes doesn't open** — `.local` name resolution is unreliable on Android browsers in particular (an Android limitation, not something MediaGrab can fix). When that happens, use the **IP address** (or its QR code) from Settings; that one always works.
+
 ## Tests
 
 There's a small suite that needs no network access and finishes in a couple of seconds (path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, front-end HTML escaping).
@@ -308,6 +387,12 @@ On Windows, find out which process holds the port and stop it with:
 Get-NetTCPConnection -LocalPort 8420 | Select-Object OwningProcess
 Stop-Process -Id <PID from above> -Force
 ```
+
+**There is no "Paste from clipboard" button on my phone**
+That's intentional: browsers don't let a page read the clipboard when it's served over plain HTTP (Remote Access). Long-press the link field and choose "Paste"; the link still resolves automatically. See [Using It On Mobile](#using-it-on-mobile).
+
+**`mediagrab.local` won't open on my phone (Android especially)**
+`.local` name resolution is unreliable in Android browsers. Use the IP address (or its QR code) from Settings → Remote Access. In Docker on Windows/Mac `mediagrab.local` never works at all, see [Home Server Mode](#home-server-mode).
 
 **`ImportError: attempted relative import with no known parent package`**
 Don't run `mediagrab/app.py` directly with `python app.py`; always use `uvicorn mediagrab.app:app` from the project root — otherwise the package's internal relative imports break.
@@ -345,7 +430,7 @@ Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
 docker-compose.yml  # example compose file (for a manual Docker install)
 .dockerignore
 tests/              # pytest suite (no network required)
-docs/               # this file, its Turkish counterpart, and the language code reference (language-codes.*.md)
+docs/               # this file, its Turkish counterpart, the language code reference (language-codes.*.md) and screenshots (images/)
 maps/               # detailed project map and route map (test-guarded, for AI tools and contributors)
 requirements.txt
 requirements-dev.txt  # development only (pytest) — the app never reads this

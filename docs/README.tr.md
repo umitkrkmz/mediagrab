@@ -6,7 +6,9 @@
 
 **İçindekiler**
 
+- [Hızlı başlangıç](#hızlı-başlangıç)
 - [Ne yapar](#ne-yapar)
+- [Örnek senaryolar](#örnek-senaryolar)
 - [Özellikler](#özellikler)
 - [Kurulum](#kurulum)
   - [Yöntem A: Kolay kurulum (Windows)](#yöntem-a-kolay-kurulum-windows-mediagrabsetupexe)
@@ -16,6 +18,7 @@
 - [Kanal Takibi Nasıl Çalışır](#kanal-takibi-nasıl-çalışır)
 - [Uzaktan Erişim (Yerel Ağdan)](#uzaktan-erişim-yerel-ağdan)
 - [Ev Sunucusu Modu](#ev-sunucusu-modu)
+- [Mobil Kullanım](#mobil-kullanım)
 - [Testler](#testler)
 - [Sorun Giderme](#sorun-giderme)
 - [Proje yapısı](#proje-yapısı)
@@ -27,44 +30,111 @@
 
 Link yapıştır, indir. Lokalde çalışan, kişisel kullanım için video/ses indirme aracı.
 
+![Ana sayfa](images/home-tr.png)
+
+## Hızlı başlangıç
+
+| Yol | Kime uygun | Gerekenler |
+|---|---|---|
+| [Windows kolay kurulum](#yöntem-a-kolay-kurulum-windows-mediagrabsetupexe) | Windows'ta terminal komutu yazmak istemeyenler | Git, Python, ffmpeg |
+| [Docker](#yöntem-c-docker-her-platform) | 7/24 açık bir makine (Raspberry Pi, mini PC) veya Python kurmak istemeyenler | Docker |
+| [Elle kurulum](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform) | Her platform, geliştiriciler | Git, Python, ffmpeg |
+
+Kurulumdan sonra tarayıcıda `http://localhost:8420` açılır. Ayrıntılı adımlar aşağıdaki [Kurulum](#kurulum) bölümünde.
+
 ## Ne yapar
 
 Bir YouTube veya YouTube Music linki (tekil video, playlist ya da albüm) yapıştırırsınız; MediaGrab linki çözümler, mevcut ses/video kalitelerini ve varsa altyazı dillerini listeler. Seçtiğiniz seçenek indirilir ve tarayıcıdan diskinize kaydedilir. YouTube dışında, yt-dlp'nin desteklediği diğer birçok site de (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb. — [tam liste](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)) aynı akıştan çalışır; kanal takibi özelliği ise şimdilik yalnızca YouTube kanallarını destekler.
 
+## Örnek senaryolar
+
+### 1. Bir videoyu ya da şarkıyı indirmek
+
+1. Ana sayfadaki kutuya YouTube (veya desteklenen başka bir site) linkini yapıştırın — yapıştırır yapıştırmaz otomatik çözümlenir.
+2. **Ses** ya da **Video** sekmesinden istediğiniz kaliteyi seçin (acele ediyorsanız "En iyi ses" / "En iyi video" tek tıkla iner).
+3. İndirme, sayfanın altındaki panelde ilerler; bitince **Dosyayı indir**'e tıklayınca dosya bilgisayarınızda seçili şekilde açılır.
+
+![Çözümlenmiş video](images/resolve-tr.png)
+
+![İndirme paneli](images/dock-tr.png)
+
+### 2. Bir playlist'i toplu indirmek
+
+Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. Birine tıklayıp tek tek indirebilir, ya da aralık seçip (ör. 1–19) **tümünü tek tıkla** kuyruğa atabilirsiniz.
+
+### 3. Telefondan kullanmak
+
+1. Bilgisayarda **Ayarlar → Uzaktan Erişim**'e gidin, bir şifre belirleyip "Yerel ağdan erişime izin ver"i açın.
+2. Aynı panelde çıkan adresi ya da QR kodu telefonunuzun tarayıcısında açın.
+3. Şifreyle giriş yapın; link yapıştırıp indirin, dosya doğrudan telefonunuza iner.
+
+![Uzaktan erişim paneli](images/settings-remote-tr.png)
+
+<p align="center">
+  <img src="images/mobile-home-tr.png" width="280" alt="Telefonda MediaGrab">
+  &nbsp;&nbsp;
+  <img src="images/mobile-menu-tr.png" width="280" alt="Telefonda MediaGrab">
+</p>
+
+### 4. Raspberry Pi'de 7/24 ev sunucusu
+
+1. MediaGrab'ı [Docker](#yöntem-c-docker-her-platform) ile kurun.
+2. **Ayarlar → Uzaktan Erişim → Ev Sunucusu Modu**'nu açın: takip listeniz siz uygulamayı açmasanız bile her 3 saatte bir kontrol edilir.
+3. **Kanallar**'dan bir kanalı **Otomatik indir** modunda ekleyin; yeni videolar kendiliğinden iner. Depolama modunu **Cihaza Aktar** yaparsanız, bir dosya cihazınıza gönderildikten sonra Pi'deki kopya silinir.
+
+![Kanallar sayfası](images/channels-tr.png)
+
+### 5. Kurulumu başka bir bilgisayara taşımak
+
+**Ayarlar → Yedekle → Dışa Aktar** tüm ayarlarınızı ve takip listenizi tek bir dosyaya kaydeder; yeni kurulumda **İçe Aktar** ile geri yüklersiniz. Uzaktan erişim şifreniz yedeğe dahil edilmez.
+
 ## Özellikler
+
+### İndirme
 
 - **Ses** — Opus / M4A (yeniden kodlanmadan, kalite kaybı yok) veya MP3 (evrensel uyumluluk için yeniden kodlanır)
 - **Video** — mevcut tüm çözünürlükler, ses ile otomatik birleştirilmiş mp4 olarak; YouTube gerçek dosya boyutunu vermediğinde ortalama bit hızından tahmini boyut (`~1.2 GB`) gösterilir
-- **Ses parçası (dublaj) seçimi, birden fazlası bir arada** — birden fazla dilde seslendirilmiş bir video için istediğiniz dili (veya videoyu `.mkv` olarak indirip birden fazla dili aynı anda, ör. orijinal + Türkçe) seçebilirsiniz; sadece gerçekten dublajı varsa görünür, hiçbirini seçmezseniz orijinal dil iner. Çoklu seçim yalnızca video indirmede geçerli, tekli seçim sesle de çalışır. `/settings`'ten bir varsayılan dil kaydedebilirsiniz, böylece her seferinde chip'e tıklamanıza gerek kalmaz — kanal otomatik indirmesi de bu ayarı kullanır (tek dil ile). Dil kodunu bilmiyorsanız [dil kodu sözlüğüne](language-codes.tr.md) bakabilirsiniz
-- **Altyazı** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir
-- **Transkript indirme** — altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkripti (`.txt`) ayrıca indirebilirsiniz
-- **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu; en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
+- **Ses parçası (dublaj) seçimi, birden fazlası bir arada** — birden fazla dilde seslendirilmiş bir video için istediğiniz dili (veya videoyu `.mkv` olarak indirip birden fazla dili aynı anda, ör. orijinal + Türkçe) seçebilirsiniz; sadece gerçekten dublajı varsa görünür, hiçbirini seçmezseniz orijinal dil iner. Çoklu seçim yalnızca video indirmede geçerli, tekli seçim sesle de çalışır. `/settings`'ten bir varsayılan dil kaydedebilirsiniz — kanal otomatik indirmesi de bu ayarı kullanır (tek dil ile). Dil kodunu bilmiyorsanız [dil kodu sözlüğüne](language-codes.tr.md) bakabilirsiniz
+- **Altyazı ve transkript** — elle eklenmiş altyazı dillerini işaretleyip seçtiğiniz videoyla birlikte, aynı dosya adıyla (`video.mp4` + `video.tr.srt`) indirir; medya oynatıcılar otomatik eşleştirir. Altyazısı (elle eklenmiş veya otomatik oluşturulmuş) olan videolar için düz metin transkripti (`.txt`) ayrıca indirebilirsiniz
+- **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir; tek tek ya da aralık seçip tümünü tek tıkla kuyruğa atabilirsiniz
+- **Çoklu platform** — YouTube'a özel değil; yt-dlp'nin desteklediği 1700'den fazla site (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb.) aynı arayüzden çalışır. `/supported-sites` sayfasında popüler sitelerin kısa bir listesi var (her biri kendi marka rengiyle, tıklayınca sitenin ana sayfasına gider)
+- **Meta veri (JSON) dışa aktarma** — her indirmeyle birlikte aynı dosya adıyla (`video.mp4` + `video.json`) başlık, kanal, yükleme tarihi, açıklama, etiketler ve kaynak linki gibi bilgileri içeren bir JSON dosyası kaydedilir
+- **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir
+- **İndirmeyi iptal etme ve var olan dosyayı koruma** — süren bir indirmeyi panelden durdurun (yarım dosyalar temizlenir); aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
+- **İndirme hızı sınırlama ve disk alanı kalkanı** (`/settings`) — isteğe bağlı bir üst hız sınırı belirleyebilir; disk alanı bir indirmeyi bitirmeye yetmeyecek kadar azaldığında indirme baştan reddedilir
+- **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için tarayıcı oturumunuzun çerezlerini kullanın: `cookies.txt` dosyası (her yerde çalışır) veya doğrudan tarayıcıdan. Çerezleriniz kopyalanmaz, yalnızca kaynağın adı saklanır
+- **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
+
+### Kullanım kolaylığı
+
+- **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu (yalnızca güvenli bağlamda, bkz. [Mobil Kullanım](#mobil-kullanım)); en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
 - **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; hız yanında kalan tahmini süre de gösterilir; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
 - **Sayfa içi önizleme** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın
-- **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
-- **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir; birine tıklayıp tek tek indirebilir ya da aralık seçip (ör. 1–19) **tümünü tek tıkla** kuyruğa atabilirsiniz
-- **Çoklu platform** — YouTube'a özel değil; yt-dlp'nin desteklediği 1700'den fazla site (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb.) aynı arayüzden çalışır
-- **Meta veri (JSON) dışa aktarma** — her indirmeyle birlikte aynı dosya adıyla (`video.mp4` + `video.json`) başlık, kanal, yükleme tarihi, açıklama, etiketler ve kaynak linki gibi bilgileri içeren bir JSON dosyası kaydedilir; indirme detay sayfasından ayrıca indirilebilir
-- **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir; disk üzerinde dosya gezgininde veya medya kitaplığı uygulamalarında düzenli görünür
-- **Desteklenen Siteler sayfası** (`/supported-sites`) — yt-dlp'nin desteklediği popüler sitelerin kategorilere ayrılmış kısa bir listesi, tam listeye (1700+ site) link ile; her site kendi marka renginde/logosuyla ve tıklanınca ilgili sitenin ana sayfasına gidiyor
-- **Hakkında sayfası** (`/about`) — proje ne yapar, GPL-3.0 lisansı ve kaynak kod/geri bildirim linkleri
-- **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
-- **Kanal takibi** (`/channels`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil — bkz. aşağıdaki not.
-- **Uzaktan erişim** (`/settings`) — bir şifre belirleyip açtığınızda, aynı Wi-Fi/ağdaki telefon veya başka bir bilgisayar tarayıcıdan MediaGrab'e bağlanıp kendi başına indirme yapabilir; detaylar için aşağıdaki bölüme bakın.
-- **Ev Sunucusu Modu** (`/settings`) — bir Raspberry Pi gibi 7/24 açık bir makinede çalıştıranlar için: periyodik (3 saatte bir) otomatik kanal kontrolü ve hatırlaması kolay `mediagrab.local` adresi; detaylar için aşağıdaki bölüme bakın.
-- **Docker desteği** — Python veya Git kurmadan, doğrudan bir container'da çalıştırabilirsiniz; Windows kurulum programında tek tıkla, veya elle `docker compose up -d` ile — detaylar için aşağıya bakın.
-- **İndirme hızı sınırlama** ve **disk alanı kalkanı** (`/settings`) — isteğe bağlı bir üst hız sınırı belirleyebilir, disk alanı bir indirmeyi bitirmeye yetmeyecek kadar azaldığında indirme baştan reddedilir
-- **Ayarları yedekle / içe aktar** (`/settings`) — tüm ayarlarınızı ve takip listenizi tek bir dosyaya (şifreniz hariç) dışa aktarıp başka bir kuruluma aktarabilirsiniz
-- **İndirme geçmişi** — ayrı bir sayfada (`/history`), kapak resimli kart görünümü veya kompakt liste görünümü arasında geçiş yapılabilir; başlığa göre arama, kanala göre ve dosya türüne göre (diskteki gerçek uzantılardan otomatik oluşan) filtreleme, tekrar indirme, silme, tümünü silme
-- **Açık / koyu tema** — sistem ayarını takip eder, `/settings` sayfasından veya başlıktaki düğmeyle elle de seçilebilir
-- **İndirmeyi iptal etme** — süren bir indirmeyi panelden durdurun; yarım kalan dosyalar otomatik temizlenir
-- **Var olan dosyayı koruma** — aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
-- **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için tarayıcı oturumunuzun çerezlerini kullanın: `cookies.txt` dosyası (her yerde çalışır) veya doğrudan tarayıcıdan. Çerezleriniz kopyalanmaz, yalnızca kaynağın adı saklanır
-- **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
-- **Geri bildirim** (`/settings`) — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin
-- **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
 - **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
-- **Türkçe / İngilizce arayüz** — sistem diline göre otomatik, elle de değiştirilebilir
+- **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
+- **Mobil uyumlu arayüz** — küçük ekranlarda açılır menü, dokunmaya uygun büyüklükte butonlar, telefon ve tablette rahat kullanım
+- **Açık / koyu tema ve Türkçe / İngilizce arayüz** — ikisi de sistem ayarını takip eder, elle de değiştirilebilir
+
+### Kütüphane ve takip
+
+- **İndirme geçmişi** (`/history`) — kapak resimli kart görünümü veya kompakt liste görünümü arasında geçiş yapılabilir; başlığa göre arama, kanala göre ve dosya türüne göre (diskteki gerçek uzantılardan otomatik oluşan) filtreleme, tekrar indirme, silme, tümünü silme
+
+![İndirme geçmişi](images/history-tr.png)
+
+- **Kanal takibi** (`/channels`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil (Ev Sunucusu Modu hariç) — bkz. [Kanal Takibi Nasıl Çalışır](#kanal-takibi-nasıl-çalışır)
+
+### Erişim ve barındırma
+
+- **Uzaktan erişim** (`/settings`) — bir şifre belirleyip açtığınızda, aynı Wi-Fi/ağdaki telefon veya başka bir bilgisayar tarayıcıdan MediaGrab'e bağlanıp kendi başına indirme yapabilir; detaylar için [Uzaktan Erişim](#uzaktan-erişim-yerel-ağdan) bölümüne bakın
+- **Ev Sunucusu Modu** (`/settings`) — bir Raspberry Pi gibi 7/24 açık bir makinede çalıştıranlar için: periyodik (3 saatte bir) otomatik kanal kontrolü ve hatırlaması kolay `mediagrab.local` adresi; bkz. [Ev Sunucusu Modu](#ev-sunucusu-modu)
+- **Docker desteği** — Python veya Git kurmadan, doğrudan bir container'da çalıştırabilirsiniz; Windows kurulum programında tek tıkla, veya elle `docker compose up -d` ile — bkz. [Yöntem C](#yöntem-c-docker-her-platform)
+- **Ayarları yedekle / içe aktar** (`/settings`) — tüm ayarlarınızı ve takip listenizi tek bir dosyaya (şifreniz hariç) dışa aktarıp başka bir kuruluma aktarabilirsiniz
+
+### Bakım
+
+- **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
+- **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
+- **Geri bildirim ve Hakkında** — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin (`/settings`); `/about` sayfasında proje, GPL-3.0 lisansı ve kaynak kod linkleri
 - Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır
 
 ## Kurulum
@@ -280,6 +350,15 @@ Normalde MediaGrab yalnızca siz açtığınızda çalışır ve kanal takibini 
 
 Ev Sunucusu Modu, Uzaktan Erişim'den bağımsız bir ayardır: birini açıp diğerini kapalı bırakabilir, ya da ikisini birlikte kullanabilirsiniz.
 
+## Mobil Kullanım
+
+MediaGrab'ı telefondan ya da tabletten, [Uzaktan Erişim](#uzaktan-erişim-yerel-ağdan) ile açtığınızda arayüz küçük ekrana uyum sağlar:
+
+- **Açılır menü** — dar ekranda üst menü ve Ayarlar sayfasının kategori listesi, ☰ simgesiyle açılıp kapanan dikey birer liste olur; bir kategori seçince menü kendiliğinden kapanır.
+- **Dokunmaya uygun butonlar** — küçük simge butonları (menü, tema, dil) telefonda büyütülür.
+- **Yapıştır butonu neden yok?** Tarayıcılar panoyu okuma API'sini yalnızca güvenli bağlamda (HTTPS veya `localhost`) açar. Uzaktan erişim düz HTTP üzerinden çalıştığı için telefonda o buton çalışamaz, bu yüzden gösterilmez. Link alanına **uzun basıp "Yapıştır"**ı seçmeniz yeterli — yapıştırır yapıştırmaz link yine otomatik çözümlenir.
+- **`mediagrab.local` bazen açılmıyor** — özellikle Android tarayıcılarında `.local` adreslerinin çözümlenmesi güvenilir değildir (Android'in kendi kısıtı). Böyle bir durumda Ayarlar'daki **IP adresini** (veya onun QR kodunu) kullanın; o her zaman çalışır.
+
 ## Testler
 
 Ağ erişimi gerektirmeyen, birkaç saniyede biten bir test paketi var (yol güvenliği, VTT/transkript ayrıştırma, sürüm karşılaştırma, yedekle-geri-yükle, çeviri bütünlüğü, arayüzdeki HTML kaçışı).
@@ -308,6 +387,12 @@ Windows'ta hangi sürecin portu tuttuğunu bulup kapatmak için:
 Get-NetTCPConnection -LocalPort 8420 | Select-Object OwningProcess
 Stop-Process -Id <yukarıdaki PID> -Force
 ```
+
+**Telefonda "Panodan yapıştır" butonu yok**
+Bu bilinçli: tarayıcılar, düz HTTP üzerinden (uzaktan erişim) açılan sayfalarda panoyu okumaya izin vermez. Link alanına uzun basıp "Yapıştır"ı seçin; link yine otomatik çözümlenir. Ayrıntılar için bkz. [Mobil Kullanım](#mobil-kullanım).
+
+**`mediagrab.local` telefonda (özellikle Android'de) açılmıyor**
+Android tarayıcılarında `.local` çözümlemesi güvenilir değildir. Ayarlar → Uzaktan Erişim'deki IP adresini (veya QR kodunu) kullanın. Docker'da (Windows/Mac) `mediagrab.local` zaten hiç çalışmaz, bkz. [Ev Sunucusu Modu](#ev-sunucusu-modu).
 
 **`ImportError: attempted relative import with no known parent package`**
 `mediagrab/app.py`'yi doğrudan `python app.py` ile çalıştırmayın; her zaman proje kök dizininden `uvicorn mediagrab.app:app` kullanın — aksi halde paket içi göreli importlar çalışmaz.
@@ -345,7 +430,7 @@ Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)
 docker-compose.yml  # örnek compose dosyası (elle Docker kurulumu için)
 .dockerignore
 tests/              # pytest paketi (ağ gerektirmez)
-docs/               # bu dosya, İngilizce karşılığı ve dil kodu sözlüğü (language-codes.*.md)
+docs/               # bu dosya, İngilizce karşılığı, dil kodu sözlüğü (language-codes.*.md) ve ekran görüntüleri (images/)
 maps/               # ayrıntılı proje haritası ve rota haritası (test-korumalı, AI araçları ve katkıcılar için)
 requirements.txt
 requirements-dev.txt  # yalnızca geliştirme (pytest) — uygulama bunu okumaz

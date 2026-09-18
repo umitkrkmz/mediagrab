@@ -53,8 +53,12 @@ def test_every_repo_file_is_on_the_project_map():
 
 def test_a_directory_in_a_heading_does_not_count_as_coverage():
     text = PROJECT_MAP.read_text(encoding="utf-8")
-    assert "`mediagrab/static/icons/`" in text  # the one legitimate directory row
-    assert _directory_rows(text) == {"mediagrab/static/icons/"}, _directory_rows(text)
+    # NOTE: the legitimate directory rows - each one covers a folder of many
+    # near-identical files (logos, screenshots) that would be noise as one row
+    # apiece. A new entry here should be a deliberate decision, not an accident.
+    assert "`mediagrab/static/icons/`" in text
+    assert "`docs/images/`" in text
+    assert _directory_rows(text) == {"mediagrab/static/icons/", "docs/images/"}, _directory_rows(text)
 
 
 def test_the_project_map_lists_no_file_that_does_not_exist():

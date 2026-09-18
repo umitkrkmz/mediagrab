@@ -8,6 +8,13 @@
 
 **English:** Paste a link, download it. A local, personal-use video/audio downloader. Works with YouTube, YouTube Music, and 1700+ other sites yt-dlp supports (Vimeo, SoundCloud, Twitch, and more) — no database, account system, or cloud connection.
 
+![MediaGrab](docs/images/hero.png)
+
+## Öne çıkanlar / Highlights
+
+- **TR:** Ses/video indirme, playlist ve kanal takibi · telefondan kullanım (QR kodla) · Raspberry Pi'de 7/24 ev sunucusu · Docker desteği · Türkçe/İngilizce arayüz
+- **EN:** Audio/video downloads, playlists and channel following · use it from your phone (via QR code) · an always-on home server on a Raspberry Pi · Docker support · Turkish/English UI
+
 ## Kurulum / Installation
 
 - **Windows, kolay yol:** [son sürümü indirin](https://github.com/umitkrkmz/mediagrab/releases/latest) (`MediaGrabSetup.exe`) ve çalıştırın.
