@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProbeRequest(BaseModel):
@@ -168,10 +168,29 @@ class LocaleResponse(BaseModel):
     lang: Literal["tr", "en"]
 
 
+# NOTE: the content arrives as text (the browser's FileReader) in a JSON body
+# rather than as a multipart upload - FastAPI's File/UploadFile needs the
+# extra python-multipart package, which a few KB of text doesn't justify.
+# The cap mirrors downloader.COOKIES_MAX_BYTES (enforced again there, in
+# bytes) so an oversized body is refused before it's even parsed.
+class CookieInspectRequest(BaseModel):
+    content: str = Field(max_length=5 * 1024 * 1024)
+
+
+class CookieUploadRequest(BaseModel):
+    content: str = Field(max_length=5 * 1024 * 1024)
+    sites: list[str]
+
+
 class YtdlpVersionResponse(BaseModel):
     installed: str
     latest: Optional[str] = None
     update_available: Optional[bool] = None
+    # NOTE: see downloader.js_runtime_status - None means "not found".
+    js_runtime: Optional[str] = None
+    js_runtime_version: Optional[str] = None
+    js_solver: Optional[str] = None
+    is_docker: bool = False
 
 
 class ChannelAddRequest(BaseModel):

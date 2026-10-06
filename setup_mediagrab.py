@@ -582,6 +582,7 @@ def docker_compose_yaml(password: str, host_lan_ip) -> str:
         "      - ./data/settings.json:/app/settings.json\n"
         "      - ./data/channels.json:/app/channels.json\n"
         "      - ./data/pip-packages:/data/pip-packages\n"
+        "      - ./data/cookies:/data/cookies\n"
     )
 
 

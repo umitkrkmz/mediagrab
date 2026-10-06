@@ -1,6 +1,15 @@
 fastapi>=0.111
 uvicorn[standard]>=0.30
-yt-dlp>=2024.8.6
+# NOTE: the extras are what make YouTube fully work. Since 2025.11 yt-dlp
+# needs a JavaScript runtime to solve YouTube's player challenges - without
+# one, formats go missing and signed-in/age-restricted videos can fail even
+# with valid cookies. [deno] installs Deno itself as a pip wheel (Windows,
+# Linux x86_64 + aarch64, macOS - so the same line covers the installer's
+# venv AND the Docker image), [default] brings yt-dlp-ejs (the challenge
+# solver scripts, pinned by yt-dlp to the version it expects) plus yt-dlp's
+# other recommended optional packages. downloader.YTDLP_PIP_SPEC uses this
+# exact spec for the in-app update so the three never drift apart.
+yt-dlp[default,deno]>=2026.8.19
 pydantic>=2.7
 jinja2>=3.1
 # NOTE: not imported by MediaGrab's own code - yt-dlp needs it to embed cover

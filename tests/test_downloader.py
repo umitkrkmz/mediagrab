@@ -6,6 +6,8 @@ so the suite stays fast and runs offline.
 """
 
 import os
+import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -528,3 +530,230 @@ def test_playlist_is_skipped(tmp_path):
     ydl = _FakeYdl(str(media), info={"_type": "playlist"})
     assert downloader._backup_existing_outputs(ydl, "u") == []
     assert media.exists()
+
+
+# --- YouTube JS runtime (Deno + yt-dlp-ejs) ----------------------------------
+
+
+def _requirements_ytdlp_spec() -> str:
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "requirements.txt")
+    with open(path, encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if line.startswith("yt-dlp"):
+                return re.split(r"[<>=!~;]", line, maxsplit=1)[0].strip()
+    raise AssertionError("no yt-dlp line in requirements.txt")
+
+
+def test_requirements_pull_in_deno_and_the_solver_scripts():
+    # NOTE: without these two extras YouTube challenge solving silently stops
+    # working - formats go missing and age-restricted videos fail even with
+    # valid cookies (see the NOTE in requirements.txt).
+    spec = _requirements_ytdlp_spec()
+    extras = set(spec[spec.index("[") + 1 : spec.index("]")].split(","))
+    assert {"default", "deno"} <= extras
+
+
+def test_in_app_update_installs_the_same_spec_as_requirements():
+    # NOTE: a plain "yt-dlp" update would leave yt-dlp-ejs at the old pinned
+    # version, which a newer yt-dlp then refuses to use.
+    assert downloader.YTDLP_PIP_SPEC == _requirements_ytdlp_spec()
+
+
+def test_update_ytdlp_runs_pip_with_the_full_spec(monkeypatch):
+    monkeypatch.setattr(downloader, "is_docker", lambda: False)
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(downloader.subprocess, "run", fake_run)
+    downloader.update_ytdlp()
+    assert captured["cmd"][-1] == downloader.YTDLP_PIP_SPEC
+    assert "yt-dlp" not in captured["cmd"]
+
+
+def _fake_ydl_with_runtimes(runtimes):
+    class FakeYdl:
+        def __init__(self, params):
+            self._js_runtimes = runtimes
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    return FakeYdl
+
+
+def _runtime(version, supported=True):
+    return SimpleNamespace(info=SimpleNamespace(version=version, supported=supported))
+
+
+@pytest.fixture
+def solver_installed(monkeypatch):
+    import yt_dlp.dependencies
+
+    monkeypatch.setattr(yt_dlp.dependencies, "yt_dlp_ejs", SimpleNamespace(version="0.8.0"))
+
+
+def test_js_runtime_status_reports_a_usable_runtime(monkeypatch, solver_installed):
+    monkeypatch.setattr(downloader, "YoutubeDL", _fake_ydl_with_runtimes({"deno": _runtime("2.9.7")}))
+    assert downloader.js_runtime_status() == {
+        "js_runtime": "deno",
+        "js_runtime_version": "2.9.7",
+        "js_solver": "0.8.0",
+    }
+
+
+@pytest.mark.parametrize(
+    "runtime",
+    [
+        None,  # name yt-dlp doesn't know
+        SimpleNamespace(info=None),  # executable not found
+        _runtime("2.0.0", supported=False),  # too old
+    ],
+)
+def test_js_runtime_status_ignores_unusable_runtimes(monkeypatch, solver_installed, runtime):
+    monkeypatch.setattr(downloader, "YoutubeDL", _fake_ydl_with_runtimes({"deno": runtime}))
+    status = downloader.js_runtime_status()
+    assert status["js_runtime"] is None
+    assert status["js_runtime_version"] is None
+
+
+def test_js_runtime_status_reports_a_missing_solver(monkeypatch):
+    import yt_dlp.dependencies
+
+    monkeypatch.setattr(yt_dlp.dependencies, "yt_dlp_ejs", None)
+    monkeypatch.setattr(downloader, "YoutubeDL", _fake_ydl_with_runtimes({"deno": _runtime("2.9.7")}))
+    status = downloader.js_runtime_status()
+    assert status["js_solver"] is None
+    assert status["js_runtime"] == "deno"
+
+
+def test_js_runtime_status_survives_a_yt_dlp_internal_change(monkeypatch, solver_installed):
+    # NOTE: _js_runtimes is private yt-dlp API - if it ever disappears the
+    # Settings page must still load, just without runtime info.
+    class BrokenYdl:
+        def __init__(self, params):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(downloader, "YoutubeDL", BrokenYdl)
+    assert downloader.js_runtime_status()["js_runtime"] is None
+
+
+def test_version_check_includes_runtime_status_even_offline(monkeypatch):
+    def offline(*args, **kwargs):
+        raise OSError("no network")
+
+    monkeypatch.setattr(downloader.urllib.request, "urlopen", offline)
+    monkeypatch.setattr(
+        downloader,
+        "js_runtime_status",
+        lambda: {"js_runtime": "deno", "js_runtime_version": "2.9.7", "js_solver": "0.8.0"},
+    )
+    result = downloader.check_ytdlp_update()
+    assert result["update_available"] is None
+    assert result["js_runtime"] == "deno"
+    assert result["js_solver"] == "0.8.0"
+
+
+# --- probe(): yt-dlp's side messages explaining a sign-in failure -------------
+
+
+def _probe_failing_with(monkeypatch, side_messages, error):
+    """probe() against a fake yt-dlp that logs `side_messages`, then raises `error`."""
+
+    class FakeYdl:
+        def __init__(self, params):
+            self.params = params
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def extract_info(self, url, download=False):
+            logger = self.params["logger"]
+            for kind, message in side_messages:
+                getattr(logger, kind)(message)
+            raise Exception(error)
+
+    monkeypatch.setattr(downloader, "YoutubeDL", FakeYdl)
+    with pytest.raises(downloader.ProbeError) as exc:
+        downloader.probe("https://www.youtube.com/watch?v=x")
+    return str(exc.value)
+
+
+AGE_ERROR = "ERROR: [youtube] x: Sign in to confirm your age. This video may be inappropriate for some users."
+
+
+def test_probe_appends_the_expired_cookies_warning(monkeypatch):
+    # NOTE: yt-dlp reports this via report_warning -> logger.warning.
+    expired = "[youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated"
+    message = _probe_failing_with(monkeypatch, [("warning", expired)], AGE_ERROR)
+    assert message.startswith(AGE_ERROR)
+    assert "account cookies are no longer valid" in message
+
+
+def test_probe_appends_the_account_age_verification_notice(monkeypatch):
+    # NOTE: yt-dlp reports this via to_screen -> logger.debug.
+    notice = "[youtube] x: This video is age-restricted and YouTube is requiring account age-verification"
+    message = _probe_failing_with(monkeypatch, [("debug", "\x1b[0;33m" + notice + "\x1b[0m")], AGE_ERROR)
+    assert message == AGE_ERROR + "\n" + notice
+
+
+def test_probe_leaves_other_errors_untouched(monkeypatch):
+    message = _probe_failing_with(monkeypatch, [("debug", "[youtube] x: Downloading webpage")], AGE_ERROR)
+    assert message == AGE_ERROR
+
+
+# --- probe(): a successful but degraded result --------------------------------
+
+
+def _probe_returning(monkeypatch, formats, side_messages=()):
+    class FakeYdl:
+        def __init__(self, params):
+            self.params = params
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def extract_info(self, url, download=False):
+            for kind, message in side_messages:
+                getattr(self.params["logger"], kind)(message)
+            return {"id": "x", "title": "t", "duration": 280, "formats": formats}
+
+    monkeypatch.setattr(downloader, "YoutubeDL", FakeYdl)
+    return downloader.probe("https://www.youtube.com/watch?v=x")
+
+
+MUXED_360P = {"format_id": "18", "ext": "mp4", "vcodec": "avc1.42001E", "acodec": "mp4a.40.2", "height": 360}
+OPUS_AUDIO = {"format_id": "251", "ext": "webm", "vcodec": "none", "acodec": "opus", "abr": 130}
+
+
+def test_probe_reports_a_missing_audio_only_stream_and_why(monkeypatch):
+    # NOTE: exactly what was seen live - an age-restricted video, cookies of
+    # an account YouTube wanted age-verified, and only format 18 left.
+    notice = "[youtube] x: This video is age-restricted and YouTube is requiring account age-verification; some formats may be missing"
+    result = _probe_returning(monkeypatch, [MUXED_360P], [("debug", notice)])
+    assert result["audio_only"] is False
+    assert result["notices"] == ["account_age_verification"]
+
+
+def test_probe_of_a_normal_video_has_audio_only_and_no_notices(monkeypatch):
+    result = _probe_returning(monkeypatch, [MUXED_360P, OPUS_AUDIO], [("debug", "[youtube] x: Downloading webpage")])
+    assert result["audio_only"] is True
+    assert result["notices"] == []

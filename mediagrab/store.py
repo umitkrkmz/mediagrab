@@ -26,6 +26,10 @@ DEFAULT_SETTINGS = {
     "cookie_mode": "off",  # "off" | "browser" | "file"
     "cookie_browser": "firefox",
     "cookie_file": "",
+    # NOTE: when a cookies.txt was last UPLOADED (UTC, ISO 8601) - kept apart
+    # from the file's own mtime, which yt-dlp bumps on every download as it
+    # writes refreshed cookies back. Empty for a typed-in path.
+    "cookie_uploaded_at": "",
     # NOTE: empty means "no preference" - the video's own original audio
     # plays, same as before this setting existed. Not validated against a
     # known language list on purpose: which codes are valid depends on the

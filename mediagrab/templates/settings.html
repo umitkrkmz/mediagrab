@@ -99,15 +99,44 @@
       </div>
 
       <div id="cookie-file-panel" class="cookie-panel hidden">
-        <label class="cookie-label" for="cookie-file-input">{{ ui.cookie_file_label }}</label>
-        <input type="text" id="cookie-file-input" placeholder="C:\...\cookies.txt" autocomplete="off">
-        <p class="settings-hint">{{ ui.cookie_file_help }}</p>
+        <div id="cookie-current" class="cookie-current hidden"></div>
+
+        <label class="cookie-label" for="cookie-upload-input">{{ ui.cookie_upload_label }}</label>
+        <input type="file" id="cookie-upload-input" accept=".txt,text/plain">
+        <div id="cookie-review" class="cookie-review hidden"></div>
+
+        <details class="cookie-howto" id="cookie-howto">
+          <summary>{{ ui.cookie_howto_title }}</summary>
+          <ol class="cookie-steps">
+            <li>{{ ui.cookie_step1 }}
+              <a href="https://chromewebstore.google.com/detail/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener noreferrer">Chrome / Edge</a> ·
+              <a href="https://addons.mozilla.org/firefox/addon/get-cookies-txt-locally/" target="_blank" rel="noopener noreferrer">Firefox</a>
+            </li>
+            <li>{{ ui.cookie_step2 }}</li>
+            <li>{{ ui.cookie_step3 }}</li>
+            <li>{{ ui.cookie_step4 }}</li>
+          </ol>
+          <p class="settings-hint">{{ ui.cookie_howto_why }}</p>
+          <p class="settings-hint cookie-warning">{{ ui.cookie_account_warning }}</p>
+        </details>
+
+        <!-- NOTE: hidden in Docker (app.js) - a path typed here would be a
+             path INSIDE the container, which is exactly what made this
+             option unusable there before uploads existed. -->
+        <details class="cookie-path-advanced" id="cookie-path-advanced">
+          <summary>{{ ui.cookie_path_advanced }}</summary>
+          <label class="cookie-label" for="cookie-file-input">{{ ui.cookie_file_label }}</label>
+          <input type="text" id="cookie-file-input" placeholder="C:\...\cookies.txt" autocomplete="off">
+        </details>
       </div>
 
       <div id="cookie-browser-panel" class="cookie-panel hidden">
         <label class="cookie-label" for="cookie-browser-select">{{ ui.cookie_browser_label }}</label>
         <select id="cookie-browser-select"></select>
-        <p class="cookie-warning">{{ ui.cookie_chrome_warning }}</p>
+        <p class="cookie-warning hidden" id="cookie-browser-unsupported"></p>
+        <!-- NOTE: shown only on Windows (app.js) - the one OS where the list
+             is cut down to Firefox, so the one place that needs explaining. -->
+        <p class="settings-hint hidden" id="cookie-windows-note">{{ ui.cookie_windows_browser_note }}</p>
       </div>
 
       <div class="cookie-actions">
@@ -210,15 +239,22 @@
       <div class="section-title">{{ ui.settings_environment_title }}</div>
 
       <div class="settings-subsection">
+        <div class="section-subtitle">{{ ui.settings_mediagrab_title }}</div>
+        <div id="mediagrab-status" class="ytdlp-status"></div>
+        <div id="mediagrab-instructions" class="ytdlp-instructions hidden"></div>
+      </div>
+
+      <div class="settings-subsection">
         <div class="section-subtitle" id="settings-ytdlp-title">{{ ui.settings_ytdlp_title }}</div>
         <div id="ytdlp-status" class="ytdlp-status"></div>
+        <div id="ytdlp-js-status" class="ytdlp-status"></div>
         <div id="ytdlp-instructions" class="ytdlp-instructions hidden"></div>
         <p class="ytdlp-credit" id="ytdlp-credit"></p>
       </div>
 
       <div class="settings-subsection">
         <div class="section-subtitle">{{ ui.settings_ffmpeg_title }}</div>
-        <p class="settings-hint">{{ ui.settings_ffmpeg_hint }}</p>
+        <p class="settings-hint" id="ffmpeg-hint">{{ ui.settings_ffmpeg_hint }}</p>
         <div id="ffmpeg-status" class="ytdlp-status"></div>
         <div id="ffmpeg-instructions" class="ytdlp-instructions hidden"></div>
       </div>
@@ -252,6 +288,13 @@
       <div class="section-title">{{ ui.settings_feedback_title }}</div>
       <p class="settings-hint">{{ ui.settings_feedback_hint }}</p>
       <a class="feedback-btn" href="https://github.com/umitkrkmz/mediagrab/issues/new/choose" target="_blank" rel="noopener">{{ ui.settings_feedback_btn }}</a>
+
+      <div class="settings-subsection diagnostics">
+        <p class="settings-hint">{{ ui.settings_diagnostics_hint }}</p>
+        <button type="button" id="diagnostics-btn" class="btn-secondary">{{ ui.settings_diagnostics_btn }}</button>
+        <div id="diagnostics-status" class="cookie-status hidden" role="status"></div>
+        <textarea id="diagnostics-text" class="diagnostics-text hidden" readonly rows="8" aria-label="{{ ui.settings_diagnostics_btn }}"></textarea>
+      </div>
     </div>
 
   </div>

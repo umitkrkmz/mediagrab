@@ -35,10 +35,12 @@ const channelList = document.getElementById("channel-list");
 const channelEmpty = document.getElementById("channel-empty");
 const channelModeRadios = document.querySelectorAll('input[name="channel-mode"]');
 const ytdlpStatus = document.getElementById("ytdlp-status");
+const ytdlpJsStatus = document.getElementById("ytdlp-js-status");
 const ytdlpInstructions = document.getElementById("ytdlp-instructions");
 const ytdlpCredit = document.getElementById("ytdlp-credit");
 const ffmpegStatus = document.getElementById("ffmpeg-status");
 const ffmpegInstructions = document.getElementById("ffmpeg-instructions");
+const ffmpegHint = document.getElementById("ffmpeg-hint");
 const depsStatus = document.getElementById("deps-status");
 const depsList = document.getElementById("deps-list");
 const depsActions = document.getElementById("deps-actions");
@@ -320,6 +322,9 @@ const I18N = {
     transcriptTimestamps: "Zaman damgalı",
     transcriptBundleWithMedia: "Video/ses ile birlikte indir",
     quickBestAudio: "♪ En İyi Ses",
+    audioUnavailableDesc: "bu video için ayrı ses akışı alınamadı",
+    noticeAgeVerification:
+      "YouTube bu hesap için yaş doğrulaması istiyor; bu yüzden yalnızca sınırlı, düşük kaliteli biçimler alınabildi. Önce videoyu YouTube'da aynı hesapla açıp içerik uyarısını onaylamayı deneyin; olmazsa hesabın yaşını YouTube/Google'da doğrulayın ya da yaşı doğrulanmış bir hesabın çerezlerini yükleyin.",
     quickBestVideo: "▶ En İyi Video",
     descriptionTitle: "Açıklama",
     descriptionShowMore: "Daha fazla göster",
@@ -347,7 +352,39 @@ const I18N = {
     cookieSaved: "Kaydedildi.",
     cookieTestOk: "Çalışıyor — {n} çerez okundu.",
     cookieTestNone: "Çerez kaynağı ayarlanmamış.",
+    cookieTestUnsupported:
+      "Kayıtlı tarayıcı ({browser}) bu sistemde okunamıyor, çerezler şu an kullanılmıyor. Firefox'u seçip kaydedin ya da cookies.txt yükleyin.",
+    cookieBrowserUnsupported:
+      "Kayıtlı tarayıcı ({browser}) bu sistemde desteklenmiyor, bu yüzden çerezler şu an kullanılmıyor. Firefox'u seçip kaydedin ya da \"cookies.txt dosyası\" seçeneğini kullanın.",
     cookieTestFailed: "Çerezler okunamadı",
+    diagCopied: "Kopyalandı ✓ — hata bildirimine yapıştırabilirsiniz.",
+    diagCopyManual: "Panoya otomatik kopyalanamadı — metin aşağıda seçili, Ctrl+C (Mac'te ⌘C) ile kopyalayın.",
+    cookieReviewTitle: "Bu dosyada {n} sitenin çerezleri var. Kaydedilecekleri seçin:",
+    cookieReviewHint: "Yalnızca işaretli sitelerin çerezleri kaydedilir; gerisi diske hiç yazılmaz.",
+    cookieCount: "{n} çerez",
+    cookieUploadSaveBtn: "Seçilenleri kaydet",
+    cookieUploadCancelBtn: "Vazgeç",
+    cookieUploaded: "Kaydedildi — {n} çerez. İndirmelerde artık bu çerezler kullanılıyor.",
+    cookieCurrentUploaded: "Yüklü dosya: {sites} site, {n} çerez",
+    cookieCurrentPath: "Dosya: {path} — {sites} site, {n} çerez",
+    cookieUploadedAt: "yüklendi {date}",
+    cookieUpdatedAt: "son güncelleme {date}",
+    cookieCurrentUnreadable: "Ayarlı dosya okunamıyor: {path}",
+    cookieYoutubeOk: "YouTube oturumu var ✓",
+    cookieYoutubeMissing:
+      "Bu dosyada YouTube oturumu görünmüyor — youtube.com'da giriş yapmışken dışa aktardığınızdan emin olun.",
+    cookieDeleteBtn: "Çerezleri sil",
+    cookieDeleteConfirm: "Yüklenen çerez dosyası silinsin mi?",
+    cookieDeleted: "Çerezler silindi.",
+    cookieReadFailed: "Dosya okunamadı.",
+    cookieErrors: {
+      too_large: "Dosya çok büyük (en fazla 5 MB).",
+      empty: "Dosya boş.",
+      json: "Bu dosya JSON biçiminde — eklentide Netscape (cookies.txt) biçimini seçin.",
+      not_netscape: "Bu bir cookies.txt (Netscape biçimi) dosyası değil.",
+      no_cookies: "Dosyada hiç çerez bulunamadı.",
+      nothing_selected: "En az bir site seçin.",
+    },
     queuePosition: "Sırada {n}. — diğer indirmeler bekleniyor",
     itemPreviewPlay: "▶ Oynat",
     itemPreviewClose: "✕ Kapat",
@@ -358,6 +395,16 @@ const I18N = {
     errUnknown: "Bilinmeyen hata",
     errTechnicalDetail: "Teknik detay",
     errAgeRestricted: "Bu video yaş kısıtlı, giriş yapılmış bir hesap gerektiriyor.",
+    errFormatUnavailable: "Seçtiğiniz biçim bu video için alınamadı. MP3'ü veya bir video seçeneğini deneyin.",
+    errCookiesExpired:
+      "YouTube çerezleriniz artık geçersiz — büyük ihtimalle tarayıcıda yenilendiler. Gizli pencere yöntemiyle yeni bir cookies.txt alıp yükleyin.",
+    errAgeVerification:
+      "Çerezleriniz çalışıyor, ama YouTube bu hesap için yaş doğrulaması istiyor. Bunu YouTube/Google hesabınızdan yapmanız gerekiyor; yeni bir cookies.txt bunu çözmez.",
+    errCookieHintOff: "Giriş yapılmış bir hesabın çerezleriyle indirilebilir:",
+    errCookieHintOn:
+      "Çerezleriniz ayarlı ama işe yaramadı: süreleri dolmuş olabilir ya da bu hesap içeriğe erişemiyor. Yeni bir cookies.txt yüklemeyi deneyin:",
+    errCookieSettingsLink: "Ayarlar → Çerezler",
+    errBrowserCookies: "Çerezler tarayıcıdan okunamadı.",
     errBotCheck: "Site bot doğrulaması istiyor, bu video şu an indirilemiyor.",
     errPrivate: "Bu video gizli/özel — herkese açık değil.",
     errMembersOnly: "Bu içerik yalnızca kanal üyelerine özel.",
@@ -395,6 +442,15 @@ const I18N = {
     channelCheckFailed: "Son kontrol başarısız",
     ytdlpChecking: "Kontrol ediliyor...",
     ytdlpCheckFailed: "Sürüm bilgisi alınamadı (internet bağlantınızı kontrol edin)",
+    mgReleaseNotes: "Sürüm notları →",
+    mgUpdateDocker:
+      "docker-compose.yml dosyanızın bulunduğu klasörde şu iki komutu çalıştırın. Ayarlarınız, çerezleriniz ve indirdikleriniz ./data/ klasöründe kalır.",
+    mgUpdateDockerBuild:
+      "Compose dosyanız image: yerine build: . kullanıyorsa (repodan elle kurulum) bunun yerine:",
+    mgUpdateInstaller: "MediaGrabSetup.exe'yi çalıştırıp \"Onar / Güncelle\"yi seçin. Elinizde yoksa son sürümü indirin:",
+    mgDownloadInstaller: "MediaGrabSetup.exe (son sürüm)",
+    mgUpdateSource:
+      "Proje klasöründe, sanal ortam etkinken şunları çalıştırın, sonra MediaGrab'ı yeniden başlatın:",
     ytdlpUpToDate: "Güncel",
     ytdlpUpdateAvailable: "Güncelleme mevcut",
     ytdlpInstalledLabel: "Kurulu sürüm",
@@ -420,10 +476,18 @@ const I18N = {
     ffmpegUpdateTitle: "Nasıl güncellenir?",
     ffmpegYourSystem: "sisteminiz",
     ffmpegRestartNote: "Kurulumdan sonra MediaGrab'ı kapatıp yeniden açın (PATH güncellemesi için).",
+    ffmpegDockerNote: "Docker imajıyla birlikte gelir; imaj güncellendiğinde o da güncellenir.",
     depsUpdatesAvailable: "paket güncellenebilir",
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
     ytdlpCreditLink: "GitHub'da teşekkür edin →",
+    jsRuntimeLabel: "JavaScript çalışma ortamı (YouTube için)",
+    jsRuntimeOk: "Hazır",
+    jsRuntimeMissing: "Eksik",
+    jsRuntimeMissingHint:
+      "Bu olmadan YouTube'da bazı biçimler eksik kalabilir; yaş sınırlı veya giriş gerektiren videolar çerezlerle bile inmeyebilir. Aşağıdaki \"Şimdi Güncelle\" ile kurulur.",
+    jsRuntimeMissingHintDocker:
+      "Bu olmadan YouTube'da bazı biçimler eksik kalabilir; yaş sınırlı veya giriş gerektiren videolar çerezlerle bile inmeyebilir. Düzeltmek için Docker imajını güncelleyin.",
     settingsRemoteAccessRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
     settingsHomeServerRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
     settingsRemoteAccessPasswordTooShort: "Şifre en az 8 karakter olmalı.",
@@ -649,6 +713,9 @@ const I18N = {
     transcriptTimestamps: "With timestamps",
     transcriptBundleWithMedia: "Include with video/audio download",
     quickBestAudio: "♪ Best Audio",
+    audioUnavailableDesc: "no separate audio stream available for this video",
+    noticeAgeVerification:
+      "YouTube wants this account to be age-verified, so only limited, low-quality formats were available. First try opening the video on YouTube with the same account and confirming the content warning; if that doesn't help, verify the account's age on YouTube/Google or upload cookies from an age-verified account.",
     quickBestVideo: "▶ Best Video",
     descriptionTitle: "Description",
     descriptionShowMore: "Show more",
@@ -676,7 +743,39 @@ const I18N = {
     cookieSaved: "Saved.",
     cookieTestOk: "Working — {n} cookie(s) loaded.",
     cookieTestNone: "No cookie source configured.",
+    cookieTestUnsupported:
+      "The saved browser ({browser}) can't be read on this system, so cookies aren't being used. Choose Firefox and save, or upload a cookies.txt.",
+    cookieBrowserUnsupported:
+      "The saved browser ({browser}) isn't supported on this system, so cookies aren't being used right now. Choose Firefox and save, or use the \"cookies.txt file\" option.",
     cookieTestFailed: "Could not read cookies",
+    diagCopied: "Copied ✓ — paste it into your bug report.",
+    diagCopyManual: "Couldn't copy automatically — the text below is selected, press Ctrl+C (⌘C on a Mac) to copy it.",
+    cookieReviewTitle: "This file has cookies for {n} site(s). Choose which to keep:",
+    cookieReviewHint: "Only the ticked sites' cookies are saved; the rest are never written to disk.",
+    cookieCount: "{n} cookie(s)",
+    cookieUploadSaveBtn: "Save selected",
+    cookieUploadCancelBtn: "Cancel",
+    cookieUploaded: "Saved — {n} cookie(s). Downloads now use these cookies.",
+    cookieCurrentUploaded: "Uploaded file: {sites} site(s), {n} cookie(s)",
+    cookieCurrentPath: "File: {path} — {sites} site(s), {n} cookie(s)",
+    cookieUploadedAt: "uploaded {date}",
+    cookieUpdatedAt: "last updated {date}",
+    cookieCurrentUnreadable: "The configured file can't be read: {path}",
+    cookieYoutubeOk: "YouTube session found ✓",
+    cookieYoutubeMissing:
+      "No YouTube session in this file — make sure you exported it while signed in on youtube.com.",
+    cookieDeleteBtn: "Delete cookies",
+    cookieDeleteConfirm: "Delete the uploaded cookie file?",
+    cookieDeleted: "Cookies deleted.",
+    cookieReadFailed: "Couldn't read the file.",
+    cookieErrors: {
+      too_large: "The file is too large (5 MB max).",
+      empty: "The file is empty.",
+      json: "This file is JSON — choose the Netscape (cookies.txt) format in the extension.",
+      not_netscape: "This isn't a cookies.txt (Netscape format) file.",
+      no_cookies: "No cookies found in the file.",
+      nothing_selected: "Select at least one site.",
+    },
     queuePosition: "{n}. in queue — waiting for other downloads",
     itemPreviewPlay: "▶ Play",
     itemPreviewClose: "✕ Close",
@@ -687,6 +786,16 @@ const I18N = {
     errUnknown: "Unknown error",
     errTechnicalDetail: "Technical detail",
     errAgeRestricted: "This video is age-restricted and requires a signed-in account.",
+    errFormatUnavailable: "The format you picked isn't available for this video. Try MP3 or one of the video options.",
+    errCookiesExpired:
+      "Your YouTube cookies are no longer valid — most likely the browser rotated them. Get a fresh cookies.txt using the private-window method and upload it.",
+    errAgeVerification:
+      "Your cookies work, but YouTube wants this account to be age-verified. That has to be done in your YouTube/Google account; a new cookies.txt won't fix it.",
+    errCookieHintOff: "It can be downloaded with a signed-in account's cookies:",
+    errCookieHintOn:
+      "Your cookies are set but didn't help: they may have expired, or this account can't access the content. Try uploading a fresh cookies.txt:",
+    errCookieSettingsLink: "Settings → Cookies",
+    errBrowserCookies: "Couldn't read cookies from the browser.",
     errBotCheck: "The site is asking for bot verification - this video can't be downloaded right now.",
     errPrivate: "This video is private and not publicly accessible.",
     errMembersOnly: "This content is members-only.",
@@ -726,6 +835,13 @@ const I18N = {
     channelCheckFailed: "Last check failed",
     ytdlpChecking: "Checking...",
     ytdlpCheckFailed: "Couldn't check the version (check your internet connection)",
+    mgReleaseNotes: "Release notes →",
+    mgUpdateDocker:
+      "Run these two commands in the folder that has your docker-compose.yml. Your settings, cookies and downloads stay in ./data/.",
+    mgUpdateDockerBuild: "If your compose file uses build: . instead of image: (a manual install from the repo), run this instead:",
+    mgUpdateInstaller: "Run MediaGrabSetup.exe and choose \"Repair / Update\". If you don't have it anymore, download the latest:",
+    mgDownloadInstaller: "MediaGrabSetup.exe (latest)",
+    mgUpdateSource: "In the project folder, with the virtual environment active, run these, then restart MediaGrab:",
     ytdlpUpToDate: "Up to date",
     ytdlpUpdateAvailable: "Update available",
     ytdlpInstalledLabel: "Installed version",
@@ -751,10 +867,18 @@ const I18N = {
     ffmpegUpdateTitle: "How to update",
     ffmpegYourSystem: "your system",
     ffmpegRestartNote: "Restart MediaGrab after installing, so it picks up the updated PATH.",
+    ffmpegDockerNote: "Bundled with the Docker image; it's updated whenever the image is.",
     depsUpdatesAvailable: "packages can be updated",
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
     ytdlpCreditLink: "Say thanks on GitHub →",
+    jsRuntimeLabel: "JavaScript runtime (for YouTube)",
+    jsRuntimeOk: "Ready",
+    jsRuntimeMissing: "Missing",
+    jsRuntimeMissingHint:
+      "Without it some YouTube formats may be missing, and age-restricted or sign-in-only videos may fail even with cookies. \"Update Now\" below installs it.",
+    jsRuntimeMissingHintDocker:
+      "Without it some YouTube formats may be missing, and age-restricted or sign-in-only videos may fail even with cookies. Update the Docker image to fix this.",
     settingsRemoteAccessRestartNote: "Applying the setting, restarting the server...",
     settingsHomeServerRestartNote: "Applying the setting, restarting the server...",
     settingsRemoteAccessPasswordTooShort: "Password must be at least 8 characters.",
@@ -828,11 +952,35 @@ function fmtDuration(seconds) {
 // common patterns to a short, actionable message in the user's language;
 // the original raw message is still shown as a collapsible detail so power
 // users/bug reports keep the specifics.
+// NOTE: cookieFix marks the errors a signed-in account's cookies can solve -
+// those get a pointer to Settings -> Cookies (see cookieHintHtml). The first
+// two are yt-dlp's own side messages, which downloader.probe() appends to the
+// error when it saw them: they're listed FIRST because they arrive together
+// with the generic "sign in to confirm your age", and are the more precise
+// explanation of the two.
 const ERROR_PATTERNS = [
-  { patterns: ["sign in to confirm your age", "inappropriate for some users"], key: "errAgeRestricted" },
-  { patterns: ["confirm you're not a bot", "confirm you are not a bot"], key: "errBotCheck" },
-  { patterns: ["private video", "this video is private"], key: "errPrivate" },
-  { patterns: ["members-only", "join this channel"], key: "errMembersOnly" },
+  { patterns: ["account cookies are no longer valid"], key: "errCookiesExpired" },
+  {
+    // NOTE: a broken "From browser" source fails EVERY video, not just the
+    // sign-in ones - the first message is Chrome on Windows (seen on a real
+    // machine), the rest are the other "couldn't read the browser" failures.
+    patterns: [
+      "could not copy chrome cookie database",
+      "failed to decrypt with dpapi",
+      // NOTE: yt-dlp's "could not find <browser> cookies database in <path>"
+      // (cookies.py) - one substring covers every browser it names.
+      "cookies database in",
+      "could not find safari cookies database",
+    ],
+    key: "errBrowserCookies",
+    cookieFix: true,
+  },
+  { patterns: ["requiring account age-verification"], key: "errAgeVerification" },
+  { patterns: ["sign in to confirm your age", "inappropriate for some users"], key: "errAgeRestricted", cookieFix: true },
+  { patterns: ["confirm you're not a bot", "confirm you are not a bot"], key: "errBotCheck", cookieFix: true },
+  { patterns: ["private video", "this video is private"], key: "errPrivate", cookieFix: true },
+  { patterns: ["requested format is not available"], key: "errFormatUnavailable" },
+  { patterns: ["members-only", "join this channel"], key: "errMembersOnly", cookieFix: true },
   { patterns: ["not available in your country", "not made this video available in your country", "geo restrict"], key: "errGeoRestricted" },
   { patterns: ["cloudflare", "http error 403"], key: "errBlocked" },
   { patterns: ["video unavailable", "has been removed"], key: "errRemoved" },
@@ -858,11 +1006,26 @@ const ERROR_PATTERNS = [
   },
 ];
 
-function friendlyError(raw) {
+function friendlyErrorEntry(raw) {
   if (!raw) return null;
   const lowered = raw.toLowerCase();
-  const match = ERROR_PATTERNS.find((entry) => entry.patterns.some((p) => lowered.includes(p)));
+  return ERROR_PATTERNS.find((entry) => entry.patterns.some((p) => lowered.includes(p))) || null;
+}
+
+function friendlyError(raw) {
+  const match = friendlyErrorEntry(raw);
   return match ? t()[match.key] : null;
+}
+
+// NOTE: set by loadSettings() on every page - whether ANY cookie source is
+// configured decides which hint makes sense ("add cookies" vs "yours didn't
+// work"). Pure helper below so the wording logic can be tested under Node.
+let cookiesConfigured = false;
+
+function cookieHintHtml(entry, configured, settingsHref) {
+  if (!entry || !entry.cookieFix) return "";
+  const text = configured ? t().errCookieHintOn : t().errCookieHintOff;
+  return `<p class="error-hint">${text} <a href="${escapeHtml(settingsHref)}">${t().errCookieSettingsLink}</a></p>`;
 }
 
 function showError(message, raw) {
@@ -873,13 +1036,15 @@ function showError(message, raw) {
   // page where `card` exists; background job failures still show in the
   // dock row itself (see dockRowHtml), just without a separate popup.
   if (!card) return;
-  const friendly = friendlyError(raw || message);
+  const entry = friendlyErrorEntry(raw || message);
+  const friendly = entry ? t()[entry.key] : null;
   const displayMessage = friendly || message;
   if (!displayMessage) return;
   const showDetail = raw && raw !== displayMessage;
   card.classList.remove("hidden");
   card.innerHTML = `
     <div class="error">${escapeHtml(displayMessage)}</div>
+    ${cookieHintHtml(entry, cookiesConfigured, `${withLang("/settings")}#cookies`)}
     ${
       showDetail
         ? `<details class="error-detail"><summary>${t().errTechnicalDetail}</summary><pre>${escapeHtml(raw)}</pre></details>`
@@ -1021,6 +1186,25 @@ async function selectPlaylistEntry(entry) {
   }
 }
 
+// NOTE: Opus and M4A keep YouTube's own audio stream as-is, so they need a
+// separate audio-only format; MP3 can also be made from a muxed (audio+video)
+// one. info.audio_only is false when the probe found no audio-only format at
+// all (seen with an age-restricted video and a not-age-verified account) -
+// undefined from an older server means "assume yes", today's behaviour.
+function audioChoiceAvailable(info, choice) {
+  return choice === "mp3" || info.audio_only !== false;
+}
+
+function bestAudioChoice(info) {
+  return audioChoiceAvailable(info, "opus") ? "opus" : "mp3";
+}
+
+function probeNoticesHtml(info) {
+  const notices = info.notices || [];
+  if (!notices.includes("account_age_verification")) return "";
+  return `<p class="cookie-warning preview-notice">${t().noticeAgeVerification}</p>`;
+}
+
 function renderCard(url, info) {
   card.classList.remove("hidden");
 
@@ -1035,11 +1219,12 @@ function renderCard(url, info) {
   const audioHtml = ["opus", "m4a", "mp3"]
     .map((choice) => {
       const opt = t().audio[choice];
+      const available = audioChoiceAvailable(info, choice);
       return `
-    <button class="option" data-kind="audio" data-choice="${choice}">
+    <button class="option" data-kind="audio" data-choice="${choice}"${available ? "" : " disabled"}>
       <span>
         <span class="opt-label">${opt.label}</span><br>
-        <span class="opt-desc">${opt.desc}</span>
+        <span class="opt-desc">${available ? opt.desc : t().audioUnavailableDesc}</span>
       </span>
     </button>`;
     })
@@ -1124,7 +1309,7 @@ function renderCard(url, info) {
   const bestVideo = info.video && info.video.length > 0 ? info.video[0] : null;
   const quickHtml = `
     <div class="quick-actions">
-      <button type="button" class="quick-btn" data-kind="audio" data-choice="opus">${t().quickBestAudio}</button>
+      <button type="button" class="quick-btn" data-kind="audio" data-choice="${bestAudioChoice(info)}">${t().quickBestAudio}</button>
       ${
         bestVideo
           ? `<button type="button" class="quick-btn" data-kind="video" data-choice="${bestVideo.format_id}">${t().quickBestVideo}</button>`
@@ -1158,6 +1343,7 @@ function renderCard(url, info) {
       </div>
       <div class="result-options">
         <div class="section-title">${t().sectionOptions}</div>
+        ${probeNoticesHtml(info)}
         ${audioTrackHtml}
         <div class="format-tabs" id="format-tabs" role="tablist">
           <button type="button" class="format-tab active" data-tab="audio" role="tab" aria-selected="true">${t().sectionAudio}</button>
@@ -2009,9 +2195,139 @@ async function clearPending() {
   }
 }
 
+// --- Ayarlar sayfasi: tanilama bilgisi (Geri Bildirim) ---
+
+const diagnosticsBtn = document.getElementById("diagnostics-btn");
+const diagnosticsText = document.getElementById("diagnostics-text");
+const diagnosticsStatus = document.getElementById("diagnostics-status");
+
+async function copyDiagnostics() {
+  if (!diagnosticsBtn || !diagnosticsText) return;
+  diagnosticsBtn.disabled = true;
+  try {
+    const data = await (await fetch("/api/diagnostics")).json();
+    // NOTE: always shown as selectable text too - the clipboard API only
+    // exists on HTTPS/localhost, so on a plain-HTTP LAN device copying by
+    // hand is the only way (same reason the paste button hides there).
+    diagnosticsText.value = data.text;
+    diagnosticsText.classList.remove("hidden");
+    let copied = false;
+    try {
+      if (window.isSecureContext && navigator.clipboard) {
+        await navigator.clipboard.writeText(data.text);
+        copied = true;
+      }
+    } catch (err) {
+      copied = false;
+    }
+    if (!copied) diagnosticsText.select();
+    diagnosticsStatus.textContent = copied ? t().diagCopied : t().diagCopyManual;
+    diagnosticsStatus.classList.remove("hidden", "ok", "bad");
+    diagnosticsStatus.classList.add(copied ? "ok" : "bad");
+  } catch (err) {
+    diagnosticsStatus.textContent = t().errNetwork + err.message;
+    diagnosticsStatus.classList.remove("hidden", "ok");
+    diagnosticsStatus.classList.add("bad");
+  } finally {
+    diagnosticsBtn.disabled = false;
+  }
+}
+
+diagnosticsBtn?.addEventListener("click", copyDiagnostics);
+
+// --- Ayarlar sayfasi: MediaGrab surum kontrolu ---
+
+const mediagrabStatus = document.getElementById("mediagrab-status");
+const mediagrabInstructions = document.getElementById("mediagrab-instructions");
+
+// NOTE: MediaGrab never updates itself - each install type updates a
+// different way, so this only shows the right steps for the one in use.
+// Pure (no DOM) so every branch can be tested under Node.
+function mediagrabUpdateHtml(info) {
+  const cmd = (command) => `
+    <div class="ytdlp-cmd-row">
+      <code>${escapeHtml(command)}</code>
+      <button type="button" class="mg-copy-btn" data-command="${escapeHtml(command)}">${t().ytdlpCopyBtn}</button>
+    </div>`;
+  let steps;
+  if (info.install_type === "docker") {
+    steps = `
+      <p class="settings-hint">${t().mgUpdateDocker}</p>
+      ${cmd("docker compose pull")}
+      ${cmd("docker compose up -d")}
+      <p class="settings-hint">${t().mgUpdateDockerBuild}</p>
+      ${cmd("git pull && docker compose up -d --build")}`;
+  } else if (info.install_type === "installer") {
+    steps = `
+      <p class="settings-hint">${t().mgUpdateInstaller}
+        <a href="https://github.com/umitkrkmz/mediagrab/releases/latest" target="_blank" rel="noopener noreferrer">${t().mgDownloadInstaller}</a>
+      </p>`;
+  } else {
+    steps = `
+      <p class="settings-hint">${t().mgUpdateSource}</p>
+      ${cmd("git pull")}
+      ${cmd("pip install -r requirements.txt")}`;
+  }
+  return `
+    <div class="ytdlp-instructions-title">${t().ytdlpInstructionsTitle}</div>
+    ${steps}`;
+}
+
+async function loadMediagrabVersion() {
+  if (!mediagrabStatus) return;
+  mediagrabStatus.textContent = t().ytdlpChecking;
+  let info;
+  try {
+    info = await (await fetch("/api/mediagrab-version")).json();
+  } catch (err) {
+    mediagrabStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
+    return;
+  }
+  const notes = `<a href="${escapeHtml(info.release_url)}" target="_blank" rel="noopener noreferrer">${t().mgReleaseNotes}</a>`;
+  if (info.update_available === null) {
+    mediagrabStatus.innerHTML = `
+      <span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>
+      <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)}</span>`;
+    mediagrabInstructions?.classList.add("hidden");
+    return;
+  }
+  if (!info.update_available) {
+    mediagrabStatus.innerHTML = `
+      <span class="ytdlp-badge uptodate">${t().ytdlpUpToDate}</span>
+      <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)}</span>`;
+    mediagrabInstructions?.classList.add("hidden");
+    return;
+  }
+  mediagrabStatus.innerHTML = `
+    <span class="ytdlp-badge outdated">${t().ytdlpUpdateAvailable}</span>
+    <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)} &rarr; ${t().ytdlpLatestLabel}: ${escapeHtml(info.latest)}</span>
+    <span class="ytdlp-version-row">${notes}</span>`;
+  if (!mediagrabInstructions) return;
+  mediagrabInstructions.innerHTML = mediagrabUpdateHtml(info);
+  mediagrabInstructions.classList.remove("hidden");
+  mediagrabInstructions.querySelectorAll(".mg-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.command);
+        const original = btn.textContent;
+        btn.textContent = t().ytdlpCopied;
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1500);
+      } catch (err) {
+        // NOTE: clipboard can be blocked (plain-HTTP LAN) - the command is
+        // visible to copy by hand.
+      }
+    });
+  });
+}
+
 // --- Ayarlar sayfasi: yt-dlp surum kontrolu ---
 
-const YTDLP_PIP_CMD = "pip install --upgrade yt-dlp";
+// NOTE: same spec as downloader.YTDLP_PIP_SPEC (test_frontend checks this) -
+// quoted, because PowerShell splits an unquoted "a[b,c]" at the comma and zsh
+// treats the brackets as a glob.
+const YTDLP_PIP_CMD = 'pip install --upgrade "yt-dlp[default,deno]"';
 let lastYtdlpInfo = null;
 
 async function loadYtdlpVersion() {
@@ -2026,10 +2342,16 @@ async function loadYtdlpVersion() {
   renderYtdlpVersion();
 }
 
-function ytdlpInstructionsHtml() {
-  return `
+// NOTE: the "Update Now" button works in Docker too (update_ytdlp installs
+// with --user into the volume-mounted PYTHONUSERBASE, so it survives the
+// container being recreated) - only the manual venv/pip steps are dropped
+// there, since a container has no venv to activate.
+function ytdlpInstructionsHtml(isDocker) {
+  const button = `
     <button type="button" id="ytdlp-update-now-btn" class="ytdlp-update-btn">${t().ytdlpUpdateNowBtn}</button>
-    <div id="ytdlp-update-status" class="ytdlp-update-status hidden"></div>
+    <div id="ytdlp-update-status" class="ytdlp-update-status hidden"></div>`;
+  if (isDocker) return button;
+  return `${button}
     <details class="ytdlp-manual">
       <summary>${t().ytdlpManualToggle}</summary>
       <div class="ytdlp-instructions-title">${t().ytdlpInstructionsTitle}</div>
@@ -2126,9 +2448,51 @@ function wireYtdlpUpdateBtn() {
   });
 }
 
+// NOTE: undefined (not null) when /api/ytdlp-version itself failed - then
+// nothing is known either way and no warning should be shown.
+function jsRuntimeMissing(info) {
+  if (info.js_runtime === undefined) return false;
+  return !info.js_runtime || !info.js_solver;
+}
+
+// NOTE: the update button also installs a missing JS runtime (YTDLP_PIP_CMD's
+// extras), so it's offered then too - but NOT in Docker, where the image
+// already ships Deno and a --user install's deno binary would land outside
+// the paths yt-dlp searches. There, the fix is updating the image.
+function shouldOfferYtdlpUpdate(info) {
+  if (info.update_available) return true;
+  return jsRuntimeMissing(info) && !info.is_docker;
+}
+
+function renderJsRuntime(info) {
+  if (!ytdlpJsStatus) return;
+  if (info.js_runtime === undefined) {
+    ytdlpJsStatus.innerHTML = "";
+    return;
+  }
+  if (jsRuntimeMissing(info)) {
+    ytdlpJsStatus.innerHTML = `
+      <span class="ytdlp-badge outdated">${t().jsRuntimeMissing}</span>
+      <span class="ytdlp-version-row">${t().jsRuntimeLabel}</span>
+      <p class="settings-hint">${info.is_docker ? t().jsRuntimeMissingHintDocker : t().jsRuntimeMissingHint}</p>`;
+    return;
+  }
+  ytdlpJsStatus.innerHTML = `
+    <span class="ytdlp-badge uptodate">${t().jsRuntimeOk}</span>
+    <span class="ytdlp-version-row">${t().jsRuntimeLabel}: ${escapeHtml(info.js_runtime)} ${escapeHtml(info.js_runtime_version || "")}</span>`;
+}
+
 function renderYtdlpVersion() {
   if (!ytdlpStatus || !lastYtdlpInfo) return;
   const info = lastYtdlpInfo;
+  renderJsRuntime(info);
+  const showInstructions = () => {
+    if (!ytdlpInstructions) return;
+    ytdlpInstructions.classList.remove("hidden");
+    ytdlpInstructions.innerHTML = ytdlpInstructionsHtml(info.is_docker);
+    wireYtdlpCopyBtn();
+    wireYtdlpUpdateBtn();
+  };
 
   if (info.update_available === null) {
     ytdlpStatus.innerHTML = `<span class="ytdlp-badge unknown">${t().ytdlpCheckFailed}</span>`;
@@ -2137,17 +2501,13 @@ function renderYtdlpVersion() {
     ytdlpStatus.innerHTML = `
       <span class="ytdlp-badge outdated">${t().ytdlpUpdateAvailable}</span>
       <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)} &rarr; ${t().ytdlpLatestLabel}: ${escapeHtml(info.latest)}</span>`;
-    if (ytdlpInstructions) {
-      ytdlpInstructions.classList.remove("hidden");
-      ytdlpInstructions.innerHTML = ytdlpInstructionsHtml();
-      wireYtdlpCopyBtn();
-      wireYtdlpUpdateBtn();
-    }
+    showInstructions();
   } else {
     ytdlpStatus.innerHTML = `
       <span class="ytdlp-badge uptodate">${t().ytdlpUpToDate}</span>
       <span class="ytdlp-version-row">${t().ytdlpInstalledLabel}: ${escapeHtml(info.installed)}</span>`;
-    ytdlpInstructions?.classList.add("hidden");
+    if (shouldOfferYtdlpUpdate(info)) showInstructions();
+    else ytdlpInstructions?.classList.add("hidden");
   }
 
   if (ytdlpCredit) {
@@ -2177,6 +2537,16 @@ async function loadFfmpegVersion() {
   ffmpegStatus.innerHTML = `
     <span class="ytdlp-badge ${info.ok ? "uptodate" : "outdated"}">${info.ok ? t().ffmpegInstalled : t().ffmpegNotFound}</span>
     <span class="ytdlp-version-row">${versions}</span>`;
+
+  // NOTE: in Docker ffmpeg comes with the image - per-OS install commands
+  // (and the "not bundled, install it yourself" hint) would be wrong there.
+  if (info.is_docker) {
+    ffmpegHint?.classList.add("hidden");
+    ffmpegInstructions?.classList.add("hidden");
+    ffmpegStatus.insertAdjacentHTML("beforeend", `<p class="settings-hint">${t().ffmpegDockerNote}</p>`);
+    return;
+  }
+  ffmpegHint?.classList.remove("hidden");
 
   // NOTE: unlike yt-dlp there's no reliable "latest ffmpeg" to compare
   // against (every platform ships its own build and numbering), so this
@@ -2366,6 +2736,13 @@ const cookieBrowserSelect = document.getElementById("cookie-browser-select");
 const cookieSaveBtn = document.getElementById("cookie-save-btn");
 const cookieTestBtn = document.getElementById("cookie-test-btn");
 const cookieStatus = document.getElementById("cookie-status");
+const cookieCurrent = document.getElementById("cookie-current");
+const cookieUploadInput = document.getElementById("cookie-upload-input");
+const cookieReview = document.getElementById("cookie-review");
+const cookieHowto = document.getElementById("cookie-howto");
+const cookiePathAdvanced = document.getElementById("cookie-path-advanced");
+const cookieBrowserUnsupported = document.getElementById("cookie-browser-unsupported");
+const cookieWindowsNote = document.getElementById("cookie-windows-note");
 const defaultAudioLangInput = document.getElementById("default-audio-lang-input");
 const defaultAudioLangSaveBtn = document.getElementById("default-audio-lang-save-btn");
 const defaultAudioLangStatus = document.getElementById("default-audio-lang-status");
@@ -2441,6 +2818,7 @@ async function importSettingsBackup() {
 }
 
 let cookieMode = "off";
+let savedCookieBrowser = "firefox";
 let speedLimitMbps = 0;
 let homeServerMode = false;
 
@@ -2541,6 +2919,7 @@ async function loadSettings() {
     renderSpeedLimitMode();
     homeServerMode = !!settings.home_server_mode;
     if (homeServerModeToggle) homeServerModeToggle.checked = homeServerMode;
+    cookiesConfigured = (settings.cookie_mode || "off") !== "off";
 
     if (!cookieModes) return;
     const browsersRes = await fetch("/api/cookie-browsers");
@@ -2552,8 +2931,24 @@ async function loadSettings() {
       cookieBrowserSelect.value = settings.cookie_browser || "firefox";
     }
     if (cookieFileInput) cookieFileInput.value = settings.cookie_file || "";
+    // NOTE: a container has no browser profile to read and no host paths to
+    // type - uploading is the only cookie source that works there.
+    if (browsers.is_docker) {
+      cookieModes.querySelector('[data-cookie-mode="browser"]')?.classList.add("hidden");
+      cookiePathAdvanced?.classList.add("hidden");
+    }
+    savedCookieBrowser = settings.cookie_browser || "firefox";
+    cookieWindowsNote?.classList.toggle("hidden", browsers.platform !== "win32");
+    const unsupported = !(browsers.browsers || []).includes(savedCookieBrowser);
+    if (cookieBrowserUnsupported) {
+      cookieBrowserUnsupported.textContent = unsupported
+        ? t().cookieBrowserUnsupported.replace("{browser}", savedCookieBrowser)
+        : "";
+      cookieBrowserUnsupported.classList.toggle("hidden", !unsupported);
+    }
     cookieMode = settings.cookie_mode || "off";
     renderCookieMode();
+    loadCookieFileStatus();
   } catch (err) {
     // NOTE: settings are optional - a failure here shouldn't break the page.
   }
@@ -2566,7 +2961,11 @@ async function loadSettings() {
 function collectSettingsPayload() {
   return {
     cookie_mode: cookieMode,
-    cookie_browser: cookieBrowserSelect?.value || "firefox",
+    // NOTE: a saved browser that isn't offered on this OS (e.g. "chrome" on
+    // Windows) leaves the select with no value - resend the saved one rather
+    // than quietly switching it to Firefox, which might not be installed (and
+    // a missing Firefox would fail every download just the same).
+    cookie_browser: cookieBrowserSelect?.value || savedCookieBrowser,
     cookie_file: cookieFileInput?.value || "",
     default_audio_lang: defaultAudioLangInput?.value || "",
     download_speed_limit_mbps: speedLimitMbps,
@@ -2693,6 +3092,8 @@ async function testCookieSettings() {
     const data = await res.json();
     if (data.ok) {
       showCookieStatus(t().cookieTestOk.replace("{n}", data.count), "ok");
+    } else if (data.reason === "unsupported_browser") {
+      showCookieStatus(t().cookieTestUnsupported.replace("{browser}", data.browser || ""), "bad");
     } else if (data.reason === "not_configured") {
       showCookieStatus(t().cookieTestNone, "bad");
     } else {
@@ -2704,6 +3105,188 @@ async function testCookieSettings() {
     showCookieStatus(t().errNetwork + err.message, "bad");
   } finally {
     cookieTestBtn.disabled = false;
+  }
+}
+
+// --- Settings: uploaded cookies.txt -------------------------------------------
+
+// NOTE: the API only ever returns error CODES for a rejected file - the
+// wording lives here, in both languages.
+function cookieErrorText(code) {
+  return t().cookieErrors[code] || code || t().cookieTestFailed;
+}
+
+// NOTE: pure (no DOM) so the review list's markup can be tested under Node.
+// Site names come from the uploaded file - attacker-controlled text as far as
+// this page is concerned - so every one is escaped.
+function cookieReviewHtml(info) {
+  const suggested = new Set(info.suggested || []);
+  const rows = (info.sites || [])
+    .map(
+      (s) => `
+      <label class="cookie-site">
+        <input type="checkbox" value="${escapeHtml(s.site)}"${suggested.has(s.site) ? " checked" : ""}>
+        <span class="cookie-site-name">${escapeHtml(s.site)}</span>
+        <span class="cookie-site-count">${t().cookieCount.replace("{n}", s.count)}</span>
+      </label>`,
+    )
+    .join("");
+  return `
+    <div class="cookie-review-title">${t().cookieReviewTitle.replace("{n}", (info.sites || []).length)}</div>
+    <div class="cookie-site-list">${rows}</div>
+    <p class="settings-hint">${t().cookieReviewHint}</p>
+    <div class="cookie-actions">
+      <button type="button" id="cookie-upload-save-btn">${t().cookieUploadSaveBtn}</button>
+      <button type="button" id="cookie-upload-cancel-btn" class="btn-secondary">${t().cookieUploadCancelBtn}</button>
+    </div>`;
+}
+
+// NOTE: "uploaded" and "last updated" are different moments on purpose -
+// yt-dlp writes refreshed cookies back into the file on every download, so
+// the file's own time keeps moving while the upload time stays put. A path
+// the user typed in has no upload time at all. Pure (fmtDate is passed in)
+// so it can be tested under Node.
+function cookieCurrentText(data, fmtDate) {
+  const summary = data.summary;
+  const template = data.source === "uploaded" ? t().cookieCurrentUploaded : t().cookieCurrentPath;
+  const parts = [
+    template
+      .replace("{sites}", summary.sites.length)
+      .replace("{n}", summary.total)
+      .replace("{path}", data.path || ""),
+  ];
+  if (data.uploaded_at) parts.push(t().cookieUploadedAt.replace("{date}", fmtDate(data.uploaded_at)));
+  if (summary.updated_at) parts.push(t().cookieUpdatedAt.replace("{date}", fmtDate(summary.updated_at)));
+  return parts.join(" · ");
+}
+
+let pendingCookieText = null;
+
+function resetCookieUpload() {
+  pendingCookieText = null;
+  if (cookieUploadInput) cookieUploadInput.value = "";
+  cookieReview?.classList.add("hidden");
+  if (cookieReview) cookieReview.innerHTML = "";
+}
+
+async function loadCookieFileStatus() {
+  if (!cookieCurrent) return;
+  let data;
+  try {
+    const res = await fetch("/api/cookies");
+    data = await res.json();
+  } catch (err) {
+    return;
+  }
+  const summary = data.summary;
+  if (!data.source) {
+    cookieCurrent.classList.add("hidden");
+    cookieCurrent.innerHTML = "";
+    // NOTE: nothing uploaded yet - the how-to is what the user needs next.
+    if (cookieHowto) cookieHowto.open = true;
+    return;
+  }
+  let line;
+  if (!summary) {
+    line = `<span class="cookie-warning">${escapeHtml(t().cookieCurrentUnreadable.replace("{path}", data.path || ""))}</span>`;
+  } else {
+    const text = cookieCurrentText(data, (iso) =>
+      new Date(iso).toLocaleString(lang === "tr" ? "tr-TR" : "en-US"),
+    );
+    const youtube = summary.youtube_signed_in
+      ? `<span class="cookie-youtube ok">${t().cookieYoutubeOk}</span>`
+      : `<span class="cookie-youtube bad">${t().cookieYoutubeMissing}</span>`;
+    line = `<div>${escapeHtml(text)}</div>${youtube}`;
+  }
+  // NOTE: only the uploaded copy gets a delete button - a path the user typed
+  // in points at THEIR file, which MediaGrab never deletes.
+  const deleteBtn =
+    data.source === "uploaded"
+      ? `<button type="button" id="cookie-delete-btn" class="btn-secondary">${t().cookieDeleteBtn}</button>`
+      : "";
+  cookieCurrent.innerHTML = `<div class="cookie-current-text">${line}</div>${deleteBtn}`;
+  cookieCurrent.classList.remove("hidden");
+  if (cookieHowto) cookieHowto.open = false;
+  document.getElementById("cookie-delete-btn")?.addEventListener("click", deleteUploadedCookies);
+}
+
+async function inspectCookieUpload() {
+  const file = cookieUploadInput?.files?.[0];
+  if (!file) return;
+  let text;
+  try {
+    text = await file.text();
+  } catch (err) {
+    showCookieStatus(t().cookieReadFailed, "bad");
+    return;
+  }
+  try {
+    const res = await fetch("/api/cookies/inspect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: text }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      resetCookieUpload();
+      // NOTE: FastAPI's own 422 (e.g. the body-size cap) has a list here, not
+      // one of our codes.
+      showCookieStatus(cookieErrorText(typeof data.detail === "string" ? data.detail : "too_large"), "bad");
+      return;
+    }
+    pendingCookieText = text;
+    cookieStatus?.classList.add("hidden");
+    cookieReview.innerHTML = cookieReviewHtml(data);
+    cookieReview.classList.remove("hidden");
+    document.getElementById("cookie-upload-save-btn")?.addEventListener("click", saveCookieUpload);
+    document.getElementById("cookie-upload-cancel-btn")?.addEventListener("click", resetCookieUpload);
+  } catch (err) {
+    showCookieStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+async function saveCookieUpload() {
+  if (pendingCookieText === null || !cookieReview) return;
+  const sites = [...cookieReview.querySelectorAll('input[type="checkbox"]:checked')].map((el) => el.value);
+  if (!sites.length) {
+    showCookieStatus(cookieErrorText("nothing_selected"), "bad");
+    return;
+  }
+  const btn = document.getElementById("cookie-upload-save-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/cookies/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: pendingCookieText, sites }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showCookieStatus(cookieErrorText(typeof data.detail === "string" ? data.detail : ""), "bad");
+      return;
+    }
+    resetCookieUpload();
+    // NOTE: the upload route already switched the server to file mode - the
+    // page's own copy of the settings follows, so a later "Save" (or another
+    // settings form, see collectSettingsPayload) doesn't switch it back.
+    await loadSettings();
+    showCookieStatus(t().cookieUploaded.replace("{n}", data.total), "ok");
+  } catch (err) {
+    showCookieStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteUploadedCookies() {
+  if (!window.confirm(t().cookieDeleteConfirm)) return;
+  try {
+    const res = await fetch("/api/cookies", { method: "DELETE" });
+    if (!res.ok) throw new Error(String(res.status));
+    await loadSettings();
+    showCookieStatus(t().cookieDeleted, "ok");
+  } catch (err) {
+    showCookieStatus(t().errNetwork + err.message, "bad");
   }
 }
 
@@ -2990,6 +3573,7 @@ cookieModes?.querySelectorAll("[data-cookie-mode]").forEach((btn) => {
   });
 });
 cookieSaveBtn?.addEventListener("click", saveCookieSettings);
+cookieUploadInput?.addEventListener("change", inspectCookieUpload);
 cookieTestBtn?.addEventListener("click", testCookieSettings);
 speedLimitModes?.querySelectorAll("[data-speed-limit]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -3205,6 +3789,7 @@ updateChannelChoiceVisibility();
   loadHistory();
   loadChannels();
   loadPending();
+  loadMediagrabVersion();
   loadYtdlpVersion();
   loadFfmpegVersion();
   loadDependencies();

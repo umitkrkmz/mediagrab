@@ -43,7 +43,7 @@ host's own reveal/download of its own file is never affected either way.
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/api/probe` | POST | Resolve a URL → `downloader.probe()`: title, uploader, duration, thumbnail, description, video formats (with size estimates), subtitles, transcript language, audio tracks; or a playlist listing |
+| `/api/probe` | POST | Resolve a URL → `downloader.probe()`: title, uploader, duration, thumbnail, description, video formats (with size estimates), subtitles, transcript language, audio tracks, `audio_only` (any audio-only format - Opus/M4A need one), `notices` (e.g. `account_age_verification`: a successful but degraded result); or a playlist listing. On failure the 400 `detail` gets yt-dlp's cookie/age-verification side messages appended |
 | `/api/download` | POST | Start a job (`kind`: audio/video/transcript, `choice`, `subtitle_langs`, `audio_langs`); runs in a thread pool, returns `job_id` |
 | `/api/status/{job_id}` | GET | Job state, percent, speed, ETA, queue position, error - one-shot snapshot |
 | `/api/events` | GET | SSE stream (`text/event-stream`); pushes `{job_id, ...status fields}` for every job update, to every connected tab |
@@ -84,9 +84,15 @@ host's own reveal/download of its own file is never affected either way.
 | `/api/settings/test-cookies` | POST | Try reading cookies from the configured source |
 | `/api/settings/export` | GET | Downloads settings + followed channels + pending videos as one JSON file (`Content-Disposition: attachment`) - never includes `remote_access_password_salt`/`_hash` |
 | `/api/settings/import` | POST | Restores settings + channels + pending from a previously exported file - replaces (not merges) the channel list; silently drops any credential fields even if present in the file |
-| `/api/cookie-browsers` | GET | Browsers yt-dlp can read cookies from |
+| `/api/cookie-browsers` | GET | Browsers whose cookies can be read on THIS OS (`downloader.usable_cookie_browsers` - Firefox only on Windows), `platform`, plus `is_docker` (the "From browser" option is hidden in a container) |
+| `/api/cookies` | GET | The active cookie file's SUMMARY only - `source` (`uploaded`/`path`), `uploaded_at` (upload time, uploaded file only), per-site counts, `youtube_signed_in`, `updated_at` (file mtime - moves as yt-dlp writes refreshed cookies back); never cookie names/values |
+| `/api/cookies` | DELETE | Deletes the uploaded `cookies.txt` (`downloader.COOKIES_PATH` only - never a user-typed path) and turns file mode off if it pointed there |
+| `/api/cookies/inspect` | POST | `{content}` -> parses an upload with yt-dlp's own reader and returns per-site counts + pre-ticked `suggested` sites; saves nothing |
+| `/api/cookies/upload` | POST | `{content, sites}` -> keeps only the chosen sites' cookies, writes them atomically to `downloader.COOKIES_PATH` (0600 on POSIX) and switches cookies to file mode |
 | `/api/locale` | GET | Server-detected language |
 | `/api/client-info` | GET | `{is_local}` - whether THIS request came from the host machine (127.0.0.1/::1) or a LAN device; fetched once at page load (see `loadClientInfo` in app.js) and used to pick "reveal in explorer" vs a real "download to this device" action |
+| `/api/diagnostics` | GET | `{text}` - plain-text environment summary for bug reports (`app.diagnostics_text`: versions, OS, install type, JS runtime, ffmpeg, cookie MODE, remote access on/off). Never paths, hostname, IP or cookie contents; no network |
+| `/api/mediagrab-version` | GET | Installed MediaGrab (`__version__`) vs the latest GitHub release, `release_url`, `install_type` (`docker`/`installer`/`source` - picks the update instructions shown) |
 | `/api/ytdlp-version` | GET | Installed vs latest yt-dlp |
 | `/api/ytdlp-update` | POST | `pip install -U yt-dlp`, then restart |
 | `/api/ffmpeg-version` | GET | ffmpeg/ffprobe versions + install commands |

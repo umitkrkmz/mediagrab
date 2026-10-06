@@ -1,19 +1,68 @@
 # The yt_dlp import must appear ONLY in this file. Other modules call this
 # file's functions instead of touching the yt-dlp API directly.
 import glob
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import threading
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Optional
 
-from yt_dlp import YoutubeDL
+from yt_dlp import YoutubeDL as _YtDlpYoutubeDL
+from yt_dlp.cookies import YoutubeDLCookieJar
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
 from .paths import app_dir, is_docker
+
+# NOTE: guards every write to a cookies.txt - a yt-dlp run writing refreshed
+# cookies back (YoutubeDL.save_cookies below) and an upload replacing the file
+# (save_uploaded_cookies) - so one can't land in the middle of the other.
+_cookie_file_lock = threading.Lock()
+
+
+def _file_signature(path: Optional[str]):
+    """(mtime_ns, size) of a file, or None if it doesn't exist."""
+    if not path:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+class YoutubeDL(_YtDlpYoutubeDL):
+    """yt-dlp's YoutubeDL, except it never overwrites a cookies.txt that changed under it.
+
+    NOTE: yt-dlp writes its cookie jar back to `cookiefile` when it closes
+    (that's how refreshed YouTube cookies get kept). But a download can run
+    for minutes - if the user uploads a NEW cookies.txt meanwhile, the old
+    run's close would write its stale jar straight over the new upload. So
+    each run notes the file's signature when it starts, and only writes back
+    if the file is still exactly what it started from. Anything else - a new
+    upload, the file being deleted, another run having written first - wins.
+    Every call site in this module uses this class simply by name.
+    """
+
+    def __init__(self, params=None, *args, **kwargs):
+        self._cookie_file_signature = _file_signature((params or {}).get("cookiefile"))
+        super().__init__(params, *args, **kwargs)
+
+    def save_cookies(self):
+        path = self.params.get("cookiefile")
+        if path is None:
+            return
+        with _cookie_file_lock:
+            current = _file_signature(path)
+            # NOTE: "None" (no file now) is never written either - deleted
+            # cookies stay deleted, a run can't quietly bring them back.
+            if current is None or current != self._cookie_file_signature:
+                return
+            super().save_cookies()
 
 
 class ProbeError(Exception):
@@ -35,6 +84,15 @@ def strip_ansi_codes(text: str) -> str:
 DOWNLOAD_DIR = os.path.join(app_dir(), "indirilenler")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# NOTE: where an UPLOADED cookies.txt lives (Settings -> Cookies). Never
+# inside DOWNLOAD_DIR - that folder is listed by History and served to
+# remote devices. In Docker it's its own volume-mounted folder (see
+# docker-compose.yml) so it survives the container being recreated; from
+# source it sits next to settings.json (and is gitignored, like it).
+COOKIES_PATH = (
+    "/data/cookies/cookies.txt" if is_docker() else os.path.join(app_dir(), "cookies.txt")
+)
+
 # NOTE: the video ID is deliberately left out of the filename - removed at the
 # user's request. The cost: re-downloading the same video at a different
 # quality reuses the same filename and overwrites it (intentional, see
@@ -48,9 +106,26 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
 
 
-# NOTE: the browsers yt-dlp can read cookies from. Firefox is listed first and
-# is the default on purpose - see the warning in cookie_support_note().
+# NOTE: the browsers yt-dlp can read cookies from at all. Firefox is listed
+# first and is the default on purpose - see usable_cookie_browsers().
 SUPPORTED_COOKIE_BROWSERS = ("firefox", "chrome", "chromium", "edge", "brave", "opera", "vivaldi", "safari")
+
+
+def usable_cookie_browsers(platform: Optional[str] = None) -> tuple:
+    """The browsers whose cookies can actually be read on this OS."""
+    # NOTE: on Windows, Chromium-based browsers (Chrome 127+, Edge, Brave...)
+    # protect cookies with App-Bound Encryption, which only the browser itself
+    # can undo - yt-dlp fails with "Could not copy Chrome cookie database" or a
+    # DPAPI error. And it fails on EVERY download, not just the ones that need
+    # a login, so offering these there only ever breaks things (confirmed on a
+    # real machine). Firefox stores its cookies unencrypted and just works.
+    # Elsewhere Chromium works (Keychain / keyring); Safari exists only on macOS.
+    platform = platform or sys.platform
+    if platform == "win32":
+        return ("firefox",)
+    if platform == "darwin":
+        return SUPPORTED_COOKIE_BROWSERS
+    return tuple(b for b in SUPPORTED_COOKIE_BROWSERS if b != "safari")
 
 
 def cookie_opts() -> dict:
@@ -64,7 +139,10 @@ def cookie_opts() -> dict:
 
     if mode == "browser":
         browser = settings.get("cookie_browser") or "firefox"
-        if browser not in SUPPORTED_COOKIE_BROWSERS:
+        # NOTE: a browser saved before it was filtered out on this OS (e.g.
+        # "chrome" on Windows) means "no cookies" rather than a hard failure
+        # of every single download - Settings shows why.
+        if browser not in usable_cookie_browsers():
             return {}
         # NOTE: the tuple is (browser, profile, keyring, container) - only the
         # browser name is set, letting yt-dlp find the default profile.
@@ -100,8 +178,14 @@ def test_cookie_source() -> dict:
     """Check the configured cookie source actually loads, without downloading."""
     # NOTE: worth its own endpoint because a broken cookie source otherwise
     # only shows up as a failed download much later, with a message that
-    # doesn't obviously point at cookies. Chrome on Windows is the common
-    # case: it fails here rather than silently doing nothing.
+    # doesn't obviously point at cookies.
+    from . import store
+
+    settings = store.get_settings()
+    if settings.get("cookie_mode") == "browser":
+        browser = settings.get("cookie_browser") or "firefox"
+        if browser not in usable_cookie_browsers():
+            return {"ok": False, "reason": "unsupported_browser", "browser": browser}
     opts = cookie_opts()
     if not opts:
         return {"ok": False, "reason": "not_configured"}
@@ -111,6 +195,155 @@ def test_cookie_source() -> dict:
         return {"ok": True, "count": len(jar)}
     except Exception as exc:
         return {"ok": False, "reason": "error", "detail": strip_ansi_codes(str(exc))[:300]}
+
+
+# --- uploaded cookies.txt -----------------------------------------------------
+
+# NOTE: a youtube.com-only export is a few KB and even "Export All Cookies"
+# from a busy browser stays well under 1 MB - anything bigger isn't a cookie
+# file, and the whole thing is held in memory while parsing.
+COOKIES_MAX_BYTES = 5 * 1024 * 1024
+
+# NOTE: sites pre-ticked when an upload is reviewed - YouTube's own session
+# cookies live on youtube.com, and the Google account login it depends on on
+# google.com (or a country domain such as google.com.tr). Everything else in
+# the file starts unticked, so an "Export All Cookies" file doesn't quietly
+# store the user's bank/mail/social sessions next to MediaGrab.
+_DEFAULT_COOKIE_SITES = ("youtube.com", "google.")
+
+# NOTE: the same rule yt-dlp's YouTube extractor uses to decide it's signed
+# in (YoutubeBaseInfoExtractor._has_auth_cookies): LOGIN_INFO plus at least
+# one SAPISID variant. LOGIN_INFO matters because YouTube clears it when it
+# rotates/rejects a session but leaves __Secure-3PAPISID behind - a SAPISID
+# alone is what a dead session looks like (seen live after a write-back).
+_YOUTUBE_SAPISID_COOKIES = {"SAPISID", "__Secure-1PAPISID", "__Secure-3PAPISID"}
+
+# NOTE: second-level labels under which a country code is the real suffix
+# ("bbc.co.uk", "google.com.tr") - a small stand-in for the full Public
+# Suffix List, which is only used here to group cookies for display, never
+# for any security decision.
+_SECOND_LEVEL_LABELS = {"co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go"}
+
+
+class CookieFileError(ValueError):
+    """An uploaded cookies.txt was rejected; str(exc) is a short reason code."""
+
+
+def cookie_site(domain: str) -> str:
+    """Group a cookie domain under its site: ".m.youtube.com" -> "youtube.com"."""
+    labels = [part for part in domain.lower().lstrip(".").split(".") if part]
+    if len(labels) <= 2:
+        return ".".join(labels)
+    if len(labels[-1]) == 2 and labels[-2] in _SECOND_LEVEL_LABELS:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
+
+
+def parse_cookie_text(text: str) -> YoutubeDLCookieJar:
+    """Parse cookies.txt content with yt-dlp's OWN reader, or raise CookieFileError."""
+    # NOTE: yt-dlp's reader rather than our own parser on purpose - a file
+    # that passes here is, by construction, a file yt-dlp will accept when it
+    # later downloads with it (#HttpOnly_ lines, session cookies and all).
+    if len(text.encode("utf-8")) > COOKIES_MAX_BYTES:
+        raise CookieFileError("too_large")
+    stripped = text.lstrip("﻿").strip()
+    if not stripped:
+        raise CookieFileError("empty")
+    if stripped[0] in "[{":
+        raise CookieFileError("json")
+    # NOTE: browsers hand FileReader text over with the file's own line
+    # endings, and yt-dlp's reader only strips "\n" - a Windows "\r\n" file
+    # would otherwise leave "\r" glued to the end of every cookie VALUE.
+    normalized = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
+    jar = YoutubeDLCookieJar()
+    try:
+        jar.load(io.StringIO(normalized))
+    except Exception:
+        raise CookieFileError("not_netscape") from None
+    if not len(jar):
+        raise CookieFileError("no_cookies")
+    return jar
+
+
+def summarize_cookie_jar(jar) -> dict:
+    """Per-site counts - names and values never leave this function."""
+    counts: dict[str, int] = {}
+    youtube_names = set()
+    for cookie in jar:
+        site = cookie_site(cookie.domain)
+        counts[site] = counts.get(site, 0) + 1
+        if site == "youtube.com":
+            youtube_names.add(cookie.name)
+    youtube_signed_in = "LOGIN_INFO" in youtube_names and bool(youtube_names & _YOUTUBE_SAPISID_COOKIES)
+    sites = [{"site": site, "count": n} for site, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+    return {"sites": sites, "total": sum(counts.values()), "youtube_signed_in": youtube_signed_in}
+
+
+def inspect_cookie_text(text: str) -> dict:
+    """What an upload contains, plus which sites to pre-tick - nothing is saved."""
+    summary = summarize_cookie_jar(parse_cookie_text(text))
+    summary["suggested"] = [
+        s["site"] for s in summary["sites"] if s["site"].startswith(_DEFAULT_COOKIE_SITES)
+    ]
+    return summary
+
+
+def save_uploaded_cookies(text: str, sites: list[str]) -> dict:
+    """Keep only the chosen sites' cookies and write them to COOKIES_PATH."""
+    jar = parse_cookie_text(text)
+    wanted = {s.lower() for s in sites}
+    kept = YoutubeDLCookieJar()
+    for cookie in jar:
+        if cookie_site(cookie.domain) in wanted:
+            kept.set_cookie(cookie)
+    if not len(kept):
+        raise CookieFileError("nothing_selected")
+
+    folder = os.path.dirname(COOKIES_PATH)
+    os.makedirs(folder, exist_ok=True)
+    # NOTE: written beside the target and swapped in with os.replace, so a
+    # crash mid-write can never leave a half-written file where yt-dlp would
+    # read it - the previous upload simply stays in place. Written by yt-dlp's
+    # own save() for the same reason the reader is yt-dlp's (see above).
+    tmp_path = COOKIES_PATH + ".tmp"
+    with _cookie_file_lock:
+        try:
+            kept.save(tmp_path)
+            if os.name == "posix":
+                # NOTE: these are live login sessions - owner-only, like an SSH key.
+                os.chmod(tmp_path, 0o600)
+            os.replace(tmp_path, COOKIES_PATH)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+    return summarize_cookie_jar(kept)
+
+
+def cookie_file_summary(path: str) -> Optional[dict]:
+    """Summary of a cookies.txt already on disk, or None if it can't be read."""
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            summary = summarize_cookie_jar(parse_cookie_text(f.read()))
+    except (OSError, CookieFileError):
+        return None
+    # NOTE: timezone-aware on purpose - a container runs in UTC, and a naive
+    # timestamp would be read by the browser as the viewer's LOCAL time
+    # (showing an upload as hours old). With the offset, the browser converts.
+    mtime = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+    summary["updated_at"] = mtime.isoformat(timespec="seconds")
+    return summary
+
+
+def delete_uploaded_cookies() -> bool:
+    """Remove the uploaded file. Only ever COOKIES_PATH - never a user's own file."""
+    with _cookie_file_lock:
+        try:
+            os.remove(COOKIES_PATH)
+            return True
+        except FileNotFoundError:
+            return False
 
 
 def human_size(num_bytes: Optional[float]) -> str:
@@ -360,7 +593,39 @@ def check_channel_new_videos(url: str, last_video_id: Optional[str], limit: int 
     ]
 
 
+class _CookieHintLogger:
+    """Collects the yt-dlp messages that explain WHY a sign-in-gated video failed.
+
+    NOTE: yt-dlp states the two most useful reasons only as side messages -
+    the exception itself just says "Sign in to confirm your age" either way:
+      - its cookies were sent but YouTube rejected them (rotated/expired),
+      - the cookies are fine but YouTube wants the ACCOUNT age-verified
+        (something only the user can do, on YouTube - no new cookies.txt
+        will ever fix it).
+    With a logger set, yt-dlp routes both screen messages and warnings here
+    regardless of "quiet" (see YoutubeDL.to_screen/report_warning), so this
+    sees them without any console output coming back.
+    """
+
+    _PATTERNS = ("account cookies are no longer valid", "requiring account age-verification")
+
+    def __init__(self):
+        self.hints: list[str] = []
+
+    def _check(self, message: str) -> None:
+        clean = strip_ansi_codes(str(message)).strip()
+        if any(p in clean.lower() for p in self._PATTERNS) and clean not in self.hints:
+            self.hints.append(clean)
+
+    debug = info = warning = _check
+
+    def error(self, message: str) -> None:
+        # NOTE: the error itself arrives as the raised exception anyway.
+        pass
+
+
 def probe(url: str) -> dict:
+    hint_logger = _CookieHintLogger()
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -370,13 +635,20 @@ def probe(url: str) -> dict:
         # playlist (very slow). "in_playlist" gives a fast listing (id/title/
         # duration/thumbnail); format resolution happens once the user picks a video.
         "extract_flat": "in_playlist",
+        "logger": hint_logger,
         **cookie_opts(),
     }
     try:
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        raise ProbeError(strip_ansi_codes(str(exc))) from exc
+        message = strip_ansi_codes(str(exc))
+        # NOTE: appended as yt-dlp's own English lines - the page matches them
+        # to a specific explanation (app.js ERROR_PATTERNS) and still shows
+        # them verbatim under "technical details".
+        if hint_logger.hints:
+            message = "\n".join([message, *hint_logger.hints])
+        raise ProbeError(message) from exc
 
     if info.get("_type") == "playlist":
         entries = []
@@ -400,6 +672,19 @@ def probe(url: str) -> dict:
         }
 
     formats = info.get("formats") or []
+    # NOTE: a probe can SUCCEED and still be badly degraded - seen live with
+    # an age-restricted video and an account YouTube wanted age-verified:
+    # only format 18 (360p, audio+video muxed) came back, so Opus/M4A (which
+    # need a separate audio stream) failed with yt-dlp's raw "Requested
+    # format is not available", and MP3 was quietly re-encoded from 360p
+    # video audio. "audio_only" lets the page grey those choices out up
+    # front, "notices" lets it say why.
+    audio_only = any(
+        f.get("vcodec") == "none" and f.get("acodec") not in (None, "none") for f in formats
+    )
+    notices = []
+    if any("requiring account age-verification" in h.lower() for h in hint_logger.hints):
+        notices.append("account_age_verification")
     return {
         "type": "video",
         "title": info.get("title") or "?",
@@ -411,6 +696,8 @@ def probe(url: str) -> dict:
         "subtitles": _subtitle_list(info),
         "transcript": _transcript_language(info),
         "audio_tracks": _audio_track_list(formats),
+        "audio_only": audio_only,
+        "notices": notices,
     }
 
 
@@ -953,6 +1240,43 @@ def _parse_version(v: str) -> tuple:
         return ()
 
 
+# NOTE: must match the yt-dlp line in requirements.txt (test_downloader
+# checks this). Updating plain "yt-dlp" would leave yt-dlp-ejs at the old
+# pinned version, and a solver script that doesn't match yt-dlp's expected
+# version is ignored - YouTube challenge solving would silently stop working
+# right after a "successful" update.
+YTDLP_PIP_SPEC = "yt-dlp[default,deno]"
+
+
+def js_runtime_status() -> dict:
+    """The JavaScript runtime + challenge solver yt-dlp will use for YouTube."""
+    # NOTE: asks yt-dlp itself (with the same default runtime config every
+    # download uses) instead of guessing with shutil.which - yt-dlp also
+    # looks in the venv's Scripts/bin folder, which is exactly where the
+    # pip-installed Deno lands and which is NOT on PATH. _js_runtimes is a
+    # private attribute, hence the broad except: if a future yt-dlp renames
+    # it, this reports "unknown" instead of breaking the Settings page.
+    result = {"js_runtime": None, "js_runtime_version": None, "js_solver": None}
+    try:
+        from yt_dlp.dependencies import yt_dlp_ejs
+
+        if yt_dlp_ejs is not None:
+            result["js_solver"] = str(getattr(yt_dlp_ejs, "version", "") or "?")
+    except Exception:
+        pass
+    try:
+        with YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            for name, runtime in ydl._js_runtimes.items():
+                info = runtime.info if runtime else None
+                if info and info.supported:
+                    result["js_runtime"] = name
+                    result["js_runtime_version"] = info.version
+                    break
+    except Exception:
+        pass
+    return result
+
+
 def check_ytdlp_update() -> dict:
     # NOTE: yt-dlp versions are dates ("2026.07.04"), but yt_dlp.version's
     # copy keeps the zero-padding while PyPI's JSON API normalizes it
@@ -960,7 +1284,7 @@ def check_ytdlp_update() -> dict:
     # DIFFERENT versions (since "7" > "07" as text), falsely flagging every
     # up-to-date install as outdated. Parsing into int tuples compares them
     # numerically instead, where 2026.07.04 == 2026.7.4 as expected.
-    result = {"installed": YT_DLP_VERSION, "latest": None, "update_available": None}
+    result = {"installed": YT_DLP_VERSION, "latest": None, "update_available": None, **js_runtime_status()}
     try:
         with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json", timeout=5) as resp:
             data = json.loads(resp.read())
@@ -992,7 +1316,7 @@ def update_ytdlp() -> dict:
     pip_args = ["--user"] if is_docker() else []
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", *pip_args, "--upgrade", "yt-dlp"],
+            [sys.executable, "-m", "pip", "install", *pip_args, "--upgrade", YTDLP_PIP_SPEC],
             capture_output=True,
             text=True,
             timeout=120,

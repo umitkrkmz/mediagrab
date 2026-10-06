@@ -228,6 +228,28 @@ def test_dependencies_update_still_works_outside_docker(dep_client_settings, mon
     assert res.json()["ok"] is True
 
 
+
+@pytest.mark.parametrize("in_docker", [True, False])
+def test_version_routes_report_is_docker(dep_client_settings, monkeypatch, in_docker):
+    # NOTE: the Settings page uses this to drop the per-OS ffmpeg install
+    # commands and the manual venv/pip steps inside a container, where ffmpeg
+    # ships with the image and there is no venv.
+    monkeypatch.setattr(app_module, "is_docker", lambda: in_docker)
+    monkeypatch.setattr(app_module, "_ensure_docker_has_a_password", lambda: None)
+    monkeypatch.setattr(
+        app_module.downloader,
+        "check_ytdlp_update",
+        lambda: {"installed": "2026.08.19", "latest": None, "update_available": None},
+    )
+    monkeypatch.setattr(app_module.deps, "check_ffmpeg", lambda: {"ffmpeg": "7.1", "ffprobe": "7.1", "ok": True})
+
+    with TestClient(app_module.app) as client:
+        ytdlp = client.get("/api/ytdlp-version").json()
+        ffmpeg = client.get("/api/ffmpeg-version").json()
+
+    assert ytdlp["is_docker"] is in_docker
+    assert ffmpeg["is_docker"] is in_docker
+
 # --- lan_ip(): MEDIAGRAB_HOST_LAN_IP override --------------------------------
 
 

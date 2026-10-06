@@ -4,6 +4,7 @@ import json
 import re
 import locale
 import os
+import platform
 import shutil
 import socket
 import sys
@@ -12,7 +13,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
 
@@ -22,12 +23,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import auth, deps, downloader, store
+from . import __version__, auth, deps, downloader, store
 from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
     ChannelItem,
     ClientInfoResponse,
+    CookieInspectRequest,
+    CookieUploadRequest,
     DownloadRequest,
     DownloadStartResponse,
     HistoryItem,
@@ -46,7 +49,7 @@ from .models import (
     StatusResponse,
     YtdlpVersionResponse,
 )
-from .paths import is_docker, resource_dir
+from .paths import install_type, is_docker, resource_dir
 
 
 # NOTE: the running event loop, captured once at startup by `lifespan` below -
@@ -267,7 +270,7 @@ def _resolve_lang(lang: Optional[str], request: Optional[Request] = None) -> str
 
 def _page_context(request: Request, lang: Optional[str], active: str) -> dict:
     resolved = _resolve_lang(lang, request)
-    return {"lang": resolved, "active": active, "ui": ui_text(resolved)}
+    return {"lang": resolved, "active": active, "ui": ui_text(resolved), "app_version": __version__}
 
 
 def lan_ip() -> Optional[str]:
@@ -1118,9 +1121,66 @@ def locale_info() -> dict:
     return {"lang": _detect_system_lang()}
 
 
+def diagnostics_text() -> str:
+    """A plain-text environment summary to paste into a bug report."""
+    # NOTE: what's left out matters as much as what's in - this text is meant
+    # to be pasted into a PUBLIC GitHub issue, so: no file paths (they carry
+    # the user's name on most systems), no IP addresses, no hostname
+    # (platform.node), no cookie names/values/paths. Only versions and
+    # on/off states. Nothing here makes a network request either.
+    settings = store.get_settings()
+    js = downloader.js_runtime_status()
+    ffmpeg = deps.check_ffmpeg()
+    cookie_mode = settings.get("cookie_mode", "off")
+    if cookie_mode == "browser":
+        browser = settings.get("cookie_browser") or "firefox"
+        usable = browser in downloader.usable_cookie_browsers()
+        cookies = f"browser ({browser}{'' if usable else ', not usable on this OS'})"
+    elif cookie_mode == "file":
+        summary = downloader.cookie_file_summary(settings.get("cookie_file") or "")
+        if summary is None:
+            cookies = "file (unreadable)"
+        else:
+            source = "uploaded" if _is_uploaded_cookie_file(settings.get("cookie_file") or "") else "path"
+            session = "yes" if summary["youtube_signed_in"] else "no"
+            cookies = f"file ({source}, {summary['total']} cookies, YouTube session: {session})"
+    else:
+        cookies = "off"
+    js_line = (
+        f"{js['js_runtime']} {js['js_runtime_version']}" if js["js_runtime"] else "missing"
+    ) + f" (solver: {js['js_solver'] or 'missing'})"
+    lines = [
+        f"MediaGrab: {__version__} ({install_type()})",
+        f"OS: {platform.system()} {platform.release()} ({platform.machine()})",
+        f"Python: {platform.python_version()}",
+        f"yt-dlp: {downloader.YT_DLP_VERSION}",
+        f"JS runtime: {js_line}",
+        f"ffmpeg: {ffmpeg.get('ffmpeg') or 'missing'} / ffprobe: {ffmpeg.get('ffprobe') or 'missing'}",
+        f"Cookies: {cookies}",
+        f"Remote access: {'on' if store.remote_access_active(settings) else 'off'}"
+        f" / home server mode: {'on' if settings.get('home_server_mode') else 'off'}",
+    ]
+    return "\n".join(lines)
+
+
+@app.get("/api/diagnostics")
+def diagnostics() -> dict:
+    return {"text": diagnostics_text()}
+
+
+@app.get("/api/mediagrab-version")
+def mediagrab_version() -> dict:
+    # NOTE: install_type picks the update instructions shown (Docker image /
+    # installer's Repair-Update / git pull) - MediaGrab never updates itself.
+    return deps.check_mediagrab_update()
+
+
 @app.get("/api/ytdlp-version", response_model=YtdlpVersionResponse)
 def ytdlp_version() -> dict:
-    return downloader.check_ytdlp_update()
+    # NOTE: is_docker - same reason as /api/dependencies below: the Settings
+    # page hides the manual venv/pip steps in a container (there is no venv,
+    # and the image is what actually gets updated).
+    return {**downloader.check_ytdlp_update(), "is_docker": is_docker()}
 
 
 def _delayed_restart() -> None:
@@ -1159,6 +1219,11 @@ def get_settings() -> dict:
 
 @app.post("/api/settings", response_model=SettingsResponse)
 def update_settings(req: SettingsUpdateRequest) -> dict:
+    # NOTE: checked against every browser yt-dlp knows, NOT just the ones
+    # usable on this OS - every settings form resends cookie_browser, so a
+    # stricter check here would stop someone with an old "chrome" on Windows
+    # from saving even an unrelated setting. cookie_opts() is what ignores an
+    # unusable browser, and the Settings page says so.
     if req.cookie_mode == "browser" and req.cookie_browser not in downloader.SUPPORTED_COOKIE_BROWSERS:
         raise HTTPException(status_code=400, detail="Desteklenmeyen tarayici")
     # NOTE: a path that doesn't exist is rejected here rather than silently
@@ -1240,12 +1305,91 @@ def test_cookies() -> dict:
 
 @app.get("/api/cookie-browsers")
 def cookie_browsers() -> dict:
-    return {"browsers": list(downloader.SUPPORTED_COOKIE_BROWSERS), "platform": sys.platform}
+    # NOTE: is_docker - a container has no browser profile to read, so the
+    # Settings page hides the "From browser" option there entirely.
+    return {
+        # NOTE: only what works on THIS OS (on Windows: Firefox only) - see
+        # downloader.usable_cookie_browsers for why.
+        "browsers": list(downloader.usable_cookie_browsers()),
+        "platform": sys.platform,
+        "is_docker": is_docker(),
+    }
+
+
+def _is_uploaded_cookie_file(path: str) -> bool:
+    return bool(path) and os.path.normcase(os.path.abspath(path)) == os.path.normcase(
+        os.path.abspath(downloader.COOKIES_PATH)
+    )
+
+
+@app.get("/api/cookies")
+def cookie_status() -> dict:
+    # NOTE: a summary only (sites, counts, whether a YouTube session is in
+    # there) - no route ever returns cookie names or values, so nothing that
+    # can read this page (a logged-in remote device included) can lift a
+    # session out of it.
+    settings = store.get_settings()
+    path = settings.get("cookie_file") or ""
+    uploaded = _is_uploaded_cookie_file(path)
+    return {
+        "mode": settings.get("cookie_mode", "off"),
+        "source": ("uploaded" if uploaded else "path") if path else None,
+        # NOTE: a path the user typed themselves is shown back to them; the
+        # uploaded file's internal location (a container path in Docker) isn't
+        # something they ever need to see or type.
+        "path": None if uploaded else (path or None),
+        "uploaded_at": (settings.get("cookie_uploaded_at") or None) if uploaded else None,
+        "summary": downloader.cookie_file_summary(path),
+    }
+
+
+def _cookie_error(exc: "downloader.CookieFileError") -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/cookies/inspect")
+def cookie_inspect(req: CookieInspectRequest) -> dict:
+    try:
+        return downloader.inspect_cookie_text(req.content)
+    except downloader.CookieFileError as exc:
+        raise _cookie_error(exc)
+
+
+@app.post("/api/cookies/upload")
+def cookie_upload(req: CookieUploadRequest) -> dict:
+    try:
+        summary = downloader.save_uploaded_cookies(req.content, req.sites)
+    except downloader.CookieFileError as exc:
+        raise _cookie_error(exc)
+    # NOTE: uploading IS the choice - switching to file mode pointed at the
+    # uploaded copy here saves a separate "Save" click that would be easy to
+    # forget (leaving cookies uploaded but unused).
+    store.save_settings(
+        cookie_mode="file",
+        cookie_file=downloader.COOKIES_PATH,
+        cookie_uploaded_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
+    return summary
+
+
+@app.delete("/api/cookies")
+def cookie_delete() -> dict:
+    settings = store.get_settings()
+    removed = downloader.delete_uploaded_cookies()
+    # NOTE: only un-points the setting when it pointed at the uploaded copy - a
+    # path the user typed in themselves is their file, left alone.
+    if _is_uploaded_cookie_file(settings.get("cookie_file") or ""):
+        mode = settings.get("cookie_mode", "off")
+        store.save_settings(cookie_mode="off" if mode == "file" else mode, cookie_file="", cookie_uploaded_at="")
+    return {"ok": True, "removed": removed}
 
 
 @app.get("/api/ffmpeg-version")
 def ffmpeg_version() -> dict:
-    return deps.check_ffmpeg()
+    # NOTE: in Docker ffmpeg is baked into the image, so the per-OS install
+    # commands are meaningless there (and "your system" would say Linux - the
+    # container's OS, not the user's).
+    return {**deps.check_ffmpeg(), "is_docker": is_docker()}
 
 
 @app.get("/api/dependencies")

@@ -18,6 +18,7 @@
 - [How Channel Following Works](#how-channel-following-works)
 - [Remote Access (From Your Local Network)](#remote-access-from-your-local-network)
 - [Home Server Mode](#home-server-mode)
+- [Cookies: age-restricted and sign-in-only videos](#cookies-age-restricted-and-sign-in-only-videos)
 - [Using It On Mobile](#using-it-on-mobile)
 - [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
@@ -102,7 +103,7 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 - **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`)
 - **Cancel a download, and existing files are protected** — stop a running download from the panel (partial files are cleaned up); if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
 - **Download speed limiting and a disk-space shield** (`/settings`) — set an optional overall speed cap; a download is refused up front when there isn't enough free disk space left to finish it
-- **Cookie support** (`/settings`) — use your browser session's cookies for age-restricted, members-only or sign-in-required content: either a `cookies.txt` file (works everywhere) or straight from the browser. Your cookies are never copied; only the source name is stored
+- **Cookie support** (`/settings`) — use your account's cookies for age-restricted, members-only or sign-in-required content: upload a `cookies.txt` in Settings (works on every install, Docker included; only the sites you pick are kept) or, on a local install, read them straight from the browser. Details: [Cookies](#cookies-age-restricted-and-sign-in-only-videos)
 - **Friendly error messages** — common cases (age restriction, bot check, geo-restriction, removed videos, and more) show an explanatory message in your language instead of yt-dlp's raw output
 
 ### Ease of use
@@ -132,10 +133,11 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 
 ### Maintenance
 
+- **MediaGrab update check** (`/settings`) — compares your installed version against the latest GitHub release; if there's a newer one, it links the release notes and shows the right update steps for your install type (Docker, Windows installer, from source). It never updates itself. The installed version is also shown on `/about`
 - **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
-- **Feedback and About** — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature (`/settings`); the `/about` page covers the project, its GPL-3.0 license, and source links
-- **No** database, account system, or cloud connection — runs only on this machine
+- **Feedback and About** — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature (`/settings`); a "Copy diagnostic info" button gathers versions, OS, install type and cookie mode into one text to paste into a bug report (no file paths, IP addresses, computer name or cookie contents); the `/about` page covers the project, its GPL-3.0 license, and source links
+- **No** database, account system, or cloud connection — runs only on this machine. The only outside requests are the version lookups made when you open Settings → Version Checks (GitHub and PyPI); nothing is sent in the background
 
 ## Installation
 
@@ -291,15 +293,17 @@ Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` wi
 docker compose up -d
 ```
 
-The repo's compose file currently uses `build: .`, so this command builds the image locally from the `Dockerfile` the first time (can take a few minutes); later runs reuse the built image. From another device, go to `http://<this-computer's-LAN-IP>:8420`. Your downloads, settings, and followed channels are kept in `./data/`, outside the container - they survive a rebuild or the container being recreated.
+The repo's compose file uses the published official image (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 and arm64); this command downloads it the first time, no build needed. From another device, go to `http://<this-computer's-LAN-IP>:8420`. Your downloads, settings, and followed channels are kept in `./data/`, outside the container - they survive a rebuild or the container being recreated.
 
-**Updating:** update yt-dlp from the Settings page with one click, same as always (it installs into a folder that persists even across a rebuild). Every other dependency (FastAPI, ffmpeg, etc.) is baked into the image; updating those means pulling the latest source and rebuilding:
+**Updating:** when a new release is out, Settings → Version Checks shows it. In the folder that has your `docker-compose.yml`:
 
 ```bash
-git pull && docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
 
-> Once an official image is published under a version tag (`v2.0.0`, say) at `ghcr.io/umitkrkmz/mediagrab`, you can replace `docker-compose.yml`'s `build: .` line with `image: ghcr.io/umitkrkmz/mediagrab:latest` (as its own comment shows) and use `docker compose pull && docker compose up -d` from then on — the Windows installer's "Install with Docker" option already targets that published image.
+Your settings, cookies and downloads are kept in `./data/`, so nothing is lost. yt-dlp can also be updated from the Settings page with one click (it installs into a folder that persists even when the image is replaced); every other dependency (FastAPI, ffmpeg, Deno, etc.) is baked into the image and updates with it.
+
+> **If you have an older install:** if you installed from the repo by hand before v2.2.0, your compose file may have `build: .` instead of `image:`. Replace that line with `image: ghcr.io/umitkrkmz/mediagrab:latest`, then use the command above. To build your own local changes instead, use `build: .` and run `docker compose up -d --build`. The Windows installer's "Install with Docker" option already uses the published image.
 
 The "update dependencies" button in Settings is disabled in Docker and reminds you of this — it can't update or rebuild the image itself.
 
@@ -350,6 +354,52 @@ Normally MediaGrab only runs while you have it open, and channel following only 
 
 Home Server Mode is independent of Remote Access: you can turn on either one alone, or both together.
 
+## Cookies: age-restricted and sign-in-only videos
+
+Some videos can only be watched with a signed-in account: age-restricted videos, members-only content, private videos, and sometimes YouTube's "confirm you're not a bot" check. MediaGrab can download these using your account's cookies. When you hit one of these errors, the message on the home page links straight to **Settings → Cookies**.
+
+> **A warning about your account:** according to yt-dlp's own documentation, heavy downloading with account cookies can get the account temporarily or permanently restricted. Use a secondary account if you can, and only use cookies for content you have access to.
+
+### Getting a cookies.txt (recommended)
+
+1. Install the open-source **Get cookies.txt LOCALLY** extension ([Chrome / Edge](https://chromewebstore.google.com/detail/cclelndahbckbenkjhflpdbgdldlbecc) · [Firefox](https://addons.mozilla.org/firefox/addon/get-cookies-txt-locally/)). yt-dlp recommends it too. The older "Get cookies.txt" extension (without "LOCALLY") turned out to be malware; don't install that one.
+2. In the extension's settings, allow it to run in private (incognito) windows. Then open a private window and sign in to your account on youtube.com.
+3. In that same tab, open `youtube.com/robots.txt` and click **Export** in the extension. Don't click **Export All Cookies**, which takes every site's cookies from the browser.
+4. Close the private window.
+
+Why a private window? YouTube frequently rotates the session cookies of open tabs as a security measure, so cookies taken from a normal window can go stale quickly; cookies from a session that's then closed stay valid much longer. The method comes from yt-dlp's [guide to exporting YouTube cookies](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies).
+
+### Uploading it to MediaGrab
+
+In Settings → Cookies → **cookies.txt file**, choose the file. MediaGrab reads it and lists the sites in it: YouTube and Google come pre-ticked, everything else unticked. **Save selected** stores only the ticked sites' cookies; the rest are never written to disk. So even if you upload an "Export All" file by mistake, your bank's or email's session doesn't end up in MediaGrab.
+
+After saving you get a summary: how many sites and cookies, when it was uploaded, when it was last updated, and whether the file holds a **YouTube session**. If it says no YouTube session was found, either you weren't signed in when exporting or the session has expired; get a fresh file. **Test** confirms the cookies can be read, and **Delete cookies** removes the file and turns cookies off.
+
+- **On Docker** the file lives in `./data/cookies/` and survives the container being recreated. For a Docker install set up before this feature, add this line to the `volumes:` section of your `docker-compose.yml`, or the uploaded file will be lost when the container is recreated:
+  ```yaml
+      - ./data/cookies:/data/cookies
+  ```
+  New installs made with "Install with Docker" and the repo's compose file already include it. The "From browser" option isn't available on Docker, since there's no browser inside the container.
+- **On a local install** the file sits in the project folder as `cookies.txt`, next to `settings.json`, and isn't tracked by git.
+
+### Privacy and security
+
+- The file is only saved in MediaGrab's data folder on this device. It is never sent anywhere and isn't included in Settings → Backup files.
+- The UI and API never show cookie names or values, only a per-site count summary.
+- On Linux and Docker the file is written owner-readable only (`600`).
+- While downloading, yt-dlp writes cookies that YouTube refreshed back into this file, which is why "last updated" moves. If you upload a new file while a download is running, the finishing download doesn't overwrite your new upload.
+
+### Other options
+
+- **From browser (local installs only):** MediaGrab reads the cookies straight from your browser. **On Windows only Firefox is listed**: since Chrome 127, cookies of Chromium-based browsers like Chrome, Edge and Brave can only be decrypted by the browser itself there (App-Bound Encryption), and selecting one made every download fail. Use the cookies.txt route with those browsers. On macOS and Linux, Chrome and the others are listed too. If you picked Chrome on Windows before, it's now ignored (downloads keep working) and Settings shows a warning about it.
+- **File path (advanced, local installs only):** you can enter the path of a cookies.txt on your computer. MediaGrab never deletes that file.
+
+### Still failing with cookies set
+
+- **"Your YouTube cookies are no longer valid"**: YouTube rotated the session. Get a fresh cookies.txt using the private-window method and upload it.
+- **"YouTube wants this account to be age-verified"** (an error, or a yellow notice above the options; Opus/M4A are then greyed out and only a low-quality format comes back): your cookies work, but YouTube wants a confirmation for this account. First open the video on YouTube with the same account, confirm the content warning, and try again; that fixed it for one user. If not, verify the account's age on YouTube/Google. A new cookies.txt won't fix it. According to a note in yt-dlp's source code, this is seen especially in EU countries.
+- **"JavaScript runtime: Missing" in Settings → Version Checks**: yt-dlp needs Deno to solve YouTube's protections; without it, age-restricted videos may fail even with cookies. "Update Now" installs it; on Docker, update the image.
+
 ## Using It On Mobile
 
 When you open MediaGrab from a phone or tablet through [Remote Access](#remote-access-from-your-local-network), the interface adapts to the small screen:
@@ -397,11 +447,14 @@ That's intentional: browsers don't let a page read the clipboard when it's serve
 **`ImportError: attempted relative import with no known parent package`**
 Don't run `mediagrab/app.py` directly with `python app.py`; always use `uvicorn mediagrab.app:app` from the project root — otherwise the package's internal relative imports break.
 
+**An age-restricted or sign-in-only video won't download**
+Follow the **Settings → Cookies** link under the error message on the home page; for the steps, and for what to do when it still fails with cookies set, see [Cookies](#cookies-age-restricted-and-sign-in-only-videos).
+
 **yt-dlp fails to resolve a video / "Unable to extract" error**
 Older yt-dlp versions break whenever YouTube changes its interface. Update it:
 
 ```bash
-pip install -U yt-dlp
+pip install -U "yt-dlp[default,deno]"
 ```
 
 ## Project structure
@@ -424,6 +477,7 @@ indirilenler/       # downloaded files, auto-organized into per-channel subfolde
         Video.json  # metadata sidecar
 channels.json       # followed channels (not in git)
 settings.json       # cookie source and default audio-language settings (not in git)
+cookies.txt         # the file uploaded in Settings → Cookies (not in git; ./data/cookies/ on Docker)
 run.py              # entry point for `python run.py`
 setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases, with its Docker mode)
 Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
@@ -474,5 +528,5 @@ This tool is for **personal use only**. You are solely responsible for the copyr
 YouTube changes its interface often; older yt-dlp versions eventually start failing to resolve or download. If you run into trouble, update first:
 
 ```bash
-pip install -U yt-dlp
+pip install -U "yt-dlp[default,deno]"
 ```

@@ -11,6 +11,42 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.2.0] — 2026-10-07
+
+#### Eklenen
+
+- **MediaGrab güncelleme kontrolü** (Ayarlar → Sürüm Kontrolleri) — kurulu sürüm GitHub'daki son yayınla karşılaştırılıyor; yeni sürüm varsa sürüm notlarına bağlantı ve kurulum türüne göre doğru adımlar gösteriliyor (Docker: `docker compose pull`, Windows kurulum programı: "Onar / Güncelle", kaynak kod: `git pull` + `pip install`). Kendi kendini güncellemiyor, kontrol yalnızca Ayarlar açıldığında yapılıyor ve bir saat önbelleğe alınıyor. Kurulu sürüm Hakkında sayfasında da görünüyor
+- **cookies.txt yükleme** (Ayarlar → Çerezler) — yaş sınırlı, üyelere özel veya giriş gerektiren videolar için hesabınızın çerezlerini içeren bir `cookies.txt` dosyasını artık doğrudan arayüzden yüklüyorsunuz; dosya yolu yazmak gerekmiyor. Docker ve Raspberry Pi dahil her kurulumda çalışıyor (önceden Docker'da çerez kullanmanın bir yolu yoktu). Dosya yt-dlp'nin kendi okuyucusuyla doğrulanıyor ve içindeki siteler listeleniyor: YouTube ve Google işaretli geliyor, yalnızca seçtiğiniz sitelerin çerezleri kaydediliyor, gerisi diske hiç yazılmıyor. Kayıttan sonra site/çerez sayısı, yükleme ve son güncelleme zamanı ve dosyada YouTube oturumu olup olmadığı gösteriliyor; "Çerezleri sil" ile kaldırılıyor
+- **"cookies.txt nasıl alınır?" rehberi** — Ayarlar'da ve kılavuzda adım adım: Get cookies.txt LOCALLY eklentisi, gizli pencere, `youtube.com/robots.txt`, "Export" (Export All değil) ve yt-dlp'nin hesap güvenliği uyarısı. Kılavuza ayrı bir "Çerezler" bölümü eklendi
+- **YouTube için JavaScript çalışma ortamı (Deno)** — yt-dlp, YouTube'un korumalarını çözmek için artık harici bir JS çalışma ortamı istiyor; olmadan bazı biçimler eksik kalabiliyor ve yaş sınırlı videolar çerezle bile inmeyebiliyor. Deno ve çözücü betikleri (`yt-dlp-ejs`) artık bağımlılıklarla birlikte kuruluyor (Windows, Linux x86_64/arm64, macOS, Docker). Ayarlar → Sürüm Kontrolleri'nde durumu görünüyor; eksikse "Şimdi Güncelle" kuruyor
+- **"Tanılama bilgisini kopyala"** (Ayarlar → Geri Bildirim) — hata bildirimine yapıştırmak için MediaGrab/yt-dlp/ffmpeg sürümlerini, JS çalışma ortamını, işletim sistemini, kurulum türünü ve çerez modunu tek metinde topluyor. Dosya yolu, IP adresi, bilgisayar adı veya çerez içeriği içermiyor; panoya kopyalanamazsa metin seçili olarak gösteriliyor
+- **Çerezle ilgili hatalarda yönlendirme** — yaş sınırı, bot doğrulaması, üyelere özel ve gizli video hatalarının altında doğrudan Ayarlar → Çerezler bağlantısı çıkıyor; çerez zaten ayarlıysa "yenisini yükleyin" diyor. yt-dlp'nin yalnızca yan mesaj olarak bildirdiği iki durum da artık ayrı ayrı açıklanıyor: çerezlerin geçersizleşmesi ve YouTube'un hesap için yaş doğrulaması istemesi (ikincisi YouTube hesabından yapılır, yeni bir cookies.txt çözmez)
+
+#### Değiştirilen
+
+- **Repodaki `docker-compose.yml` artık yayımlanan imajı kullanıyor** (`image: ghcr.io/umitkrkmz/mediagrab:latest`, `build: .` yerine) — güncelleme `docker compose pull && docker compose up -d` ile yapılıyor, yerel derleme gerekmiyor. Kendi değişikliklerinizi derlemek için `build: .` hâlâ kullanılabilir
+- **Windows'ta "Tarayıcıdan" seçeneğinde yalnızca Firefox** — Chrome, Edge, Brave gibi Chromium tabanlı tarayıcıların çerezleri Windows'ta okunamıyor (App-Bound Encryption) ve bu tarayıcılardan biri seçiliyken **her** video "Could not copy Chrome cookie database" hatası veriyordu. Daha önce Windows'ta Chrome seçmiş olanlarda bu ayar artık yok sayılıyor (indirmeler çalışıyor) ve Ayarlar bunu bir uyarıyla gösteriyor. macOS ve Linux'ta değişiklik yok
+- **Docker'da sürüm kontrolleri sadeleşti** — ffmpeg imajla birlikte geldiği için işletim sistemine göre kurulum komutları ("sisteminiz: Linux" dahil) artık gösterilmiyor; yt-dlp'nin "Şimdi Güncelle" butonu kalıyor, Docker'da işe yaramayan elle venv adımları gizleniyor. Docker'da "Tarayıcıdan" çerez seçeneği de gizli (container'da tarayıcı yok)
+- **yt-dlp güncellemesi Deno'yu da güncelliyor** — "Şimdi Güncelle" ve kılavuzdaki komut artık `yt-dlp[default,deno]` kuruyor; düz `pip install -U yt-dlp` çözücü betiklerini geride bırakıp YouTube çözümlemesini sessizce bozabiliyordu
+
+#### Düzeltilen
+
+- **İndirme sürerken yüklenen çerezlerin üzerine yazılması** — yt-dlp, bitirdiği her indirmede çerezleri dosyaya geri yazıyor; indirme sürerken yeni bir cookies.txt yüklenirse biten indirme eski çerezleri yeni yüklemenin üzerine yazıyordu. Artık dosya o arada değiştiyse (yeni yükleme, silme, başka bir indirme) geri yazma atlanıyor ve silinen çerezler geri gelmiyor. Canlı bir kontrol deneyiyle doğrulandı
+- **Yaş doğrulaması isteyen hesapla sessiz kalite düşüşü** — YouTube hesap için yaş doğrulaması istediğinde yalnızca 360p birleşik bir biçim geliyordu: Opus/M4A ham "Requested format is not available" hatasıyla düşüyor, MP3 ise uyarısız olarak 360p videonun sesinden yeniden kodlanıyordu. Artık analiz bunu bildiriyor: sarı bir uyarı nedenini söylüyor, ayrı ses akışı yoksa Opus/M4A devre dışı görünüyor ve "En İyi Ses" MP3'ü seçiyor. Biçim bulunamadı hatası da anlaşılır bir mesaja çevrildi
+- **Süresi dolmuş bir oturum "YouTube oturumu var" görünüyordu** — YouTube geçersiz oturumu temizlerken bir çerezi geride bırakıyor; MediaGrab artık yt-dlp'nin kendi ölçütünü kullanıyor (`LOGIN_INFO` + SAPISID)
+
+#### Güncellerken
+
+- **Docker:** `docker-compose.yml`'in `volumes:` bölümüne `- ./data/cookies:/data/cookies` satırını ekleyin (yüklenen çerezler container yenilenince kaybolmasın diye; yeni kurulumlarda zaten var). Repodan elle kurduysanız `build: .` satırını `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirin. Ardından `docker compose pull && docker compose up -d`
+- **Windows kurulum programı / kaynak kod:** Deno'nun gelmesi için bağımlılıkları yeniden kurun — kurulum programında "Onar / Güncelle", kaynak kodda `pip install -r requirements.txt`. Atlarsanız Ayarlar → Sürüm Kontrolleri "JavaScript çalışma ortamı: Eksik" gösterir ve oradaki "Şimdi Güncelle" de kurar
+
+#### Geliştirici notu
+
+- **CI:** GitHub Actions runner'ları sabitlendi (`ubuntu-24.04`, `windows-2025`; `ubuntu-latest` 19 Ekim 2026'da Ubuntu 26'ya geçiyor) ve tüm action'lar Node 24 kullanan ana sürümlere yükseltildi (Node 20 kullanımdan kalkıyor)
+- **PyInstaller sabitlendi** (`6.22.3` + `pyinstaller-hooks-contrib 2026.7`, v2.1.0'ı derleyen sürümler) — her yayında exe'nin gereksiz yere değişip Windows Defender/SmartScreen itibarını sıfırdan başlatmasının önüne geçmek için
+- **Yayın kontrol listesi** — `CONTRIBUTING.md`'ye "Yayın yaparken" bölümü eklendi: sürüm ve CHANGELOG, etiketten önce iş akışlarını elle deneme, Actions uyarılarını okuma, gerekirse Docker imajını etiketten elle yeniden yayımlama
+- **Testler artık geliştiricinin gerçek verisine dokunmuyor** — uygulamaya istek atan testler açılışta kanal kontrolünü başlatıp projenin kendi `channels.json`'unu okuyor, YouTube'a gerçek istek atıyor ve sonucu geri yazıyordu; indirme klasöründe yarım dosya temizliği de çalışıyordu. `tests/conftest.py` artık her test için tüm kullanıcı verisi yollarını geçici bir klasöre yönlendiriyor
+
 ### [2.1.0] — 2026-09-18
 
 #### Eklenen
@@ -256,6 +292,42 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.2.0] — 2026-10-07
+
+#### Added
+
+- **MediaGrab update check** (Settings → Version Checks) — the installed version is compared against the latest GitHub release; if there's a newer one, the release notes are linked and the right steps for your install type are shown (Docker: `docker compose pull`, Windows installer: "Repair / Update", from source: `git pull` + `pip install`). It never updates itself; the check only runs when Settings is opened and is cached for an hour. The installed version is also shown on the About page
+- **cookies.txt upload** (Settings → Cookies) — for age-restricted, members-only or sign-in-only videos, you now upload a `cookies.txt` with your account's cookies straight from the interface; no file path to type. Works on every install, Docker and Raspberry Pi included (there was previously no way to use cookies on Docker). The file is validated with yt-dlp's own reader and the sites in it are listed: YouTube and Google come pre-ticked, only the sites you pick are saved, and the rest are never written to disk. After saving you see the site/cookie counts, upload and last-updated times, and whether the file holds a YouTube session; "Delete cookies" removes it
+- **"How do I get a cookies.txt?" guide** — step by step in Settings and in the guide: the Get cookies.txt LOCALLY extension, a private window, `youtube.com/robots.txt`, "Export" (not Export All), and yt-dlp's account-safety warning. The guide gained its own "Cookies" section
+- **JavaScript runtime for YouTube (Deno)** — yt-dlp now needs an external JS runtime to solve YouTube's protections; without one some formats can go missing and age-restricted videos may fail even with cookies. Deno and the solver scripts (`yt-dlp-ejs`) are now installed with the dependencies (Windows, Linux x86_64/arm64, macOS, Docker). Settings → Version Checks shows its status; "Update Now" installs it if missing
+- **"Copy diagnostic info"** (Settings → Feedback) — gathers MediaGrab/yt-dlp/ffmpeg versions, the JS runtime, OS, install type and cookie mode into one text to paste into a bug report. It contains no file paths, IP addresses, computer name or cookie contents; if the clipboard isn't available, the text is shown selected instead
+- **Pointers on cookie-related errors** — age-restricted, bot-check, members-only and private-video errors now link straight to Settings → Cookies, and say "upload a fresh one" when cookies are already set. Two cases yt-dlp only reports as side messages are now explained on their own: the cookies having gone stale, and YouTube requiring the account to be age-verified (done in the YouTube account; a new cookies.txt won't fix it)
+
+#### Changed
+
+- **The repo's `docker-compose.yml` now uses the published image** (`image: ghcr.io/umitkrkmz/mediagrab:latest` instead of `build: .`) — updating is `docker compose pull && docker compose up -d`, no local build. `build: .` still works for building your own changes
+- **"From browser" lists only Firefox on Windows** — cookies of Chromium-based browsers like Chrome, Edge and Brave can't be read on Windows (App-Bound Encryption), and with one of them selected **every** video failed with "Could not copy Chrome cookie database". A Chrome choice saved earlier on Windows is now ignored (downloads keep working) and Settings shows a warning about it. No change on macOS and Linux
+- **Simpler version checks on Docker** — ffmpeg ships with the image, so the per-OS install commands (including "your system: Linux") are no longer shown; yt-dlp's "Update Now" stays, and the manual venv steps that don't apply in a container are hidden. The "From browser" cookie option is hidden on Docker too (there's no browser in the container)
+- **Updating yt-dlp updates Deno too** — "Update Now" and the command in the guide now install `yt-dlp[default,deno]`; a plain `pip install -U yt-dlp` could leave the solver scripts behind and quietly break YouTube extraction
+
+#### Fixed
+
+- **Cookies uploaded during a download getting overwritten** — yt-dlp writes cookies back to the file whenever a download finishes; uploading a new cookies.txt while one was running let the finishing download write its old cookies over the new upload. Now the write-back is skipped if the file changed in the meantime (a new upload, a delete, another download), and deleted cookies never come back. Verified with a live control experiment
+- **Silent quality loss with an account that needs age verification** — when YouTube wanted the account age-verified, only a 360p muxed format came back: Opus/M4A failed with a raw "Requested format is not available", and MP3 was quietly re-encoded from the 360p video's audio. The probe now reports this: a yellow notice explains why, Opus/M4A are greyed out when there's no separate audio stream, and "Best Audio" picks MP3. The format-not-available error now has a plain-language message too
+- **An expired session showed "YouTube session found"** — YouTube leaves one cookie behind when it clears a dead session; MediaGrab now uses yt-dlp's own rule (`LOGIN_INFO` + SAPISID)
+
+#### When updating
+
+- **Docker:** add `- ./data/cookies:/data/cookies` to the `volumes:` section of your `docker-compose.yml` (so uploaded cookies survive the container being recreated; new installs already have it). If you installed from the repo by hand, replace `build: .` with `image: ghcr.io/umitkrkmz/mediagrab:latest`. Then `docker compose pull && docker compose up -d`
+- **Windows installer / from source:** reinstall the dependencies so Deno comes in — "Repair / Update" in the installer, `pip install -r requirements.txt` from source. If skipped, Settings → Version Checks shows "JavaScript runtime: Missing", and its "Update Now" installs it too
+
+#### Developer note
+
+- **CI:** GitHub Actions runners are pinned (`ubuntu-24.04`, `windows-2025`; `ubuntu-latest` moves to Ubuntu 26 on 2026-10-19) and every action moved to its Node 24 major (Node 20 is being retired)
+- **PyInstaller pinned** (`6.22.3` + `pyinstaller-hooks-contrib 2026.7`, the versions that built v2.1.0) — so the exe doesn't change needlessly between releases and restart its Windows Defender/SmartScreen reputation from zero
+- **Release checklist** — `CONTRIBUTING.md` gained a "Cutting a release" section: version and CHANGELOG, a manual dry run of the workflows before tagging, reading the Actions warnings, and re-publishing the Docker image from a tag by hand when needed
+- **Tests no longer touch the developer's real data** — tests that sent requests to the app started the startup channel check, which read the project's own `channels.json`, made real requests to YouTube and wrote results back; the half-finished-download sweep ran on the downloads folder too. `tests/conftest.py` now redirects every user-data path to a temp folder for every test
 
 ### [2.1.0] — 2026-09-18
 

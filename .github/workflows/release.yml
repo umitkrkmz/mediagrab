@@ -22,12 +22,15 @@ jobs:
     # NOTE: a Windows .exe can only be produced on a Windows runner -
     # PyInstaller bundles the host platform's interpreter, it doesn't
     # cross-compile.
-    runs-on: windows-latest
+    #
+    # Pinned rather than windows-latest for the same reason docker.yml pins
+    # its runner: the exe should only change when this file says so.
+    runs-on: windows-2025
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # NOTE: unrelated to MIN_PYTHON in setup_mediagrab.py. That floor is
           # about the user's own Python, which runs MediaGrab itself; this exe
@@ -36,9 +39,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        # NOTE: PyInstaller (and its hooks package, which decides what gets
+        # bundled) are pinned to the versions that built v2.1.0. An unpinned
+        # build changes the exe's bootloader/layout between releases for no
+        # reason of ours - and every such brand-new binary starts from zero
+        # reputation with Windows Defender/SmartScreen, which is exactly what
+        # flagged a fresh MediaGrabSetup.exe as a false positive before.
+        # Bump deliberately, and test the exe by hand when you do.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt pyinstaller
+          pip install -r requirements.txt -r requirements-dev.txt pyinstaller==6.22.3 pyinstaller-hooks-contrib==2026.7
 
       - name: Run tests
         # NOTE: no release goes out on a red suite. The tests need no network,
@@ -73,7 +83,7 @@ jobs:
         # NOTE: makes a manual (workflow_dispatch) build downloadable from the
         # run page, so the exe can be tried by hand BEFORE a tag turns it into
         # a public release. Kept on tag builds too - it's the same file.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MediaGrabSetup-${{ github.sha }}
           path: dist/MediaGrabSetup.exe
@@ -83,7 +93,7 @@ jobs:
         # NOTE: only a version tag publishes. A manual run stops at the
         # artifact above; without this guard the step fails for lack of a tag.
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/MediaGrabSetup.exe
           generate_release_notes: true

@@ -10,11 +10,14 @@ import json
 import re
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 from importlib.metadata import PackageNotFoundError, version as installed_version
 from typing import Optional
 
-from .paths import app_dir
+from . import __version__
+from .paths import app_dir, install_type
 
 # NOTE: matches "ffmpeg version 7.1-full_build-www.gyan.dev ..." and the
 # distro variants ("ffmpeg version n7.1", "ffmpeg version 6.1.1-3ubuntu5").
@@ -162,3 +165,69 @@ def update_dependencies() -> dict:
         }
     except Exception as exc:
         return {"ok": False, "output": str(exc)}
+
+
+# --- MediaGrab's own version ------------------------------------------------
+
+GITHUB_REPO = "umitkrkmz/mediagrab"
+RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
+_LATEST_RELEASE_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+
+# NOTE: GitHub allows 60 unauthenticated API requests per hour per IP - every
+# visit to Settings would otherwise spend one. An hour is plenty for "is there
+# a new release"; a failure is only remembered briefly so a dropped
+# connection doesn't hide a real update for an hour.
+_RELEASE_CACHE_SECONDS = 3600
+_RELEASE_FAILURE_CACHE_SECONDS = 600
+_release_cache: dict = {"expires": 0.0, "value": None}
+_release_cache_lock = threading.Lock()
+
+
+def _fetch_latest_release() -> Optional[dict]:
+    # NOTE: /releases/latest already skips drafts and pre-releases. The Docker
+    # image is built from the same tag (.github/workflows/docker.yml), so this
+    # one answer covers every install type - no separate registry check.
+    req = urllib.request.Request(
+        _LATEST_RELEASE_API,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": f"MediaGrab/{__version__}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+    except Exception:
+        return None
+    tag = data.get("tag_name") if isinstance(data, dict) else None
+    if not isinstance(tag, str) or not tag.strip():
+        return None
+    return {"version": tag.strip().lstrip("vV"), "url": data.get("html_url") or RELEASES_URL}
+
+
+def latest_release() -> Optional[dict]:
+    """The newest published release ({version, url}), cached; None if unknown."""
+    with _release_cache_lock:
+        now = time.monotonic()
+        if now < _release_cache["expires"]:
+            return _release_cache["value"]
+        value = _fetch_latest_release()
+        ttl = _RELEASE_CACHE_SECONDS if value else _RELEASE_FAILURE_CACHE_SECONDS
+        _release_cache.update(expires=now + ttl, value=value)
+        return value
+
+
+def check_mediagrab_update() -> dict:
+    # NOTE: only ever called when Settings -> Version Checks is opened (same as
+    # the yt-dlp/PyPI check next to it) - MediaGrab never phones home in the
+    # background. A failed check is reported as "unknown", never as an error.
+    release = latest_release()
+    result = {
+        "installed": __version__,
+        "latest": None,
+        "update_available": None,
+        "release_url": RELEASES_URL,
+        "install_type": install_type(),
+    }
+    if release:
+        result["latest"] = release["version"]
+        result["release_url"] = release["url"]
+        result["update_available"] = _parse_version(release["version"]) > _parse_version(__version__)
+    return result

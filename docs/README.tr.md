@@ -18,6 +18,7 @@
 - [Kanal Takibi Nasıl Çalışır](#kanal-takibi-nasıl-çalışır)
 - [Uzaktan Erişim (Yerel Ağdan)](#uzaktan-erişim-yerel-ağdan)
 - [Ev Sunucusu Modu](#ev-sunucusu-modu)
+- [Çerezler: yaş sınırlı ve giriş gerektiren videolar](#çerezler-yaş-sınırlı-ve-giriş-gerektiren-videolar)
 - [Mobil Kullanım](#mobil-kullanım)
 - [Testler](#testler)
 - [Sorun Giderme](#sorun-giderme)
@@ -102,7 +103,7 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 - **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir
 - **İndirmeyi iptal etme ve var olan dosyayı koruma** — süren bir indirmeyi panelden durdurun (yarım dosyalar temizlenir); aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
 - **İndirme hızı sınırlama ve disk alanı kalkanı** (`/settings`) — isteğe bağlı bir üst hız sınırı belirleyebilir; disk alanı bir indirmeyi bitirmeye yetmeyecek kadar azaldığında indirme baştan reddedilir
-- **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için tarayıcı oturumunuzun çerezlerini kullanın: `cookies.txt` dosyası (her yerde çalışır) veya doğrudan tarayıcıdan. Çerezleriniz kopyalanmaz, yalnızca kaynağın adı saklanır
+- **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için hesabınızın çerezlerini kullanın: `cookies.txt` dosyasını Ayarlar'dan yükleyin (Docker dahil her kurulumda çalışır; yalnızca seçtiğiniz sitelerin çerezleri saklanır) ya da yerel kurulumda doğrudan tarayıcıdan okutun. Ayrıntılar: [Çerezler](#çerezler-yaş-sınırlı-ve-giriş-gerektiren-videolar)
 - **Anlaşılır hata mesajları** — yaygın durumlar (yaş sınırı, bot koruması, coğrafi kısıtlama, kaldırılmış video vb.) için yt-dlp'nin ham çıktısı yerine açıklayıcı Türkçe/İngilizce mesajlar gösterilir
 
 ### Kullanım kolaylığı
@@ -132,10 +133,11 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 
 ### Bakım
 
+- **MediaGrab güncelleme kontrolü** (`/settings`) — kurulu sürümü GitHub'daki son yayınla karşılaştırır; yeni sürüm varsa sürüm notlarına bağlantı ve kurulum türünüze göre (Docker, Windows kurulum programı, kaynak kod) doğru güncelleme adımlarını gösterir. Kendi kendini güncellemez. Kurulu sürüm `/about` sayfasında da yazar
 - **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
 - **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
-- **Geri bildirim ve Hakkında** — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin (`/settings`); `/about` sayfasında proje, GPL-3.0 lisansı ve kaynak kod linkleri
-- Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır
+- **Geri bildirim ve Hakkında** — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin (`/settings`); "Tanılama bilgisini kopyala" düğmesi hata bildirimine yapıştırmanız için sürümleri, işletim sistemini, kurulum türünü ve çerez modunu tek metinde toplar (dosya yolu, IP adresi, bilgisayar adı veya çerez içeriği içermez); `/about` sayfasında proje, GPL-3.0 lisansı ve kaynak kod linkleri
+- Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır. Tek dış bağlantılar, Ayarlar → Sürüm Kontrolleri açıldığında yapılan sürüm sorgularıdır (GitHub ve PyPI); arka planda hiçbir şey gönderilmez
 
 ## Kurulum
 
@@ -291,15 +293,17 @@ Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü
 docker compose up -d
 ```
 
-Repodaki compose dosyası şu an `build: .` kullanıyor, yani bu komut imajı ilk seferde `Dockerfile`'dan yerel olarak derler (birkaç dakika sürebilir); sonraki çalıştırmalarda derlenmiş imaj kullanılır. Başka bir cihazdan `http://<bu-bilgisayarın-LAN-IP'si>:8420` adresine gidin. İndirdikleriniz, ayarlarınız ve takip listeniz `./data/` klasöründe, container'ın dışında kalıcı olarak saklanır — imaj yeniden derlense veya container yeniden oluşturulsa bile kaybolmaz.
+Repodaki compose dosyası yayımlanmış resmi imajı (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 ve arm64) kullanır; bu komut imajı ilk seferde indirir, derleme gerekmez. Başka bir cihazdan `http://<bu-bilgisayarın-LAN-IP'si>:8420` adresine gidin. İndirdikleriniz, ayarlarınız ve takip listeniz `./data/` klasöründe, container'ın dışında kalıcı olarak saklanır — imaj yeniden derlense veya container yeniden oluşturulsa bile kaybolmaz.
 
-**Güncelleme:** yt-dlp'yi Ayarlar sayfasından her zamanki gibi tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yeniden derlense bile kaybolmaz). Diğer tüm bağımlılıklar (FastAPI, ffmpeg vb.) imaja gömülüdür; bunları güncellemek için kaynak kodu çekip yeniden derlemeniz gerekir:
+**Güncelleme:** Yeni bir sürüm çıktığında Ayarlar → Sürüm Kontrolleri bunu gösterir. `docker-compose.yml`'in bulunduğu klasörde:
 
 ```bash
-git pull && docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
 
-> Bir sürüm etiketiyle (`v2.0.0` gibi) resmi bir imaj yayınlandığında (`ghcr.io/umitkrkmz/mediagrab`), `docker-compose.yml`'deki `build: .` satırını dosyanın kendi yorumunda gösterildiği gibi `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirip bundan sonra `docker compose pull && docker compose up -d` kullanabilirsiniz — Windows kurulum programının "Docker ile kur" seçeneği zaten bu yayınlanmış imajı hedefler.
+Ayarlarınız, çerezleriniz ve indirdikleriniz `./data/` klasöründe kaldığı için kaybolmaz. yt-dlp'yi ayrıca Ayarlar sayfasından tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yenilense bile kaybolmaz); diğer tüm bağımlılıklar (FastAPI, ffmpeg, Deno vb.) imaja gömülüdür ve imajla birlikte güncellenir.
+
+> **Eski bir kurulumunuz varsa:** v2.2.0'dan önce repodan elle kurduysanız compose dosyanızda `image:` yerine `build: .` satırı olabilir. O satırı `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirin, sonra yukarıdaki komutu kullanın. Kendi değişikliklerinizle yerel derleme yapmak isterseniz `build: .` kullanıp `docker compose up -d --build` çalıştırabilirsiniz. Windows kurulum programının "Docker ile kur" seçeneği zaten yayınlanmış imajı kullanır.
 
 Ayarlar sayfasındaki "bağımlılıkları güncelle" düğmesi Docker'da devre dışıdır ve bunu size hatırlatır — kendisi imaj güncellemesi/derlemesi yapamaz.
 
@@ -350,6 +354,52 @@ Normalde MediaGrab yalnızca siz açtığınızda çalışır ve kanal takibini 
 
 Ev Sunucusu Modu, Uzaktan Erişim'den bağımsız bir ayardır: birini açıp diğerini kapalı bırakabilir, ya da ikisini birlikte kullanabilirsiniz.
 
+## Çerezler: yaş sınırlı ve giriş gerektiren videolar
+
+Bazı videolar yalnızca giriş yapmış bir hesapla izlenebilir: yaş sınırlı videolar, kanal üyelerine özel içerik, gizli videolar, bazen de YouTube'un "bot olmadığınızı doğrulayın" engeli. MediaGrab bunları hesabınızın çerezleriyle indirebilir. Böyle bir hata aldığınızda ana sayfadaki mesajın altında doğrudan **Ayarlar → Çerezler** bağlantısı çıkar.
+
+> **Hesabınız için uyarı:** yt-dlp'nin kendi belgelerine göre, hesap çerezleriyle yapılan yoğun indirmeler hesabın geçici veya kalıcı olarak kısıtlanmasına yol açabilir. Mümkünse ikincil bir hesap kullanın ve çerezleri yalnızca erişim hakkınız olan içerik için kullanın.
+
+### cookies.txt nasıl alınır (önerilen yol)
+
+1. Tarayıcınıza açık kaynaklı **Get cookies.txt LOCALLY** eklentisini kurun ([Chrome / Edge](https://chromewebstore.google.com/detail/cclelndahbckbenkjhflpdbgdldlbecc) · [Firefox](https://addons.mozilla.org/firefox/addon/get-cookies-txt-locally/)). yt-dlp de bu eklentiyi öneriyor. Adında "LOCALLY" olmayan eski "Get cookies.txt" eklentisi zararlı çıkmıştı, onu kurmayın.
+2. Eklenti ayarlarından gizli (özel) pencerede çalışmasına izin verin. Sonra gizli bir pencere açıp youtube.com'da hesabınıza giriş yapın.
+3. Aynı sekmede `youtube.com/robots.txt` adresini açın ve eklentide **Export**'a basın. **Export All Cookies**'e basmayın, o tarayıcıdaki bütün sitelerin çerezlerini alır.
+4. Gizli pencereyi kapatın.
+
+Neden gizli pencere? YouTube, açık sekmelerdeki oturum çerezlerini güvenlik için sık sık yeniler. Normal bir pencereden alınan çerezler bu yüzden kısa sürede geçersiz kalabilir; kapatılmış bir oturumun çerezleri çok daha uzun geçerli kalır. Yöntem, yt-dlp'nin [YouTube çerezleri rehberinden](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) alındı.
+
+### MediaGrab'a yükleme
+
+Ayarlar → Çerezler → **cookies.txt dosyası** seçeneğinde dosyayı seçin. MediaGrab dosyayı okur ve içindeki siteleri listeler: YouTube ve Google işaretli gelir, diğer her şey işaretsizdir. **Seçilenleri kaydet**'e bastığınızda yalnızca işaretli sitelerin çerezleri kaydedilir, gerisi diske hiç yazılmaz. Yanlışlıkla "Export All" dosyası yüklerseniz bile bankanızın ya da e-postanızın oturumu MediaGrab'a girmez.
+
+Kayıttan sonra bir özet görünür: kaç site ve çerez olduğu, ne zaman yüklendiği, son güncelleme zamanı ve dosyada **YouTube oturumu olup olmadığı**. "YouTube oturumu görünmüyor" uyarısı çıkarsa ya dışa aktarırken giriş yapılmamıştır ya da oturum artık geçersizdir; yeni bir dosya alın. **Bağlantıyı sına** çerezlerin okunabildiğini doğrular, **Çerezleri sil** dosyayı kaldırıp çerez kullanımını kapatır.
+
+- **Docker'da** dosya `./data/cookies/` klasöründe tutulur ve container yeniden oluşturulsa bile kalır. Bu özellikten önce kurulmuş bir Docker kurulumunda `docker-compose.yml`'in `volumes:` bölümüne şu satırı ekleyin, yoksa yüklenen dosya container yenilenince kaybolur:
+  ```yaml
+      - ./data/cookies:/data/cookies
+  ```
+  "Docker ile kur" ile yapılan yeni kurulumlar ve repodaki compose dosyası bu satırı zaten içerir. Docker'da "Tarayıcıdan" seçeneği yoktur, çünkü container'ın içinde bir tarayıcı yoktur.
+- **Yerel kurulumda** dosya proje klasöründe `settings.json`'ın yanında `cookies.txt` olarak durur ve git'e dahil değildir.
+
+### Gizlilik ve güvenlik
+
+- Dosya yalnızca bu cihazdaki MediaGrab veri klasörüne kaydedilir. Hiçbir yere gönderilmez ve Ayarlar → Yedekle dosyasına girmez.
+- Arayüz ve API çerezlerin adını ya da değerini hiçbir zaman göstermez, yalnızca site ve sayı özeti döner.
+- Linux'ta ve Docker'da dosya yalnızca sahibinin okuyabileceği izinle (`600`) yazılır.
+- yt-dlp, indirme sırasında YouTube'un yenilediği çerezleri bu dosyaya geri yazar; "son güncelleme" zamanı bu yüzden ilerler. Bir indirme sürerken yeni bir dosya yüklerseniz, biten indirme yeni yüklemenin üzerine yazmaz.
+
+### Diğer yollar
+
+- **Tarayıcıdan (yalnızca yerel kurulum):** MediaGrab çerezleri doğrudan tarayıcınızdan okur. **Windows'ta yalnızca Firefox listelenir**: Chrome, Edge, Brave gibi Chromium tabanlı tarayıcıların çerezlerini Windows'ta Chrome 127'den beri yalnızca tarayıcının kendisi çözebiliyor (App-Bound Encryption), üstelik bu durumda her indirme hata veriyordu. Bu tarayıcılarda cookies.txt yolunu kullanın. macOS'ta ve Linux'ta Chrome ve diğerleri de listelenir. Daha önce Windows'ta Chrome seçmişseniz çerezler yok sayılır (indirmeler bozulmaz) ve Ayarlar bunu bir uyarıyla gösterir.
+- **Dosya yolu (gelişmiş, yalnızca yerel kurulum):** Bilgisayardaki bir cookies.txt dosyasının yolunu yazabilirsiniz. MediaGrab bu dosyayı hiçbir zaman silmez.
+
+### Çerez ayarlıyken hâlâ inmiyorsa
+
+- **"YouTube çerezleriniz artık geçersiz"**: YouTube oturumu yenilemiş. Gizli pencere yöntemiyle yeni bir cookies.txt alıp yükleyin.
+- **"YouTube bu hesap için yaş doğrulaması istiyor"** (hata ya da seçeneklerin üstünde sarı uyarı; o durumda Opus/M4A devre dışı görünür ve yalnızca düşük kaliteli biçim gelir): Çerezleriniz çalışıyor, ama YouTube bu hesap için onay istiyor. Önce videoyu YouTube'da aynı hesapla açıp içerik uyarısını onaylayın ("içeriği göster") ve tekrar deneyin; bu bir kullanıcıda sorunu çözdü. Olmazsa hesabın yaşını YouTube/Google'dan doğrulayın. Yeni bir cookies.txt bunu çözmez. yt-dlp'nin kaynak kodundaki nota göre bu özellikle AB ülkelerinde görülüyor.
+- **Ayarlar → Sürüm Kontrolleri'nde "JavaScript çalışma ortamı: Eksik"**: yt-dlp, YouTube'un korumalarını çözmek için Deno'ya ihtiyaç duyar. O olmadan yaş sınırlı videolar çerezle bile inmeyebilir. "Şimdi Güncelle" ile kurulur; Docker'da imajı güncelleyin.
+
 ## Mobil Kullanım
 
 MediaGrab'ı telefondan ya da tabletten, [Uzaktan Erişim](#uzaktan-erişim-yerel-ağdan) ile açtığınızda arayüz küçük ekrana uyum sağlar:
@@ -397,11 +447,14 @@ Android tarayıcılarında `.local` çözümlemesi güvenilir değildir. Ayarlar
 **`ImportError: attempted relative import with no known parent package`**
 `mediagrab/app.py`'yi doğrudan `python app.py` ile çalıştırmayın; her zaman proje kök dizininden `uvicorn mediagrab.app:app` kullanın — aksi halde paket içi göreli importlar çalışmaz.
 
+**Yaş sınırlı veya giriş gerektiren bir video inmiyor**
+Ana sayfadaki hata mesajının altındaki **Ayarlar → Çerezler** bağlantısını izleyin; adımlar ve çerez ayarlıyken hâlâ inmeyen durumlar için bkz. [Çerezler](#çerezler-yaş-sınırlı-ve-giriş-gerektiren-videolar).
+
 **yt-dlp bir videoyu çözemiyor / "Unable to extract" hatası**
 YouTube arayüzünü değiştirdiğinde eski yt-dlp sürümleri bozulur. Güncelleyin:
 
 ```bash
-pip install -U yt-dlp
+pip install -U "yt-dlp[default,deno]"
 ```
 
 ## Proje yapısı
@@ -424,6 +477,7 @@ indirilenler/       # indirilen dosyalar, kanal adına göre alt klasörlenir (g
         Video.json  # meta veri sidecar dosyası
 channels.json       # takip edilen kanallar (git'e dahil değil)
 settings.json       # çerez ve varsayılan ses dili ayarları (git'e dahil değil)
+cookies.txt         # Ayarlar → Çerezler'den yüklenen dosya (git'e dahil değil; Docker'da ./data/cookies/)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
 setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı, Docker moduyla birlikte)
 Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)
@@ -474,5 +528,5 @@ Bu araç yalnızca **kişisel kullanım** içindir. İndirdiğiniz içeriğin te
 YouTube arayüzünü sık değiştirir; eski yt-dlp sürümleri zamanla çözümleme/indirme hatası vermeye başlar. Sorun yaşarsanız önce güncelleyin:
 
 ```bash
-pip install -U yt-dlp
+pip install -U "yt-dlp[default,deno]"
 ```

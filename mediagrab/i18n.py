@@ -60,17 +60,32 @@ UI = {
         "cookie_file": "cookies.txt dosyası",
         "cookie_browser": "Tarayıcıdan",
         "cookie_file_label": "Dosya yolu",
-        "cookie_file_help": (
-            "Tarayıcınıza bir \"cookies.txt export\" eklentisi kurup çerezleri Netscape "
-            "biçiminde dışa aktarın, sonra dosyanın tam yolunu buraya yazın. Bu yöntem "
-            "her tarayıcıda ve her işletim sisteminde çalışır."
+        "cookie_upload_label": "cookies.txt yükle",
+        "cookie_howto_title": "cookies.txt nasıl alınır?",
+        "cookie_step1": "Tarayıcınıza açık kaynaklı \"Get cookies.txt LOCALLY\" eklentisini kurun:",
+        "cookie_step2": (
+            "Eklenti ayarlarından gizli (özel) pencerede çalışmasına izin verin; sonra gizli "
+            "bir pencere açıp youtube.com'da hesabınıza giriş yapın."
         ),
+        "cookie_step3": (
+            "Aynı sekmede youtube.com/robots.txt adresini açın ve eklentide \"Export\" "
+            "düğmesine basın (\"Export All Cookies\" değil — o tüm sitelerin çerezlerini alır)."
+        ),
+        "cookie_step4": "Gizli pencereyi kapatın, sonra indirilen dosyayı yukarıdan yükleyin.",
+        "cookie_howto_why": (
+            "Neden gizli pencere? YouTube açık sekmelerdeki oturum çerezlerini sık sık yeniler; "
+            "kapatılmış bir oturumdan alınan çerezler çok daha uzun süre geçerli kalır."
+        ),
+        "cookie_account_warning": (
+            "yt-dlp'nin uyarısı: hesabınızla yapılan yoğun indirmeler hesabın geçici veya kalıcı "
+            "olarak kısıtlanmasına yol açabilir. Mümkünse ikincil bir hesap kullanın."
+        ),
+        "cookie_path_advanced": "Gelişmiş: bilgisayardaki bir dosyanın yolunu girin",
         "cookie_browser_label": "Tarayıcı",
-        "cookie_chrome_warning": (
-            "Dikkat: Chrome 127'den itibaren Windows'ta çerezler yalnızca Chrome'un kendi "
-            "süreci tarafından çözülebiliyor (app-bound encryption). Chrome, Edge, Brave gibi "
-            "Chromium tabanlı tarayıcılarda bu yöntem Windows'ta çalışmaz — Firefox çalışır. "
-            "Chromium kullanıyorsanız \"cookies.txt dosyası\" seçeneğini kullanın."
+        "cookie_windows_browser_note": (
+            "Windows'ta yalnızca Firefox listelenir: Chrome, Edge, Brave gibi Chromium tabanlı "
+            "tarayıcıların çerezlerini Windows'ta yalnızca tarayıcının kendisi çözebiliyor "
+            "(App-Bound Encryption). Bu tarayıcılar için \"cookies.txt dosyası\" seçeneğini kullanın."
         ),
         "cookie_save": "Kaydet",
         "cookie_test": "Bağlantıyı sına",
@@ -80,8 +95,9 @@ UI = {
         "cookie_test_none": "Çerez kaynağı ayarlanmamış.",
         "cookie_test_failed": "Çerezler okunamadı",
         "cookie_privacy": (
-            "Çerezleriniz MediaGrab'a kopyalanmaz veya hiçbir yere gönderilmez; yalnızca "
-            "kaynağın adı (tarayıcı adı ya da dosya yolu) bu bilgisayarda saklanır."
+            "Yüklediğiniz dosya yalnızca bu cihazdaki MediaGrab veri klasörüne kaydedilir; "
+            "hiçbir yere gönderilmez, yedeğe girmez ve içeriği arayüzde gösterilmez. yt-dlp "
+            "indirme sırasında yenilenen çerezleri bu dosyaya geri yazar."
         ),
         "settings_deps_title": "Python Bağımlılıkları",
         "settings_deps_hint": (
@@ -99,6 +115,11 @@ UI = {
             "Bir hata mı buldunuz, yoksa bir özellik mi önereceksiniz? GitHub üzerinden bildirin."
         ),
         "settings_feedback_btn": "Hata Bildir / Özellik Öner",
+        "settings_diagnostics_btn": "Tanılama bilgisini kopyala",
+        "settings_diagnostics_hint": (
+            "Hata bildirirken bunu yapıştırın: MediaGrab, yt-dlp ve ffmpeg sürümleri, işletim sistemi, "
+            "kurulum türü ve çerez modu. Dosya yolu, IP adresi, bilgisayar adı veya çerez içeriği içermez."
+        ),
         "footer_legal": (
             "Bu araç yalnızca kişisel kullanım içindir. İndirdiğiniz içeriğin telif durumundan "
             "ve ilgili platformun kullanım şartlarına uyumdan tamamen siz sorumlusunuz."
@@ -146,6 +167,7 @@ UI = {
         "channel_add_btn": "Ekle",
         "settings_list_title": "Takip Edilen Kanallar",
         "channel_empty": "Henüz takip edilen kanal yok.",
+        "settings_mediagrab_title": "MediaGrab Sürümü",
         "settings_ytdlp_title": "yt-dlp Sürümü",
         "settings_environment_title": "Sürüm Kontrolleri",
         "title_login": "Giriş — MediaGrab",
@@ -244,17 +266,32 @@ UI = {
         "cookie_file": "cookies.txt file",
         "cookie_browser": "From browser",
         "cookie_file_label": "File path",
-        "cookie_file_help": (
-            "Install a \"cookies.txt export\" extension in your browser, export your cookies "
-            "in Netscape format, then put the full path to that file here. This method works "
-            "in every browser and on every operating system."
+        "cookie_upload_label": "Upload cookies.txt",
+        "cookie_howto_title": "How do I get a cookies.txt?",
+        "cookie_step1": "Install the open-source \"Get cookies.txt LOCALLY\" extension in your browser:",
+        "cookie_step2": (
+            "Allow it to run in private (incognito) windows in the extension's settings, then "
+            "open a private window and sign in to your account on youtube.com."
         ),
+        "cookie_step3": (
+            "In that same tab, open youtube.com/robots.txt and click \"Export\" in the "
+            "extension (not \"Export All Cookies\" - that takes every site's cookies)."
+        ),
+        "cookie_step4": "Close the private window, then upload the downloaded file above.",
+        "cookie_howto_why": (
+            "Why a private window? YouTube frequently rotates the session cookies of open "
+            "tabs; cookies taken from a session that's then closed stay valid much longer."
+        ),
+        "cookie_account_warning": (
+            "yt-dlp's own warning: heavy downloading with your account can get it temporarily "
+            "or permanently restricted. Use a secondary account if you can."
+        ),
+        "cookie_path_advanced": "Advanced: enter the path of a file on this computer",
         "cookie_browser_label": "Browser",
-        "cookie_chrome_warning": (
-            "Note: since Chrome 127, cookies on Windows can only be decrypted by Chrome's own "
-            "process (app-bound encryption). This method therefore does NOT work on Windows for "
-            "Chromium-based browsers such as Chrome, Edge or Brave — Firefox does work. If you "
-            "use a Chromium browser, choose the \"cookies.txt file\" option instead."
+        "cookie_windows_browser_note": (
+            "Only Firefox is listed on Windows: there, cookies of Chromium-based browsers like "
+            "Chrome, Edge and Brave can only be decrypted by the browser itself (App-Bound "
+            "Encryption). Use the \"cookies.txt file\" option for those browsers."
         ),
         "cookie_save": "Save",
         "cookie_test": "Test",
@@ -264,8 +301,9 @@ UI = {
         "cookie_test_none": "No cookie source configured.",
         "cookie_test_failed": "Could not read cookies",
         "cookie_privacy": (
-            "Your cookies are never copied into MediaGrab or sent anywhere; only the name of "
-            "the source (a browser name or a file path) is stored on this computer."
+            "An uploaded file is only saved in MediaGrab's data folder on this device; it is "
+            "never sent anywhere, never included in backups, and its contents are never shown "
+            "in the interface. yt-dlp writes refreshed cookies back into it while downloading."
         ),
         "settings_deps_title": "Python Dependencies",
         "settings_deps_hint": "Packages in the virtual environment, compared against the latest on PyPI.",
@@ -279,6 +317,11 @@ UI = {
         "settings_feedback_title": "Feedback",
         "settings_feedback_hint": "Found a bug, or have a feature to suggest? Report it on GitHub.",
         "settings_feedback_btn": "Report a Bug / Suggest a Feature",
+        "settings_diagnostics_btn": "Copy diagnostic info",
+        "settings_diagnostics_hint": (
+            "Paste this into a bug report: MediaGrab, yt-dlp and ffmpeg versions, OS, install type and "
+            "cookie mode. It contains no file paths, IP addresses, computer name or cookie contents."
+        ),
         "footer_legal": (
             "This tool is for personal use only. You are solely responsible for the copyright "
             "status of downloaded content and compliance with the relevant platform's terms of service."
@@ -325,6 +368,7 @@ UI = {
         "channel_add_btn": "Add",
         "settings_list_title": "Followed Channels",
         "channel_empty": "No followed channels yet.",
+        "settings_mediagrab_title": "MediaGrab Version",
         "settings_ytdlp_title": "yt-dlp Version",
         "settings_environment_title": "Version Checks",
         "title_login": "Login — MediaGrab",

@@ -39,3 +39,25 @@ def is_docker() -> bool:
     recreated from a fresh image.
     """
     return os.path.exists("/.dockerenv")
+
+
+# NOTE: the launcher setup_mediagrab.py writes into every folder it installs
+# to (see its _launcher_name) - a deliberate small duplicate, since the
+# installer runs before this package exists and can't share code with it
+# (AGENTS.md). tests/test_version.py checks the two lists still match.
+INSTALLER_LAUNCHERS = ("MediaGrab Baslat.bat", "mediagrab-baslat.sh")
+
+
+def install_type() -> str:
+    """How this copy was installed: "docker", "installer" or "source".
+
+    Decides which update instructions Settings -> Version Checks shows - each
+    of the three updates differently (pull a new image / run the installer's
+    Repair-Update / git pull + pip install).
+    """
+    if is_docker():
+        return "docker"
+    base = app_dir()
+    if any(os.path.isfile(os.path.join(base, name)) for name in INSTALLER_LAUNCHERS):
+        return "installer"
+    return "source"

@@ -1,8 +1,8 @@
 """Tests for the cookie source setting.
 
-NOTE: only the *source* is ever stored (a browser name or a path) - the cookies
-themselves stay where they are and yt-dlp reads them directly. These tests
-check the option yt-dlp receives, not any cookie content.
+NOTE: settings.json only ever stores the *source* (a browser name or a path) -
+never cookie content. These tests check the option yt-dlp receives. An
+UPLOADED cookies.txt is its own file, covered in test_cookie_upload.py.
 """
 
 import pytest
@@ -170,3 +170,58 @@ def test_the_settings_route_saves_a_valid_speed_limit(settings_file):
     assert res.status_code == 200
     assert res.json()["download_speed_limit_mbps"] == 5
     assert store.get_settings()["download_speed_limit_mbps"] == 5
+
+
+# --- "From browser": only what can actually be read on this OS ---------------
+
+
+@pytest.mark.parametrize(
+    "platform, expected",
+    [
+        ("win32", ("firefox",)),
+        ("linux", ("firefox", "chrome", "chromium", "edge", "brave", "opera", "vivaldi")),
+        ("darwin", downloader.SUPPORTED_COOKIE_BROWSERS),
+    ],
+)
+def test_usable_browsers_depend_on_the_os(platform, expected):
+    # NOTE: Windows - Chromium cookies are App-Bound encrypted there and every
+    # download failed with "Could not copy Chrome cookie database" (seen on a
+    # real machine); Safari only exists on macOS.
+    assert downloader.usable_cookie_browsers(platform) == expected
+
+
+def test_a_saved_chrome_on_windows_means_no_cookies_not_broken_downloads(settings_file, monkeypatch):
+    monkeypatch.setattr(downloader.sys, "platform", "win32")
+    store.save_settings(cookie_mode="browser", cookie_browser="chrome")
+    assert downloader.cookie_opts() == {}
+
+
+def test_chrome_is_still_used_where_it_works(settings_file, monkeypatch):
+    monkeypatch.setattr(downloader.sys, "platform", "linux")
+    store.save_settings(cookie_mode="browser", cookie_browser="chrome")
+    assert downloader.cookie_opts() == {"cookiesfrombrowser": ("chrome", None, None, None)}
+
+
+def test_the_cookie_test_explains_an_unsupported_saved_browser(settings_file, monkeypatch):
+    monkeypatch.setattr(downloader.sys, "platform", "win32")
+    store.save_settings(cookie_mode="browser", cookie_browser="chrome")
+    assert downloader.test_cookie_source() == {"ok": False, "reason": "unsupported_browser", "browser": "chrome"}
+
+
+def test_the_browser_list_route_only_offers_usable_browsers(settings_file, monkeypatch):
+    monkeypatch.setattr(downloader.sys, "platform", "win32")
+    with TestClient(app_module.app) as client:
+        assert client.get("/api/cookie-browsers").json()["browsers"] == ["firefox"]
+
+
+def test_an_old_chrome_setting_doesnt_block_saving_other_settings(settings_file, monkeypatch):
+    # NOTE: every settings form resends cookie_browser - a Windows user with an
+    # old "chrome" must still be able to save, say, the audio language.
+    monkeypatch.setattr(downloader.sys, "platform", "win32")
+    with TestClient(app_module.app) as client:
+        res = client.post(
+            "/api/settings",
+            json={"cookie_mode": "browser", "cookie_browser": "chrome", "cookie_file": "", "default_audio_lang": "tr"},
+        )
+    assert res.status_code == 200
+    assert store.get_settings()["default_audio_lang"] == "tr"

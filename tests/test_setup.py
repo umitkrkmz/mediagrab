@@ -347,10 +347,14 @@ def test_docker_compose_yaml_uses_bridge_networking_not_host(setup_mod):
 
 
 def test_docker_compose_yaml_mounts_the_same_volumes_as_the_repo_compose_file(setup_mod):
+    # NOTE: read from the real repo file rather than a hand-kept list, so a
+    # volume added to one (e.g. ./data/cookies) can't be forgotten in the other.
+    repo_compose = (Path(__file__).resolve().parent.parent / "docker-compose.yml").read_text(encoding="utf-8")
+    repo_volumes = re.findall(r"^\s*-\s*(\./data/\S+:\S+)\s*$", repo_compose, re.M)
+    assert "./data/cookies:/data/cookies" in repo_volumes
     yaml_text = setup_mod.docker_compose_yaml("a-real-password", None)
-    for path in ("./data/indirilenler:/app/indirilenler", "./data/settings.json:/app/settings.json",
-                 "./data/channels.json:/app/channels.json", "./data/pip-packages:/data/pip-packages"):
-        assert path in yaml_text
+    for volume in repo_volumes:
+        assert volume in yaml_text
 
 
 def test_docker_compose_yaml_quotes_the_whole_environment_item_not_just_the_value(setup_mod):
