@@ -150,6 +150,22 @@ UI = {
         "recent_see_all": "Tümünü gör →",
         "history_page_title": "İndirme Geçmişi",
         "history_clear": "Tümünü Sil",
+        "history_tab_files": "Dosyalar",
+        "history_tab_stats": "İstatistikler",
+        "stats_period_label": "Dönem",
+        "stats_period_day": "Günlük",
+        "stats_period_week": "Haftalık",
+        "stats_period_month": "Aylık",
+        "stats_reset": "İstatistikleri Sıfırla",
+        "stats_downloads_title": "İndirmeler",
+        "stats_sites_title": "Siteler",
+        "stats_audio_title": "Ses biçimleri",
+        "stats_video_title": "Video çözünürlükleri",
+        "stats_disk_title": "Disk",
+        "stats_privacy": (
+            "Yalnızca sayılar tutulur: hangi siteden, hangi biçimde, kaç dosya ve ne kadar. Başlık, bağlantı, "
+            "kanal ya da dosya adı kaydedilmez; hepsi bu bilgisayarda kalır."
+        ),
         "history_search_placeholder": "Ara...",
         "history_all_channels": "Tüm kanallar",
         "history_type_filter_label": "Dosya türüne göre filtrele",
@@ -211,10 +227,20 @@ UI = {
         "settings_remote_access_storage_hint": "İndirilen dosyalar bu bilgisayarda kalsın mı, yoksa cihaza gönderildikten sonra silinsin mi?",
         "settings_remote_access_storage_keep_label": "Bende Kalsın",
         "settings_remote_access_storage_keep_hint": "Kişisel bilgisayar için: dosyalar her zamanki gibi indirilenler/ klasöründe kalıcı olarak durur.",
+        "item_resolution": "Çözünürlük",
+        "item_video_codec": "Video",
+        "item_audio": "Ses",
+        "item_channels_mono": "mono",
+        "item_channels_stereo": "stereo",
+        "item_channels_n": "{n} kanal",
         "settings_remote_access_storage_relay_label": "Cihaza Aktar",
         "settings_remote_access_storage_relay_hint": (
-            "Depolaması sınırlı cihazlar için (ör. Raspberry Pi): bir cihaz dosyayı tamamen indirdikten hemen sonra "
-            "bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan yaptığınız indirmeler bu ayardan etkilenmez."
+            "Depolaması sınırlı cihazlar için (ör. Raspberry Pi): telefon gibi başka bir cihaz dosyayı tamamen "
+            "indirdiğinde buradaki kopyası silinir. Docker'ı kendi bilgisayarınızda localhost ile açtıysanız "
+            "\"Klasöre Kaydet\" çıkar; kopya yalnız dosya seçtiğiniz klasöre gerçekten kaydedildikten sonra silinir, "
+            "pencereyi iptal ederseniz dosyaya dokunulmaz. Not: başka bir bilgisayarda tarayıcı \"nereye "
+            "kaydedileceğini sor\" ayarıyla açıksa, tarayıcı dosyayı pencere açıkken indirdiği için iptal "
+            "algılanamaz."
         ),
     },
     "en": {
@@ -351,6 +377,22 @@ UI = {
         "recent_see_all": "View all →",
         "history_page_title": "Download History",
         "history_clear": "Clear All",
+        "history_tab_files": "Files",
+        "history_tab_stats": "Statistics",
+        "stats_period_label": "Period",
+        "stats_period_day": "Daily",
+        "stats_period_week": "Weekly",
+        "stats_period_month": "Monthly",
+        "stats_reset": "Reset Statistics",
+        "stats_downloads_title": "Downloads",
+        "stats_sites_title": "Sites",
+        "stats_audio_title": "Audio formats",
+        "stats_video_title": "Video resolutions",
+        "stats_disk_title": "Disk",
+        "stats_privacy": (
+            "Only numbers are kept: which site, which format, how many files and how much. No titles, links, "
+            "channels or file names are recorded, and it all stays on this computer."
+        ),
         "history_search_placeholder": "Search...",
         "history_all_channels": "All channels",
         "history_type_filter_label": "Filter by file type",
@@ -412,10 +454,20 @@ UI = {
         "settings_remote_access_storage_hint": "Should downloaded files stay on this computer, or be deleted once they've been sent to a device?",
         "settings_remote_access_storage_keep_label": "Keep Here",
         "settings_remote_access_storage_keep_hint": "For a personal computer: files stay permanently in indirilenler/, same as always.",
+        "item_resolution": "Resolution",
+        "item_video_codec": "Video",
+        "item_audio": "Audio",
+        "item_channels_mono": "mono",
+        "item_channels_stereo": "stereo",
+        "item_channels_n": "{n} channels",
         "settings_remote_access_storage_relay_label": "Relay To Device",
         "settings_remote_access_storage_relay_hint": (
-            "For storage-constrained devices (e.g. a Raspberry Pi): once a device fully downloads a file, this "
-            "computer's copy is deleted right after. Downloads you make from this computer itself are never affected."
+            "For storage-constrained devices (e.g. a Raspberry Pi): once another device, like a phone, fully "
+            "downloads a file, the copy here is deleted. If you run Docker on your own computer and open it via "
+            "localhost, you get \"Save to Folder\" instead: the copy is only deleted after the file is actually "
+            "saved to the folder you picked - cancelling the dialog leaves it untouched. Note: on another computer "
+            "whose browser asks where to save each file, a cancel can't be detected, because the browser downloads "
+            "the file while that dialog is still open."
         ),
     },
 }

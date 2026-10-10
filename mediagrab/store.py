@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from .paths import app_dir
+from .paths import app_dir, is_docker
 
 # NOTE: same "no real database" philosophy as the rest of the app - followed
 # channels and their pending-notification queue live in one small JSON file
@@ -207,3 +207,80 @@ def replace_channels(channels: list[dict], pending: list[dict]) -> None:
     # need to resolve id collisions and doesn't match either use case.
     with _lock:
         _save({"channels": channels, "pending": pending})
+
+
+# --- download statistics (History -> Statistics) -------------------------------
+
+# NOTE: its own file, like settings.json vs channels.json - a corrupt stats
+# file must never take settings or followed channels down with it. In Docker
+# it's a FOLDER mount (see docker-compose.yml, same reasoning as cookies), so
+# no placeholder file has to exist before the container first starts.
+STATS_PATH = "/data/stats/stats.json" if is_docker() else os.path.join(app_dir(), "stats.json")
+_stats_lock = threading.Lock()
+
+# NOTE: what's stored is deliberately coarse - per UTC hour, how many files
+# and bytes of each (site, kind, format), nothing else: no titles, URLs,
+# channel names or file names. UTC hours (not local days) because the
+# server's clock can't know the viewer's day boundaries - a Docker container
+# runs on UTC - so the browser sends its offset and the grouping into
+# days/weeks/months happens at read time (see stats.summarize).
+_EMPTY_STATS = {"version": 1, "backfilled": False, "hours": {}}
+
+
+def _load_stats() -> dict:
+    data = {**_EMPTY_STATS, "hours": {}}
+    if not os.path.isfile(STATS_PATH):
+        return data
+    try:
+        with open(STATS_PATH, "r", encoding="utf-8") as f:
+            stored = json.load(f)
+    except Exception:
+        # NOTE: unreadable -> start over rather than break every download.
+        return data
+    if isinstance(stored, dict) and isinstance(stored.get("hours"), dict):
+        data["hours"] = stored["hours"]
+        data["backfilled"] = bool(stored.get("backfilled"))
+    return data
+
+
+def _save_stats(data: dict) -> None:
+    # NOTE: write-then-rename, so a crash mid-write leaves the previous file
+    # intact instead of a truncated one (which _load_stats would discard).
+    os.makedirs(os.path.dirname(STATS_PATH) or ".", exist_ok=True)
+    tmp = STATS_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, STATS_PATH)
+
+
+def _add_stat(hours: dict, hour: str, entry: dict) -> None:
+    rows = hours.setdefault(hour, [])
+    for row in rows:
+        if row["site"] == entry["site"] and row["kind"] == entry["kind"] and row["format"] == entry["format"]:
+            row["count"] += 1
+            row["bytes"] += entry["bytes"]
+            return
+    rows.append({"site": entry["site"], "kind": entry["kind"], "format": entry["format"], "count": 1, "bytes": entry["bytes"]})
+
+
+def record_downloads(items: list[tuple[str, dict]], mark_backfilled: bool = False) -> None:
+    """Add finished downloads: (UTC hour "YYYY-MM-DDTHH", {site, kind, format, bytes})."""
+    with _stats_lock:
+        data = _load_stats()
+        for hour, entry in items:
+            _add_stat(data["hours"], hour, entry)
+        if mark_backfilled:
+            data["backfilled"] = True
+        _save_stats(data)
+
+
+def get_stats() -> dict:
+    with _stats_lock:
+        return _load_stats()
+
+
+def reset_stats() -> None:
+    # NOTE: stays marked as backfilled - "reset" means start counting from
+    # now, not "re-import every file still on disk" on the next start.
+    with _stats_lock:
+        _save_stats({**_EMPTY_STATS, "hours": {}, "backfilled": True})

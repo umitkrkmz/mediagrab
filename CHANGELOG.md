@@ -11,6 +11,33 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.3.0] — 2026-10-10
+
+#### Eklenen
+
+- **İstatistikler** (Geçmiş → İstatistikler sekmesi) — ne kadar, hangi siteden ve hangi biçimde indirdiğinizi gösteren yerel bir panel: Günlük / Haftalık / Aylık görünüm, dönem ve tüm zamanlar özeti, zamana göre indirme çubukları, siteler, ses biçimleri (Opus / M4A / MP3) ve video çözünürlükleri, diskte MediaGrab'ın ve diğer dosyaların kapladığı yer ile boş alan. Her indirme bittiği anda sayılıyor; "Cihaza Aktar" ya da Geçmiş'ten silinen dosyalar sayılmaya devam ediyor. İlk açılışta indirme klasöründeki mevcut dosyalar bir kez içe aktarılıyor. Yalnızca sayılar tutuluyor (site, tür, biçim, adet, boyut): başlık, bağlantı, kanal ya da dosya adı kaydedilmiyor; "İstatistikleri Sıfırla" indirilen dosyalara dokunmuyor. Gün ve hafta sınırları tarayıcınızın saatine göre çiziliyor (Docker UTC'de çalışsa da gece yaptığınız bir indirme doğru güne düşüyor)
+- **MediaGrab'e özgü oynatıcı** (Geçmiş → bir dosya → Oynat) — tarayıcının kendi kontrolleri yerine sade, YouTube/Drive tarzı bir oynatıcı: ilerleme çubuğu (üzerine gelince zamanı gösteriyor), ses, oynatma hızı (0.5× – 2×), pencere içinde pencere ve tam ekran. "İndir" menüsü ve sağ tıktaki "Farklı kaydet" yok. Klavye kısayolları YouTube'la aynı: boşluk/K, ←/→ (5 sn), J/L (10 sn), ↑/↓ ses, M sessiz, F tam ekran, 0–9 atlama. Ses düzeyi ve hız hatırlanıyor; telefonda ilk dokunuş yalnızca kontrolleri gösteriyor
+- **Detay sayfasında dosyanın gerçek içeriği** — Çözünürlük (ör. `1920×1080 (1080p) · 30 fps`), video codec'i ve ses bilgisi (ör. `Opus · 48 kHz · stereo`) artık dosyanın kendisinden okunuyor; indirmeden önce hangi düğmeye basıldığına değil, gerçekte ne indiğine bakıyor. Müzik dosyalarındaki kapak resmi video sayılmıyor
+- **Docker'da "Klasöre Kaydet"** — Docker'ı kendi bilgisayarınızda çalıştırıp `localhost` ile açtığınızda (Chrome/Edge), "Cihaza İndir" yerine dosyayı istediğiniz klasöre kaydeden bir pencere açılıyor. Pencereyi iptal ederseniz hiçbir şey olmuyor
+
+#### Düzeltilen
+
+- **Docker'da iptal edilen kaydetme dosyayı siliyordu** — Uzaktan Erişim'de "Cihaza Aktar" seçiliyken, Docker'ı kendi bilgisayarında kullananların tarayıcısı da "başka bir cihaz" sayılıyordu (Docker'da her istek aynı iç ağ adresinden geliyor). Chrome/Edge "Farklı Kaydet" penceresi açıkken dosyayı arka planda tamamen indirdiği için, pencere iptal edilse bile MediaGrab'daki tek kopya siliniyordu. Artık kendi bilgisayarınızdan yapılan indirmeler hiçbir zaman otomatik silinmiyor; "Klasöre Kaydet"te kopya yalnızca dosya seçtiğiniz klasöre gerçekten yazıldıktan sonra siliniyor. Telefon gibi diğer cihazlarda davranış aynı. Ayarlar'daki açıklama da buna göre güncellendi
+- **Windows kurulum programının Onar/Kaldır işlemi yüklenen `cookies.txt`'yi siliyordu** (v2.2.0'dan beri) — korunan dosyalar listesinde yoktu. Artık `cookies.txt` ve yeni `stats.json` da korunuyor
+
+#### Güncellerken
+
+- **Docker:** `docker-compose.yml`'in `volumes:` bölümüne `- ./data/stats:/data/stats` satırını ekleyin (istatistikler container yenilenince sıfırlanmasın diye; yeni kurulumlarda zaten var). Ardından `docker compose pull && docker compose up -d`
+- **Windows kurulum programı / kaynak kod:** yeni bağımlılık yok. Kurulum programında "Onar / Güncelle", kaynak kodda `git pull`
+- **İstatistikler** ilk açılışta mevcut indirmelerden doldurulur; bu sürümden önce silinmiş dosyalar (ör. "Cihaza Aktar" ile) sayılamaz
+
+#### Geliştirici notu
+
+- **Testler her push'ta** — `master`'a her push'ta ve her PR'da tüm testler Linux'ta çalışıyor (`.github/workflows/tests.yml`); yayında Windows'ta çalışmaya devam ediyor. Linux'ta çalıştırınca iki test hatası ortaya çıktı ve düzeltildi: PATH testi Windows'a özgü bir sürücü harfi kullanıyordu; testler bir container içinde çalışınca kendini Docker'da sanıp ilk parolayı istiyordu
+- **Daha derin Docker duman testi** (`.github/scripts/smoke-docker.sh`) — yalnızca "cevap veriyor mu" değil: ilk parolayla giriş, ffmpeg/ffprobe/Deno'nun varlığı, Geçmiş, detay sayfasındaki çözünürlük satırı ve istatistikler. Ağ gerektirmiyor, elle de çalıştırılabiliyor
+- **Yayın öncesi elle deneme** — `CONTRIBUTING.md`'nin yayın listesine gerçek bir YouTube/başka site/telefon denemesi eklendi; otomatik testler bilerek internete çıkmıyor
+- **app.js'de TR/EN anahtar eşitliği testi** — sunucu tarafındaki gibi; yalnızca İngilizcede kalmış iki kullanılmayan metni yakaladı
+
 ### [2.2.0] — 2026-10-07
 
 #### Eklenen
@@ -292,6 +319,33 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.3.0] — 2026-10-10
+
+#### Added
+
+- **Statistics** (History → Statistics tab) — a local panel showing how much you download, from which sites and in which formats: Daily / Weekly / Monthly views, period and all-time totals, downloads over time, sites, audio formats (Opus / M4A / MP3) and video resolutions, and how much of the disk MediaGrab and everything else take up, plus free space. Each download is counted the moment it finishes; files removed later (by "Relay To Device" or from History) still count. On first start, the files already in the downloads folder are imported once. Only numbers are kept (site, kind, format, count, size): no titles, links, channels or file names; "Reset Statistics" doesn't touch downloaded files. Day and week boundaries follow your browser's clock (a late-night download lands on the right day even though Docker runs on UTC)
+- **MediaGrab's own player** (History → a file → Play) — a clean, YouTube/Drive-style player instead of the browser's built-in controls: a progress bar (shows the time on hover), volume, playback speed (0.5× – 2×), picture in picture and full screen. No "Download" menu and no right-click "Save video as". Keyboard shortcuts match YouTube: Space/K, ←/→ (5 s), J/L (10 s), ↑/↓ volume, M mute, F full screen, 0–9 to jump. Volume and speed are remembered; on phones the first tap only brings the controls back
+- **What's actually in the file, on the detail page** — Resolution (e.g. `1920×1080 (1080p) · 30 fps`), the video codec and the audio (e.g. `Opus · 48 kHz · stereo`) are now read from the file itself - what really got downloaded, not which button was pressed. Cover art in music files isn't counted as video
+- **"Save to Folder" in Docker** — when you run Docker on your own computer and open it via `localhost` (Chrome/Edge), "Download to Device" becomes a dialog that saves the file to the folder you pick. Cancelling it does nothing
+
+#### Fixed
+
+- **A cancelled save deleted the file in Docker** — with "Relay To Device" selected under Remote Access, the browser of someone running Docker on their own computer counted as "another device" too (in Docker every request comes from the same internal address). Chrome/Edge download the whole file in the background while the Save As dialog is still open, so even a cancelled dialog deleted MediaGrab's only copy. Downloads from your own computer are now never deleted automatically; with "Save to Folder" the copy is only removed after the file has actually been written to the folder you picked. Other devices (like phones) behave as before. The description in Settings was updated to match
+- **The Windows installer's Repair/Remove deleted an uploaded `cookies.txt`** (since v2.2.0) — it wasn't on the list of kept files. `cookies.txt` and the new `stats.json` are now kept
+
+#### When updating
+
+- **Docker:** add `- ./data/stats:/data/stats` under `volumes:` in `docker-compose.yml` (so statistics survive the container being recreated; new installs already have it). Then `docker compose pull && docker compose up -d`
+- **Windows installer / source:** no new dependencies. "Repair / Update" in the installer, `git pull` for source
+- **Statistics** are filled from your existing downloads on first start; files deleted before this release (e.g. by "Relay To Device") can't be counted
+
+#### Developer notes
+
+- **Tests on every push** — the full suite now runs on Linux for every push to `master` and every PR (`.github/workflows/tests.yml`), and still on Windows at release time. Running it on Linux surfaced two test bugs, now fixed: the PATH test used a Windows drive letter, and inside a container the tests mistook themselves for Docker and demanded a first-run password
+- **Deeper Docker smoke test** (`.github/scripts/smoke-docker.sh`) — not just "does it answer": logging in with the initial password, ffmpeg/ffprobe/Deno present, History, the detail page's resolution row and statistics. No network needed, runnable by hand
+- **Manual check before releasing** — `CONTRIBUTING.md`'s release list gained a real YouTube / other site / phone try; the automated tests stay offline on purpose
+- **TR/EN key parity test for app.js** — like the server-side one; it caught two unused strings left only in English
 
 ### [2.2.0] — 2026-10-07
 

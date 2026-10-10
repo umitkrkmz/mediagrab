@@ -20,7 +20,7 @@ from mediagrab.paths import app_dir
 
 def test_user_data_paths_point_away_from_the_project():
     project = os.path.normcase(os.path.abspath(app_dir()))
-    for path in (store.STORE_PATH, store.SETTINGS_PATH, downloader.DOWNLOAD_DIR, downloader.COOKIES_PATH):
+    for path in (store.STORE_PATH, store.SETTINGS_PATH, store.STATS_PATH, downloader.DOWNLOAD_DIR, downloader.COOKIES_PATH):
         assert not os.path.normcase(os.path.abspath(path)).startswith(project), path
 
 
@@ -31,6 +31,18 @@ def test_starting_the_app_does_not_check_channels(monkeypatch):
     store.add_channel("https://www.youtube.com/@example", "Example", None, "notify", "audio", "mp3", None)
     called = threading.Event()
     monkeypatch.setattr(downloader, "check_channel_new_videos", lambda *a, **k: called.set() or [])
+
+    with TestClient(app_module.app):
+        pass
+
+    assert not called.wait(timeout=1.0)
+
+
+def test_starting_the_app_does_not_import_statistics(monkeypatch):
+    # NOTE: the one-time statistics import runs on a daemon thread too (see
+    # conftest) - it must not touch the developer's real indirilenler/.
+    called = threading.Event()
+    monkeypatch.setattr(app_module.stats, "backfill", lambda cutoff: called.set())
 
     with TestClient(app_module.app):
         pass

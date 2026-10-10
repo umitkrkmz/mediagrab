@@ -4,6 +4,9 @@ channels.json
 # NOTE: Ayarlar -> Çerezler'den yüklenen dosya (canlı oturum çerezleri)
 cookies.txt
 cookies.txt.tmp
+# NOTE: indirme istatistikleri (Geçmiş -> İstatistikler)
+stats.json
+stats.json.tmp
 
 # Python
 __pycache__/

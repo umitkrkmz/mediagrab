@@ -110,18 +110,19 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 
 - **Paste-to-resolve & quick options** — a paste button that auto-detects the clipboard link (secure contexts only, see [Using It On Mobile](#using-it-on-mobile)); one-click buttons for best audio/best video, with every other quality/format tucked under "advanced options"
 - **Persistent download panel** — track multiple downloads at once, with an estimated time remaining alongside the speed; progress survives page navigation and even closing and reopening the app
-- **In-place preview** — play audio/video files straight from the item detail page without opening a file explorer
-- **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected
+- **Its own player** — play audio/video files straight from the item detail page without opening a file explorer. A clean, YouTube/Drive-style player instead of the browser's built-in controls: progress bar, volume, playback speed (0.5× – 2×), picture in picture and full screen. Keyboard shortcuts match YouTube: Space/K play-pause, ←/→ 5 s, J/L 10 s, ↑/↓ volume, M mute, F full screen, 0–9 jump to 0–90% of the video. Volume and speed are remembered
+- **Auto reveal in file explorer** — clicking "Download file" opens your OS file explorer with the file selected. If you run Docker on your own computer (via `localhost`, Chrome/Edge), you get **Save to Folder** instead: a dialog that saves the file to the folder you pick; cancelling it does nothing
 - **Installable app (PWA)** — use your browser's "Add to Home Screen" to run MediaGrab like a standalone app
 - **Mobile-friendly interface** — a collapsible menu on small screens, touch-sized buttons, comfortable on phones and tablets
 - **Light / dark theme and Turkish / English UI** — both follow your system setting by default, and can be switched by hand
 
 ### Library and following
 
-- **Download history** (`/history`) — switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all
+- **Download history** (`/history`) — switchable between cover-art cards and a compact list view; search by title, filter by channel and by file type (built dynamically from what's actually on disk), re-download, delete, or clear all. A file's detail page shows its **actual** resolution, frame rate and codecs (e.g. `1920×1080 (1080p) · 30 fps`, `Opus · 48 kHz · stereo`) - read from what's inside the file, not from which button was pressed before downloading
 
 ![Download history](images/history-en.png)
 
+- **Statistics** (`/history` → Statistics tab) — how much you download, from which sites and in which formats: Daily / Weekly / Monthly views, downloads over time, sites, audio formats and video resolutions, how much disk MediaGrab takes up and the free space. Each download is counted the moment it finishes, and files removed later still count; on first start, existing downloads are imported once. Only numbers are kept (site, kind, format, count, size) - no titles, links, channels or file names, and it all stays on this computer. "Reset Statistics" doesn't touch your files
 - **Channel following** (`/channels`) — follow a channel; every time you open the app, it's checked for new videos. Two modes: **Notify** (a banner on the home page tells you, you pick what to download) or **Auto-download** (downloads new uploads automatically in your chosen format). Not a persistent background service (except in Home Server Mode) — see [How Channel Following Works](#how-channel-following-works)
 
 ### Access and hosting
@@ -293,7 +294,7 @@ Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` wi
 docker compose up -d
 ```
 
-The repo's compose file uses the published official image (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 and arm64); this command downloads it the first time, no build needed. From another device, go to `http://<this-computer's-LAN-IP>:8420`. Your downloads, settings, and followed channels are kept in `./data/`, outside the container - they survive a rebuild or the container being recreated.
+The repo's compose file uses the published official image (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 and arm64); this command downloads it the first time, no build needed. From another device, go to `http://<this-computer's-LAN-IP>:8420`. Your downloads, settings, followed channels, cookies and statistics are kept in `./data/`, outside the container - they survive a rebuild or the container being recreated.
 
 **Updating:** when a new release is out, Settings → Version Checks shows it. In the folder that has your `docker-compose.yml`:
 
@@ -301,9 +302,11 @@ The repo's compose file uses the published official image (`ghcr.io/umitkrkmz/me
 docker compose pull && docker compose up -d
 ```
 
-Your settings, cookies and downloads are kept in `./data/`, so nothing is lost. yt-dlp can also be updated from the Settings page with one click (it installs into a folder that persists even when the image is replaced); every other dependency (FastAPI, ffmpeg, Deno, etc.) is baked into the image and updates with it.
+Your settings, cookies, statistics and downloads are kept in `./data/`, so nothing is lost. yt-dlp can also be updated from the Settings page with one click (it installs into a folder that persists even when the image is replaced); every other dependency (FastAPI, ffmpeg, Deno, etc.) is baked into the image and updates with it.
 
 > **If you have an older install:** if you installed from the repo by hand before v2.2.0, your compose file may have `build: .` instead of `image:`. Replace that line with `image: ghcr.io/umitkrkmz/mediagrab:latest`, then use the command above. To build your own local changes instead, use `build: .` and run `docker compose up -d --build`. The Windows installer's "Install with Docker" option already uses the published image.
+>
+> **If you installed before v2.3.0:** add `- ./data/stats:/data/stats` under `volumes:` in your compose file; without it statistics still work but restart from zero whenever the container is recreated. (Installs from before v2.2.0 also need `- ./data/cookies:/data/cookies`.)
 
 The "update dependencies" button in Settings is disabled in Docker and reminds you of this — it can't update or rebuild the image itself.
 
@@ -341,7 +344,7 @@ You can run MediaGrab on one computer and open it from your phone or another dev
 
 - **Connected devices** — the same panel shows every device currently logged in (browser + OS guess, e.g. "Chrome · Windows") and when it connected; you can sign any one of them out individually without affecting your own device.
 - **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
-- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once a file has been fully sent to a device, this computer's copy is deleted right after. Downloads you make from this computer itself (the host's own browser) are never affected by this setting - it only applies to files sent to another device.
+- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once another device such as a phone has fully downloaded a file, this computer's copy is deleted. Downloads you make from this computer itself (the host's own browser) aren't affected and are never deleted automatically. If you run Docker on your own computer and open it via `localhost`, you get **Save to Folder**: the copy is only deleted after the file has actually been saved to the folder you picked, and cancelling the dialog leaves it untouched. Known limit: if another computer's browser is set to ask where to save each file, a cancel can't be detected, because the browser downloads the file while that dialog is still open.
 
 > **Security note:** this connection runs over plain HTTP, not HTTPS - only use it on a home/office network you trust, and never forward the port to expose it directly to the internet. Sessions are kept in memory only; whenever the server restarts (an update, the computer shutting down, etc.) everyone has to log back in with the password - a deliberate simplification, since a personal/local tool doesn't need sessions to survive on disk.
 
@@ -420,6 +423,13 @@ pytest
 
 The JavaScript tests need Node.js installed; they're skipped automatically if it isn't.
 
+On GitHub the tests also run automatically on every push to `master` (Actions → "Tests"). There's a separate smoke test for the Docker image - it starts the image and tries logging in, ffmpeg/ffprobe/Deno, History and statistics:
+
+```bash
+docker build -t mediagrab:dev .
+bash .github/scripts/smoke-docker.sh mediagrab:dev 8422
+```
+
 ## Troubleshooting
 
 **`ModuleNotFoundError` or "package not found" errors**
@@ -466,7 +476,8 @@ mediagrab/
     models.py       # Pydantic models
     i18n.py         # server-rendered UI strings (TR/EN) - single source
     deps.py         # ffmpeg/ffprobe and Python package version checks
-    store.py        # reads/writes channels.json / settings.json, not a DB
+    store.py        # reads/writes channels.json / settings.json / stats.json, not a DB
+    stats.py        # download statistics: classifying, first-start import, day/week/month summary
     paths.py         # resolves the right folders whether running from source or as the exe
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
@@ -478,6 +489,7 @@ indirilenler/       # downloaded files, auto-organized into per-channel subfolde
 channels.json       # followed channels (not in git)
 settings.json       # cookie source and default audio-language settings (not in git)
 cookies.txt         # the file uploaded in Settings → Cookies (not in git; ./data/cookies/ on Docker)
+stats.json          # download statistics, numbers only (not in git; ./data/stats/ on Docker)
 run.py              # entry point for `python run.py`
 setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases, with its Docker mode)
 Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)

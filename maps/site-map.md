@@ -19,18 +19,22 @@ access turned on AND a password set) - see the invariant in
 `maps/project-map.md`. When active, an unauthenticated page request gets
 redirected to `/login`, an API request gets a 401.
 
-**Keep vs. relay:** every download route branches on `_is_local_request` and
+**Keep vs. relay:** every download route branches on `_is_same_machine` and
 `store.get_settings()["remote_download_mode"]` via `_relay_delete_background`.
 "keep" (default) never auto-deletes anything. "relay" deletes the host's own
-copy, but ONLY after a REMOTE device's download has fully completed - the
-host's own reveal/download of its own file is never affected either way.
+copy after a REMOTE device's download has fully completed - but never for the
+host's own browser (`_is_same_machine`: loopback client, or in Docker a
+`localhost` Host header, since every Docker request comes from the bridge
+gateway). There, a fully sent response proves nothing (Chrome fetches behind
+an open Save As dialog), so deletion waits for the "Save to folder" picker's
+own confirmation: `POST .../saved` (`_confirm_saved`).
 
 ## Pages (HTML, server-rendered via Jinja)
 
 | Route | Template | Purpose | JS that drives it (`app.js`) |
 |---|---|---|---|
 | `/` | `index.html` | Paste a link → resolve → pick audio/video/subtitles/transcript → download. Playlists list their entries with range + bulk download. Shows pending channel videos and recent downloads. | `probe`, `renderCard`, `renderPlaylist`, `queuePlaylistRange`, `startDownload`, `renderPending`, `renderRecent` |
-| `/history` | `history.html` | Downloaded files as cards or a compact list; search, channel + type filters; delete / clear all | `loadHistory`, `applyHistoryFilters`, `applyHistoryViewMode`, `deleteHistoryItem`, `clearAllHistory` |
+| `/history` | `history.html` | Downloaded files as cards or a compact list; search, channel + type filters; delete / clear all | `loadHistory`, `applyHistoryFilters`, `applyHistoryViewMode`, `deleteHistoryItem`, `clearAllHistory`; a Statistics tab (`#stats`) - `initHistoryTabs`, `loadStats` |
 | `/item/{filename:path}` | `item.html` | One file's detail: metadata, in-page preview, reveal in explorer, sidecar JSON | `itemRevealBtn`, `itemPreviewBtn` handlers |
 | `/channels` | `channels.html` | Follow YouTube channels (notify / auto-download); checked once per app start | `loadChannels`, `addChannel`, `renderChannelList` |
 | `/supported-sites` | `supported_sites.html` | Clickable, branded chips for popular yt-dlp sites + link to the full list | none (static) |
@@ -50,6 +54,7 @@ host's own reveal/download of its own file is never affected either way.
 | `/api/cancel/{job_id}` | POST | Cancel a running job and clean partial files |
 | `/api/file/{job_id}` | GET | Reveal the finished file in the OS file explorer (host client only) |
 | `/api/file/{job_id}/download` | GET | Stream the actual bytes with `Content-Disposition: attachment` - what a remote device's dock uses instead (unambiguous with the route above since `{job_id}` can't contain a `/`, unlike the history pair) |
+| `/api/file/{job_id}/saved` | POST | Sent by app.js's "Save to folder" flow (`saveFileToFolder`) only after the file is fully written to the folder the user picked; in relay mode removes MediaGrab's copy (`_confirm_saved`), returns `{deleted}` |
 
 ## API — history
 
@@ -58,6 +63,7 @@ host's own reveal/download of its own file is never affected either way.
 | `/api/history` | GET | List downloaded files (`HISTORY_EXTS`) with metadata, newest first |
 | `/api/history/file/{filename:path}` | GET | Reveal a history file in the explorer (host client only, see `/api/client-info`) |
 | `/api/history/file/{filename:path}/download` | GET | Stream the actual bytes with `Content-Disposition: attachment`, for a remote device that can't use "reveal in explorer" - **must stay registered before** the plain `{filename:path}` route above (that one's `:path` converter is greedy enough to swallow a literal `/download` suffix otherwise - reproduced directly, see the route's own comment and `tests/test_app.py`'s ordering regression test) |
+| `/api/history/file/{filename:path}/saved` | POST | Same as `/api/file/{job_id}/saved`, for a History file (path-checked via `_history_path`) |
 | `/api/history/thumb/{filename:path}` | GET | Cover art via ffmpeg, cached + `ETag` |
 | `/api/history/stream/{filename:path}` | GET | Stream a file for the in-page preview |
 | `/api/history/json/{filename:path}` | GET | The metadata sidecar (`<file>.json`) |
@@ -90,8 +96,10 @@ host's own reveal/download of its own file is never affected either way.
 | `/api/cookies/inspect` | POST | `{content}` -> parses an upload with yt-dlp's own reader and returns per-site counts + pre-ticked `suggested` sites; saves nothing |
 | `/api/cookies/upload` | POST | `{content, sites}` -> keeps only the chosen sites' cookies, writes them atomically to `downloader.COOKIES_PATH` (0600 on POSIX) and switches cookies to file mode |
 | `/api/locale` | GET | Server-detected language |
-| `/api/client-info` | GET | `{is_local}` - whether THIS request came from the host machine (127.0.0.1/::1) or a LAN device; fetched once at page load (see `loadClientInfo` in app.js) and used to pick "reveal in explorer" vs a real "download to this device" action |
+| `/api/client-info` | GET | `{is_local, same_machine}` - `is_local`: THIS request came from the host machine (127.0.0.1/::1), so "reveal in explorer" works; `same_machine`: also true for the host's own browser in Docker (`localhost` Host header), which gets "Save to folder" (`canSaveToFolder`) instead of a plain download. Fetched once at page load (see `loadClientInfo` in app.js) |
 | `/api/diagnostics` | GET | `{text}` - plain-text environment summary for bug reports (`app.diagnostics_text`: versions, OS, install type, JS runtime, ffmpeg, cookie MODE, remote access on/off). Never paths, hostname, IP or cookie contents; no network |
+| `/api/stats` | GET | `?period=` day, week or month, `&tz=` minutes east of UTC - `stats.summarize` of `store.get_stats()` (bars for the last 14 days / 12 weeks / 12 months, site + format breakdowns, all-time totals) plus `disk` (`_disk_status`: the downloads folder's drive + the folder's own size) and `backfilling` (one-time import still running) |
+| `/api/stats/reset` | POST | Empty the statistics (`store.reset_stats`); downloaded files are not touched |
 | `/api/mediagrab-version` | GET | Installed MediaGrab (`__version__`) vs the latest GitHub release, `release_url`, `install_type` (`docker`/`installer`/`source` - picks the update instructions shown) |
 | `/api/ytdlp-version` | GET | Installed vs latest yt-dlp |
 | `/api/ytdlp-update` | POST | `pip install -U yt-dlp`, then restart |

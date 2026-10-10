@@ -110,18 +110,19 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 
 - **Link yapıştır & hızlı seçenekler** — panodaki linki otomatik algılayan yapıştır butonu (yalnızca güvenli bağlamda, bkz. [Mobil Kullanım](#mobil-kullanım)); en iyi ses/en iyi video için tek tıkla hızlı indirme, diğer tüm kalite/format seçenekleri "gelişmiş seçenekler" altında
 - **Kalıcı indirme paneli** — aynı anda birden fazla indirmeyi takip edin; hız yanında kalan tahmini süre de gösterilir; sayfa değiştirseniz veya uygulamayı kapatıp tekrar açsanız bile ilerleme durumu korunur
-- **Sayfa içi önizleme** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın
-- **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır
+- **Kendi oynatıcısı** — indirme detay sayfasından ses/video dosyalarını dosya gezgini açmadan doğrudan oynatın. Tarayıcının kendi kontrolleri yerine sade, YouTube/Drive tarzı bir oynatıcı: ilerleme çubuğu, ses, oynatma hızı (0.5× – 2×), pencere içinde pencere ve tam ekran. Klavye kısayolları YouTube'la aynı: boşluk/K oynat-duraklat, ←/→ 5 sn, J/L 10 sn, ↑/↓ ses, M sessiz, F tam ekran, 0–9 videonun %0–90'ına atlama. Ses düzeyi ve hız hatırlanır
+- **Otomatik dosya gezgini** — "Dosyayı indir"e tıklayınca dosya, işletim sisteminin dosya gezgininde seçili şekilde açılır. Docker'ı kendi bilgisayarınızda çalıştırıyorsanız (`localhost` ile, Chrome/Edge) bunun yerine **Klasöre Kaydet** çıkar: dosyayı istediğiniz klasöre kaydeden bir pencere açılır; iptal ederseniz hiçbir şey olmaz
 - **Uygulama olarak yükleme (PWA)** — tarayıcının "Ana ekrana ekle" seçeneğiyle MediaGrab'ı bağımsız bir uygulama gibi kullanabilirsiniz
 - **Mobil uyumlu arayüz** — küçük ekranlarda açılır menü, dokunmaya uygun büyüklükte butonlar, telefon ve tablette rahat kullanım
 - **Açık / koyu tema ve Türkçe / İngilizce arayüz** — ikisi de sistem ayarını takip eder, elle de değiştirilebilir
 
 ### Kütüphane ve takip
 
-- **İndirme geçmişi** (`/history`) — kapak resimli kart görünümü veya kompakt liste görünümü arasında geçiş yapılabilir; başlığa göre arama, kanala göre ve dosya türüne göre (diskteki gerçek uzantılardan otomatik oluşan) filtreleme, tekrar indirme, silme, tümünü silme
+- **İndirme geçmişi** (`/history`) — kapak resimli kart görünümü veya kompakt liste görünümü arasında geçiş yapılabilir; başlığa göre arama, kanala göre ve dosya türüne göre (diskteki gerçek uzantılardan otomatik oluşan) filtreleme, tekrar indirme, silme, tümünü silme. Bir dosyanın detay sayfasında dosyanın **gerçek** çözünürlüğü, kare hızı ve codec'leri yazar (ör. `1920×1080 (1080p) · 30 fps`, `Opus · 48 kHz · stereo`) — indirmeden önce hangi düğmeye basıldığına değil, dosyanın içinde ne olduğuna bakar
 
 ![İndirme geçmişi](images/history-tr.png)
 
+- **İstatistikler** (`/history` → İstatistikler sekmesi) — ne kadar, hangi siteden ve hangi biçimde indirdiğiniz: Günlük / Haftalık / Aylık görünüm, zamana göre indirmeler, siteler, ses biçimleri ve video çözünürlükleri, diskte MediaGrab'ın kapladığı yer ve boş alan. Her indirme bittiği anda sayılır, sonradan silinen dosyalar da sayılmaya devam eder; ilk açılışta mevcut indirmeler bir kez içe aktarılır. Yalnızca sayılar tutulur (site, tür, biçim, adet, boyut) — başlık, bağlantı, kanal ya da dosya adı kaydedilmez, her şey bu bilgisayarda kalır. "İstatistikleri Sıfırla" dosyalara dokunmaz
 - **Kanal takibi** (`/channels`) — bir kanalı takibe alın; uygulamayı her açtığınızda yeni video var mı diye kontrol edilir. İki mod: **Bildir** (ana sayfada banner ile haber verir, siz seçersiniz) veya **Otomatik indir** (seçtiğiniz formatta kendiliğinden indirir). Sürekli arka planda çalışan bir servis değil (Ev Sunucusu Modu hariç) — bkz. [Kanal Takibi Nasıl Çalışır](#kanal-takibi-nasıl-çalışır)
 
 ### Erişim ve barındırma
@@ -293,7 +294,7 @@ Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü
 docker compose up -d
 ```
 
-Repodaki compose dosyası yayımlanmış resmi imajı (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 ve arm64) kullanır; bu komut imajı ilk seferde indirir, derleme gerekmez. Başka bir cihazdan `http://<bu-bilgisayarın-LAN-IP'si>:8420` adresine gidin. İndirdikleriniz, ayarlarınız ve takip listeniz `./data/` klasöründe, container'ın dışında kalıcı olarak saklanır — imaj yeniden derlense veya container yeniden oluşturulsa bile kaybolmaz.
+Repodaki compose dosyası yayımlanmış resmi imajı (`ghcr.io/umitkrkmz/mediagrab:latest`, amd64 ve arm64) kullanır; bu komut imajı ilk seferde indirir, derleme gerekmez. Başka bir cihazdan `http://<bu-bilgisayarın-LAN-IP'si>:8420` adresine gidin. İndirdikleriniz, ayarlarınız, takip listeniz, çerezleriniz ve istatistikleriniz `./data/` klasöründe, container'ın dışında kalıcı olarak saklanır — imaj yeniden derlense veya container yeniden oluşturulsa bile kaybolmaz.
 
 **Güncelleme:** Yeni bir sürüm çıktığında Ayarlar → Sürüm Kontrolleri bunu gösterir. `docker-compose.yml`'in bulunduğu klasörde:
 
@@ -301,9 +302,11 @@ Repodaki compose dosyası yayımlanmış resmi imajı (`ghcr.io/umitkrkmz/mediag
 docker compose pull && docker compose up -d
 ```
 
-Ayarlarınız, çerezleriniz ve indirdikleriniz `./data/` klasöründe kaldığı için kaybolmaz. yt-dlp'yi ayrıca Ayarlar sayfasından tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yenilense bile kaybolmaz); diğer tüm bağımlılıklar (FastAPI, ffmpeg, Deno vb.) imaja gömülüdür ve imajla birlikte güncellenir.
+Ayarlarınız, çerezleriniz, istatistikleriniz ve indirdikleriniz `./data/` klasöründe kaldığı için kaybolmaz. yt-dlp'yi ayrıca Ayarlar sayfasından tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yenilense bile kaybolmaz); diğer tüm bağımlılıklar (FastAPI, ffmpeg, Deno vb.) imaja gömülüdür ve imajla birlikte güncellenir.
 
 > **Eski bir kurulumunuz varsa:** v2.2.0'dan önce repodan elle kurduysanız compose dosyanızda `image:` yerine `build: .` satırı olabilir. O satırı `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirin, sonra yukarıdaki komutu kullanın. Kendi değişikliklerinizle yerel derleme yapmak isterseniz `build: .` kullanıp `docker compose up -d --build` çalıştırabilirsiniz. Windows kurulum programının "Docker ile kur" seçeneği zaten yayınlanmış imajı kullanır.
+>
+> **v2.3.0'dan önce kurduysanız:** compose dosyanızın `volumes:` bölümüne `- ./data/stats:/data/stats` satırını ekleyin; eklemezseniz istatistikler çalışır ama container yeniden oluşturulunca sıfırlanır. (v2.2.0'dan önceki kurulumlar için `- ./data/cookies:/data/cookies` satırı da gerekir.)
 
 Ayarlar sayfasındaki "bağımlılıkları güncelle" düğmesi Docker'da devre dışıdır ve bunu size hatırlatır — kendisi imaj güncellemesi/derlemesi yapamaz.
 
@@ -341,7 +344,7 @@ MediaGrab'ı bir bilgisayarda çalıştırıp aynı Wi-Fi/ağdaki telefonunuzdan
 
 - **Bağlı cihazlar** — aynı panelde o an oturum açmış her cihazı (tarayıcı + işletim sistemi tahmini, ör. "Chrome · Windows") ve bağlantı zamanını görürsünüz; istediğiniz birini tek başına çıkışa zorlayabilirsiniz, kendi cihazınız etkilenmez.
 - **Şifre değiştirme** — mevcut şifre / yeni şifre / yeni şifre (tekrar) ile değiştirilir. Şifreyi unutursanız: bu bilgisayardaki `settings.json` dosyasından `remote_access_password_salt` ve `remote_access_password_hash` alanlarını silip MediaGrab'ı yeniden başlatın, ayarlar sayfasından yeni bir şifre belirleyebilirsiniz. Şifre her değiştiğinde (veya bu kurtarma yoluyla sıfırlandığında), değiştiren dahil oturum açmış her cihaz otomatik çıkışa zorlanır.
-- **Depolama modu** — **Bende Kalsın** (varsayılan): indirilen dosyalar her zamanki gibi bu bilgisayarda `indirilenler/` klasöründe kalıcı olarak durur; kişisel bilgisayar için önerilen mod. **Cihaza Aktar**: depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız, bir dosya bir cihaza tam olarak gönderildikten hemen sonra bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan (host'un kendi tarayıcısından) yaptığınız indirmeler bu ayardan hiçbir zaman etkilenmez — yalnızca başka bir cihaza gönderilen dosyalar için geçerlidir.
+- **Depolama modu** — **Bende Kalsın** (varsayılan): indirilen dosyalar her zamanki gibi bu bilgisayarda `indirilenler/` klasöründe kalıcı olarak durur; kişisel bilgisayar için önerilen mod. **Cihaza Aktar**: depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız, telefon gibi başka bir cihaz bir dosyayı tamamen indirdikten sonra bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan (host'un kendi tarayıcısından) yaptığınız indirmeler bu ayardan etkilenmez ve hiçbir zaman kendiliğinden silinmez. Docker'ı kendi bilgisayarınızda `localhost` ile açtıysanız **Klasöre Kaydet** çıkar; bu durumda kopya yalnızca dosya seçtiğiniz klasöre gerçekten kaydedildikten sonra silinir, pencereyi iptal ederseniz dosyaya dokunulmaz. Bilinen sınır: başka bir bilgisayarın tarayıcısı "her dosyanın nereye kaydedileceğini sor" ayarıyla açıksa, tarayıcı dosyayı pencere açıkken indirdiği için iptal algılanamaz.
 
 > **Güvenlik notu:** Bu bağlantı düz HTTP üzerinden çalışır (HTTPS değildir) — yalnızca güvendiğiniz bir ev/ofis ağında kullanın, yönlendirici (router) ayarlarından doğrudan internete açmayın. Oturumlar bellekte tutulur; sunucu yeniden başladığında (güncelleme, bilgisayarın kapanması vb.) herkes tekrar şifreyle giriş yapmalıdır — bu bilinçli bir sadeleştirme, kişisel/lokal bir araç için diskte kalıcı oturum tutmaya gerek görülmedi.
 
@@ -420,6 +423,13 @@ pytest
 
 JavaScript testleri için Node.js kurulu olmalı; değilse o testler otomatik atlanır.
 
+Testler GitHub'da `master`'a her push'ta otomatik olarak da çalışır (Actions → "Tests"). Docker imajı için ayrı bir duman testi var — imajı başlatıp giriş, ffmpeg/ffprobe/Deno, Geçmiş ve istatistikleri dener:
+
+```bash
+docker build -t mediagrab:dev .
+bash .github/scripts/smoke-docker.sh mediagrab:dev 8422
+```
+
 ## Sorun Giderme
 
 **`ModuleNotFoundError` veya "paket bulunamadı" hatası**
@@ -466,7 +476,8 @@ mediagrab/
     models.py       # Pydantic modelleri
     i18n.py         # sunucuda basılan arayüz metinleri (TR/EN) — tek kaynak
     deps.py         # ffmpeg/ffprobe ve Python paket sürüm kontrolleri
-    store.py        # channels.json / settings.json okuma-yazma, DB değil
+    store.py        # channels.json / settings.json / stats.json okuma-yazma, DB değil
+    stats.py        # indirme istatistikleri: sınıflandırma, ilk içe aktarma, gün/hafta/ay özeti
     paths.py         # kaynak/exe modunda doğru klasör yollarını çözer
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
@@ -478,6 +489,7 @@ indirilenler/       # indirilen dosyalar, kanal adına göre alt klasörlenir (g
 channels.json       # takip edilen kanallar (git'e dahil değil)
 settings.json       # çerez ve varsayılan ses dili ayarları (git'e dahil değil)
 cookies.txt         # Ayarlar → Çerezler'den yüklenen dosya (git'e dahil değil; Docker'da ./data/cookies/)
+stats.json          # indirme istatistikleri, yalnızca sayılar (git'e dahil değil; Docker'da ./data/stats/)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
 setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı, Docker moduyla birlikte)
 Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)

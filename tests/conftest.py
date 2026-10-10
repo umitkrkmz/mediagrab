@@ -26,6 +26,17 @@ def _isolate_user_data(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(store, "SETTINGS_PATH", str(data_dir / "settings.json"))
     monkeypatch.setattr(downloader, "DOWNLOAD_DIR", str(data_dir / "indirilenler"))
     monkeypatch.setattr(downloader, "COOKIES_PATH", str(data_dir / "cookies" / "cookies.txt"))
+    monkeypatch.setattr(store, "STATS_PATH", str(data_dir / "stats" / "stats.json"))
+    # NOTE: the suite assumes a plain install unless a test says otherwise
+    # (those patch these again themselves). Without this, running the tests
+    # INSIDE a container (a devcontainer, a CI job in Docker) saw the real
+    # /.dockerenv and every app start demanded a first-run password.
+    monkeypatch.setattr(app_module, "is_docker", lambda: False)
+    monkeypatch.setattr(downloader, "is_docker", lambda: False)
+    # NOTE: same daemon-thread hazard as the channel check below - the
+    # one-time statistics import walks DOWNLOAD_DIR and writes STATS_PATH on
+    # a thread that can outlive the test. Tests call stats.backfill directly.
+    monkeypatch.setattr(app_module, "_start_stats_backfill", lambda: None)
     # NOTE: lifespan starts this on a daemon thread that can outlive the test
     # (a real channel check is a network call taking seconds) - by then
     # monkeypatch has restored the real STORE_PATH, so redirecting paths alone

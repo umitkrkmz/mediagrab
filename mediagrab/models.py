@@ -80,6 +80,9 @@ class StatusResponse(BaseModel):
     # NOTE: 1-based place in the queue while waiting for a free worker slot;
     # None once the download has actually started.
     queue_position: Optional[int] = None
+    # NOTE: the finished file's own name (no folders) - suggested by the
+    # "Save to folder" picker; None until the file exists.
+    filename: Optional[str] = None
 
 
 class SettingsResponse(BaseModel):
@@ -115,6 +118,10 @@ class ClientInfoResponse(BaseModel):
     # UI offers "show in folder" (only useful when you're sitting at the
     # host) or a real "download to this device" action.
     is_local: bool
+    # NOTE: true also for the host's own browser in Docker (see
+    # _is_same_machine) - there "show in folder" can't work, so the UI offers
+    # "Save to folder" instead, and nothing is auto-deleted on download.
+    same_machine: bool
 
 
 class RemoteAccessStatus(BaseModel):

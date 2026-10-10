@@ -345,6 +345,10 @@ const I18N = {
     },
     downloadBtn: "Klasörde göster",
     downloadToDeviceBtn: "Cihaza İndir",
+    saveToFolderBtn: "Klasöre Kaydet",
+    savedToFolder: "Kaydedildi ✓",
+    savedAndRemoved: "Kaydedildi — MediaGrab'daki kopyası silindi",
+    saveToFolderFailed: "Kaydedilemedi: ",
     downloadStartedNote: "İndirme başladı — altta ilerlemesini takip edebilirsiniz.",
     dockDismiss: "Kapat",
     dockCancel: "İndirmeyi iptal et",
@@ -388,6 +392,39 @@ const I18N = {
     queuePosition: "Sırada {n}. — diğer indirmeler bekleniyor",
     itemPreviewPlay: "▶ Oynat",
     itemPreviewClose: "✕ Kapat",
+    playerPlay: "Oynat (k)",
+    playerPause: "Duraklat (k)",
+    playerMute: "Sesi kapat (m)",
+    playerUnmute: "Sesi aç (m)",
+    playerVolume: "Ses düzeyi",
+    playerSeek: "İlerleme",
+    playerSpeed: "Oynatma hızı",
+    playerSpeedNormal: "Normal",
+    playerPip: "Pencere içinde pencere",
+    playerFullscreen: "Tam ekran (f)",
+    playerExitFullscreen: "Tam ekrandan çık (f)",
+    playerSeconds: "sn",
+    statsFileOne: "{n} dosya",
+    statsFiles: "{n} dosya",
+    statsUnknownSite: "Bilinmiyor",
+    statsGenericSite: "Doğrudan bağlantı",
+    statsOther: "Diğer",
+    statsOtherFormat: "Diğer / bilinmiyor",
+    statsWindowDay: "Son 14 gün",
+    statsWindowWeek: "Son 12 hafta",
+    statsWindowMonth: "Son 12 ay",
+    statsTotal: "Toplam",
+    statsSince: "{date} tarihinden beri",
+    statsDiskFree: "Boş alan",
+    statsDiskOf: "Disk: {total}",
+    statsDiskDownloads: "MediaGrab indirmeleri",
+    statsDiskOther: "Diğer dosyalar",
+    statsDiskUnavailable: "Disk bilgisi okunamadı.",
+    statsEmpty: "Bu dönemde indirme yok.",
+    statsBackfilling: "Mevcut indirmeler sayılıyor…",
+    statsNote: "Sonradan silinen dosyalar da sayılmaya devam eder. Bu özellik gelmeden önce silinmiş olanlar sayılamadı.",
+    statsResetConfirm: "Tüm istatistikler silinsin mi? İndirilen dosyalara dokunulmaz.",
+    statsLoadFailed: "İstatistikler yüklenemedi: ",
     errProbeFailed: "Çözümlenemedi",
     errDownloadFailed: "İndirme başlatılamadı",
     errNetwork: "Ağ hatası: ",
@@ -736,6 +773,10 @@ const I18N = {
     },
     downloadBtn: "Show in folder",
     downloadToDeviceBtn: "Download to Device",
+    saveToFolderBtn: "Save to Folder",
+    savedToFolder: "Saved ✓",
+    savedAndRemoved: "Saved — MediaGrab's copy was removed",
+    saveToFolderFailed: "Could not save: ",
     downloadStartedNote: "Download started — track its progress below.",
     dockDismiss: "Dismiss",
     dockCancel: "Cancel download",
@@ -779,6 +820,39 @@ const I18N = {
     queuePosition: "{n}. in queue — waiting for other downloads",
     itemPreviewPlay: "▶ Play",
     itemPreviewClose: "✕ Close",
+    playerPlay: "Play (k)",
+    playerPause: "Pause (k)",
+    playerMute: "Mute (m)",
+    playerUnmute: "Unmute (m)",
+    playerVolume: "Volume",
+    playerSeek: "Seek",
+    playerSpeed: "Playback speed",
+    playerSpeedNormal: "Normal",
+    playerPip: "Picture in picture",
+    playerFullscreen: "Full screen (f)",
+    playerExitFullscreen: "Exit full screen (f)",
+    playerSeconds: "s",
+    statsFileOne: "{n} file",
+    statsFiles: "{n} files",
+    statsUnknownSite: "Unknown",
+    statsGenericSite: "Direct link",
+    statsOther: "Other",
+    statsOtherFormat: "Other / unknown",
+    statsWindowDay: "Last 14 days",
+    statsWindowWeek: "Last 12 weeks",
+    statsWindowMonth: "Last 12 months",
+    statsTotal: "All time",
+    statsSince: "since {date}",
+    statsDiskFree: "Free space",
+    statsDiskOf: "Disk: {total}",
+    statsDiskDownloads: "MediaGrab downloads",
+    statsDiskOther: "Other files",
+    statsDiskUnavailable: "Couldn't read disk information.",
+    statsEmpty: "No downloads in this period.",
+    statsBackfilling: "Counting the downloads already on disk…",
+    statsNote: "Files deleted later still count. Files deleted before this feature existed couldn't be counted.",
+    statsResetConfirm: "Delete all statistics? Downloaded files are not touched.",
+    statsLoadFailed: "Couldn't load statistics: ",
     errProbeFailed: "Could not resolve",
     errDownloadFailed: "Could not start download",
     errNetwork: "Network error: ",
@@ -809,8 +883,6 @@ const I18N = {
     historyNoMatches: "No downloads match your search",
     historyAllChannels: "All channels",
     historyAllTypes: "All types",
-    historyViewGrid: "Grid view",
-    historyViewList: "List view",
     historyDownload: "Show in folder",
     historyDelete: "Delete",
     historyDeleteFailed: "Could not delete",
@@ -1081,19 +1153,60 @@ function languageNameForCode(code) {
 // action. Defaults to true (today's only behaviour) until loadClientInfo()
 // resolves, and again if it ever fails - the safe fallback either way.
 let isLocalClient = true;
+// NOTE: true for the host's own browser even in Docker, where isLocalClient
+// is false (see _is_same_machine in app.py) - that's the case "Save to
+// folder" exists for.
+let isSameMachine = false;
 
 async function loadClientInfo() {
   try {
     const res = await fetch("/api/client-info");
     const data = await res.json();
     isLocalClient = data.is_local !== false;
+    isSameMachine = data.same_machine === true;
   } catch (err) {
     // NOTE: same tolerance as the rest of this file's best-effort fetches -
     // isLocalClient just stays at its safe default.
   }
 }
 
-async function revealFile(url) {
+// NOTE: the File System Access API exists only in Chromium browsers and only
+// in a secure context - which plain-HTTP localhost counts as, but a LAN IP
+// does not. So this is offered exactly where it's needed (the host's own
+// browser in Docker) and nowhere else; Firefox there falls back to a normal
+// download, which the server never auto-deletes for the same machine.
+function canSaveToFolder() {
+  return !isLocalClient && isSameMachine && typeof window.showSaveFilePicker === "function";
+}
+
+// NOTE: unlike a plain download link, the picker tells us what the user did:
+// cancelling (or closing) it rejects with AbortError and nothing else
+// happens. Only after the bytes are fully written to the chosen file does
+// the server hear "/saved" - which is the one point where relay mode may
+// remove MediaGrab's own copy. A failed or interrupted write never gets
+// there (pipeTo rejects, and aborts the half-written file). Dependencies are
+// passed in so this can be tested outside a browser.
+async function saveFileToFolder(pickSaveFile, fetchFn, url, suggestedName) {
+  let handle;
+  try {
+    handle = await pickSaveFile(suggestedName ? { suggestedName } : {});
+  } catch (err) {
+    if (err && err.name === "AbortError") return "cancelled";
+    throw err;
+  }
+  const res = await fetchFn(`${url}/download`);
+  if (!res.ok || !res.body) throw new Error(String(res.status));
+  const writable = await handle.createWritable();
+  await res.body.pipeTo(writable);
+  const ack = await fetchFn(`${url}/saved`, { method: "POST" });
+  const data = ack.ok ? await ack.json().catch(() => ({})) : {};
+  return data.deleted ? "removed" : "saved";
+}
+
+// NOTE: resolves to what happened - "revealed", "downloaded", or (Save to
+// folder) "cancelled" / "saved" / "removed" / "failed" - so callers can
+// update their own button or list.
+async function revealFile(url, suggestedName) {
   if (isLocalClient) {
     // NOTE: fetch() rather than a plain <a href> navigation - the endpoint
     // just opens the OS file explorer server-side and returns {"ok": true};
@@ -1103,7 +1216,15 @@ async function revealFile(url) {
     } catch (err) {
       // best-effort - revealing the file in explorer is a nice-to-have here.
     }
-    return;
+    return "revealed";
+  }
+  if (canSaveToFolder()) {
+    try {
+      return await saveFileToFolder((opts) => window.showSaveFilePicker(opts), fetch, url, suggestedName);
+    } catch (err) {
+      window.alert(t().saveToFolderFailed + (err?.message || err));
+      return "failed";
+    }
   }
   // NOTE: a real download needs a native browser navigation - fetch() would
   // receive the bytes into JS and just discard them, triggering nothing on
@@ -1111,10 +1232,20 @@ async function revealFile(url) {
   // Content-Disposition: attachment, which is what makes the browser save
   // the file instead of trying to navigate to it inline.
   window.location.href = `${url}/download`;
+  return "downloaded";
 }
 
 function revealOrDownloadLabel() {
-  return isLocalClient ? t().downloadBtn : t().downloadToDeviceBtn;
+  if (isLocalClient) return t().downloadBtn;
+  return canSaveToFolder() ? t().saveToFolderBtn : t().downloadToDeviceBtn;
+}
+
+// NOTE: shared by the three places that offer the button (History cards,
+// the download dock, the item page) - shows the outcome on the button itself.
+function showSaveOutcome(btn, outcome) {
+  if (!btn || (outcome !== "saved" && outcome !== "removed")) return;
+  btn.textContent = outcome === "removed" ? t().savedAndRemoved : t().savedToFolder;
+  btn.disabled = outcome === "removed";
 }
 
 async function fetchProbe(url) {
@@ -1962,9 +2093,12 @@ function renderHistory(items) {
 
   historyList.querySelectorAll(".history-card").forEach((row) => {
     const filename = row.dataset.filename;
-    row.querySelector(".reveal-btn")?.addEventListener("click", (e) => {
+    row.querySelector(".reveal-btn")?.addEventListener("click", async (e) => {
       e.preventDefault();
-      revealFile(row.querySelector(".reveal-btn").dataset.revealUrl);
+      const btn = row.querySelector(".reveal-btn");
+      const outcome = await revealFile(btn.dataset.revealUrl, filename.split("/").pop());
+      if (outcome === "removed") loadHistory();
+      else showSaveOutcome(btn, outcome);
     });
     row.querySelector(".delete-btn").addEventListener("click", () => deleteHistoryItem(filename));
   });
@@ -3679,7 +3813,10 @@ langSwitch?.querySelectorAll("button").forEach((btn) => {
 downloadDock?.addEventListener("click", (e) => {
   const revealBtn = e.target.closest?.(".dock-reveal-btn");
   if (revealBtn) {
-    revealFile(`/api/file/${revealBtn.dataset.jobId}`);
+    const job = dockJobs.find((j) => j.jobId === revealBtn.dataset.jobId);
+    revealFile(`/api/file/${revealBtn.dataset.jobId}`, job?.filename).then((outcome) =>
+      showSaveOutcome(revealBtn, outcome),
+    );
     return;
   }
   const closeBtn = e.target.closest?.(".dock-dismiss-btn");
@@ -3760,17 +3897,816 @@ if (historyList) {
     } catch (e) {}
   });
 }
-itemRevealBtn?.addEventListener("click", () => revealFile(itemRevealBtn.dataset.revealUrl));
+// --- History -> Statistics ---------------------------------------------------
+// NOTE: no chart library (that would mean a CDN, against "local, works
+// offline") - plain HTML/CSS bars. Data comes from /api/stats, which groups
+// the stored UTC hours into THIS browser's days/weeks/months (tz below).
+
+const historyTabButtons = document.querySelectorAll("[data-history-tab]");
+const historyFilesPanel = document.getElementById("history-files-panel");
+const historyStatsPanel = document.getElementById("history-stats-panel");
+const statsPeriodButtons = document.querySelectorAll("[data-stats-period]");
+const statsStatus = document.getElementById("stats-status");
+const statsTiles = document.getElementById("stats-tiles");
+const statsBars = document.getElementById("stats-bars");
+const statsSites = document.getElementById("stats-sites");
+const statsAudio = document.getElementById("stats-audio");
+const statsVideo = document.getElementById("stats-video");
+const statsDisk = document.getElementById("stats-disk");
+const statsResetBtn = document.getElementById("stats-reset-btn");
+const statsTooltip = document.getElementById("stats-tooltip");
+
+// NOTE: colour follows the FORMAT, never its rank - 1080p is the same colour
+// whether it's the most or least downloaded, and adding a 4K download
+// doesn't repaint the rest. Slots map to the --series-N tokens (style.css),
+// a palette validated for colour-blind separation in both themes; anything
+// outside these lists (rare 4320p, unreadable files) is the neutral "other".
+const STATS_FORMAT_ORDER = {
+  audio: ["opus", "m4a", "mp3"],
+  video: ["2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p"],
+};
+
+let statsPeriod = "day";
+let statsPollTimer = null;
+
+// NOTE: binary units like the rest of the app (human_size in downloader.py),
+// with a decimal only where it carries information ("1,4 GB", not "1 GB";
+// "512 MB", not "512,0 MB"), in the page's own number format.
+function formatBytes(bytes, language) {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = Math.max(0, Number(bytes) || 0);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const digits = unit >= 3 && value < 100 ? 1 : 0;
+  const text = new Intl.NumberFormat(language === "en" ? "en-US" : "tr-TR", {
+    maximumFractionDigits: digits,
+  }).format(value);
+  return `${text} ${units[unit]}`;
+}
+
+function statsBucketLabel(startIso, period, language) {
+  const [y, m, d] = startIso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const locale = language === "en" ? "en-US" : "tr-TR";
+  if (period === "month") return new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(date);
+}
+
+// NOTE: rows -> stacked-bar segments with a fixed colour slot each. Formats
+// outside the known order fold into one "other" segment at the end, so the
+// bar never needs a colour the palette doesn't have.
+function statsShares(rows, kind) {
+  const order = STATS_FORMAT_ORDER[kind] || [];
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  if (!total) return [];
+  const known = [];
+  let other = null;
+  for (const row of rows) {
+    const slot = order.indexOf(row.name);
+    if (slot === -1) {
+      other = other || { name: "", slot: 0, count: 0, bytes: 0 };
+      other.count += row.count;
+      other.bytes += row.bytes;
+    } else {
+      known.push({ name: row.name, slot: slot + 1, count: row.count, bytes: row.bytes });
+    }
+  }
+  known.sort((a, b) => a.slot - b.slot);
+  if (other) known.push(other);
+  return known.map((share) => ({ ...share, percent: (share.count / total) * 100 }));
+}
+
+function statsPercentText(percent) {
+  if (percent > 0 && percent < 1) return "<1%";
+  return `${Math.round(percent)}%`;
+}
+
+function statsSiteName(name) {
+  if (!name) return t().statsUnknownSite;
+  if (name === "Generic") return t().statsGenericSite;
+  return name;
+}
+
+function statsFilesText(count) {
+  const template = count === 1 ? t().statsFileOne : t().statsFiles;
+  return template.replace("{n}", new Intl.NumberFormat(lang === "en" ? "en-US" : "tr-TR").format(count));
+}
+
+function renderStatsTiles(data) {
+  const windowLabel = { day: t().statsWindowDay, week: t().statsWindowWeek, month: t().statsWindowMonth }[data.period];
+  const since = data.total.since
+    ? t().statsSince.replace("{date}", new Intl.DateTimeFormat(lang === "en" ? "en-US" : "tr-TR", { dateStyle: "medium" }).format(new Date(`${data.total.since}T00:00:00`)))
+    : "";
+  const tiles = [
+    { label: windowLabel, value: statsFilesText(data.window.count), sub: formatBytes(data.window.bytes, lang) },
+    { label: t().statsTotal, value: statsFilesText(data.total.count), sub: [formatBytes(data.total.bytes, lang), since].filter(Boolean).join(" · ") },
+  ];
+  if (data.disk) {
+    tiles.push({
+      label: t().statsDiskFree,
+      value: formatBytes(data.disk.free, lang),
+      sub: t().statsDiskOf.replace("{total}", formatBytes(data.disk.total, lang)),
+    });
+  }
+  statsTiles.innerHTML = tiles
+    .map(
+      (tile) => `
+      <div class="stats-tile">
+        <div class="stats-tile-label">${escapeHtml(tile.label)}</div>
+        <div class="stats-tile-value">${escapeHtml(tile.value)}</div>
+        <div class="stats-tile-sub">${escapeHtml(tile.sub)}</div>
+      </div>`,
+    )
+    .join("");
+}
+
+function renderStatsBars(data) {
+  const max = Math.max(1, ...data.buckets.map((b) => b.count));
+  statsBars.innerHTML = `
+    <div class="stats-bars-scale" aria-hidden="true"><span>${max}</span><span>0</span></div>
+    <div class="stats-bars-plot">
+      ${data.buckets
+        .map((bucket) => {
+          const label = statsBucketLabel(bucket.start, data.period, lang);
+          const tip = `${label}: ${statsFilesText(bucket.count)} · ${formatBytes(bucket.bytes, lang)}`;
+          const height = bucket.count ? Math.max(2, (bucket.count / max) * 100) : 0;
+          return `
+            <div class="stats-bar-col" tabindex="0" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">
+              <div class="stats-bar-track"><div class="stats-bar" style="height:${height}%"></div></div>
+              <div class="stats-bar-label">${escapeHtml(label)}</div>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function renderStatsSites(rows) {
+  if (!rows.length) {
+    statsSites.innerHTML = `<div class="stats-empty">${t().statsEmpty}</div>`;
+    return;
+  }
+  // NOTE: one series, so one colour and no legend - the names ARE the labels.
+  const shown = rows.slice(0, 7);
+  const rest = rows.slice(7);
+  if (rest.length) {
+    shown.push({
+      name: null,
+      count: rest.reduce((s, r) => s + r.count, 0),
+      bytes: rest.reduce((s, r) => s + r.bytes, 0),
+    });
+  }
+  const max = Math.max(...shown.map((r) => r.count));
+  statsSites.innerHTML = shown
+    .map((row) => {
+      const name = row.name === null ? t().statsOther : statsSiteName(row.name);
+      const detail = `${statsFilesText(row.count)} · ${formatBytes(row.bytes, lang)}`;
+      return `
+        <div class="stats-site-row">
+          <div class="stats-site-head"><span class="stats-site-name">${escapeHtml(name)}</span><span class="stats-site-detail">${escapeHtml(detail)}</span></div>
+          <div class="stats-site-track"><div class="stats-site-bar" style="width:${(row.count / max) * 100}%"></div></div>
+        </div>`;
+    })
+    .join("");
+}
+
+function renderStatsShares(container, rows, kind) {
+  const shares = statsShares(rows, kind);
+  if (!shares.length) {
+    container.innerHTML = `<div class="stats-empty">${t().statsEmpty}</div>`;
+    return;
+  }
+  const nameOf = (share) => (share.name ? share.name : share.slot === 0 && kind === "video" ? t().statsOtherFormat : t().statsOther);
+  container.innerHTML = `
+    <div class="stats-stack" role="img" aria-label="${escapeHtml(shares.map((s) => `${nameOf(s)} ${statsPercentText(s.percent)}`).join(", "))}">
+      ${shares
+        .map((share) => {
+          const tip = `${nameOf(share)}: ${statsPercentText(share.percent)} · ${statsFilesText(share.count)} · ${formatBytes(share.bytes, lang)}`;
+          return `<div class="stats-seg" data-slot="${share.slot}" style="flex-grow:${share.count}" data-tip="${escapeHtml(tip)}"></div>`;
+        })
+        .join("")}
+    </div>
+    <ul class="stats-legend">
+      ${shares
+        .map(
+          (share) => `
+          <li>
+            <span class="stats-swatch" data-slot="${share.slot}"></span>
+            <span class="stats-legend-name">${escapeHtml(nameOf(share))}</span>
+            <span class="stats-legend-value">${statsPercentText(share.percent)}</span>
+            <span class="stats-legend-detail">${escapeHtml(statsFilesText(share.count))}</span>
+          </li>`,
+        )
+        .join("")}
+    </ul>`;
+}
+
+function renderStatsDisk(disk) {
+  if (!disk) {
+    statsDisk.innerHTML = `<div class="stats-empty">${t().statsDiskUnavailable}</div>`;
+    return;
+  }
+  const otherUsed = Math.max(0, disk.used - disk.downloads);
+  const parts = [
+    { key: "downloads", label: t().statsDiskDownloads, bytes: disk.downloads },
+    { key: "other", label: t().statsDiskOther, bytes: otherUsed },
+    { key: "free", label: t().statsDiskFree, bytes: disk.free },
+  ];
+  const total = Math.max(1, disk.total);
+  statsDisk.innerHTML = `
+    <div class="stats-stack stats-disk-stack" role="img" aria-label="${escapeHtml(parts.map((p) => `${p.label} ${formatBytes(p.bytes, lang)}`).join(", "))}">
+      ${parts
+        .map((part) => {
+          const tip = `${part.label}: ${formatBytes(part.bytes, lang)} (${statsPercentText((part.bytes / total) * 100)})`;
+          return `<div class="stats-seg stats-disk-${part.key}" style="flex-grow:${part.bytes}" data-tip="${escapeHtml(tip)}"></div>`;
+        })
+        .join("")}
+    </div>
+    <ul class="stats-legend">
+      ${parts
+        .map(
+          (part) => `
+          <li>
+            <span class="stats-swatch stats-disk-${part.key}"></span>
+            <span class="stats-legend-name">${escapeHtml(part.label)}</span>
+            <span class="stats-legend-value">${escapeHtml(formatBytes(part.bytes, lang))}</span>
+          </li>`,
+        )
+        .join("")}
+    </ul>`;
+}
+
+function showStatsStatus(text, kind) {
+  if (!statsStatus) return;
+  statsStatus.textContent = text;
+  statsStatus.className = `stats-status${kind ? ` ${kind}` : ""}`;
+  statsStatus.classList.toggle("hidden", !text);
+}
+
+async function loadStats() {
+  if (!historyStatsPanel) return;
+  clearTimeout(statsPollTimer);
+  statsPeriodButtons.forEach((btn) => {
+    const active = btn.dataset.statsPeriod === statsPeriod;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", active ? "true" : "false");
+  });
+  try {
+    const tz = -new Date().getTimezoneOffset();
+    const res = await fetch(`/api/stats?period=${statsPeriod}&tz=${tz}`);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    renderStatsTiles(data);
+    renderStatsBars(data);
+    renderStatsSites(data.window.sites);
+    renderStatsShares(statsAudio, data.window.audio_formats, "audio");
+    renderStatsShares(statsVideo, data.window.video_formats, "video");
+    renderStatsDisk(data.disk);
+    if (data.backfilling) {
+      // NOTE: the one-time import of files already on disk is still running
+      // (it reads every video's resolution) - check back until it's done.
+      showStatsStatus(t().statsBackfilling, "");
+      statsPollTimer = setTimeout(loadStats, 3000);
+    } else {
+      showStatsStatus(t().statsNote, "");
+    }
+  } catch (err) {
+    showStatsStatus(t().statsLoadFailed + err.message, "bad");
+  }
+}
+
+function showHistoryTab(tab) {
+  if (!historyStatsPanel || !historyFilesPanel) return;
+  const stats = tab === "stats";
+  historyTabButtons.forEach((btn) => {
+    const active = btn.dataset.historyTab === tab;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  historyFilesPanel.classList.toggle("hidden", stats);
+  historyStatsPanel.classList.toggle("hidden", !stats);
+  // NOTE: "Clear All" deletes FILES - out of place on the statistics tab.
+  historyClearBtn?.classList.toggle("history-clear-hidden", stats);
+  if (stats) loadStats();
+  else clearTimeout(statsPollTimer);
+}
+
+function initHistoryTabs() {
+  if (!historyStatsPanel) return;
+  try {
+    const saved = localStorage.getItem("mediagrab_stats_period");
+    if (saved && ["day", "week", "month"].includes(saved)) statsPeriod = saved;
+  } catch (e) {}
+  historyTabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.historyTab;
+      // NOTE: replaceState, not location.hash - no extra Back-button step,
+      // but a reload (or a shared link) still opens the same tab.
+      window.history.replaceState(null, "", tab === "stats" ? "#stats" : window.location.pathname + window.location.search);
+      showHistoryTab(tab);
+    });
+  });
+  statsPeriodButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      statsPeriod = btn.dataset.statsPeriod;
+      try {
+        localStorage.setItem("mediagrab_stats_period", statsPeriod);
+      } catch (e) {}
+      loadStats();
+    });
+  });
+  statsResetBtn?.addEventListener("click", async () => {
+    if (!confirm(t().statsResetConfirm)) return;
+    try {
+      const res = await fetch("/api/stats/reset", { method: "POST" });
+      if (!res.ok) throw new Error(String(res.status));
+      loadStats();
+    } catch (err) {
+      showStatsStatus(t().statsLoadFailed + err.message, "bad");
+    }
+  });
+  // NOTE: one shared tooltip for every bar/segment (data-tip), on hover and
+  // on keyboard focus; the same text is each bar's aria-label too.
+  const showTip = (target, x, y) => {
+    statsTooltip.textContent = target.dataset.tip;
+    statsTooltip.classList.remove("hidden");
+    const rect = statsTooltip.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - rect.width - 8, Math.max(8, x - rect.width / 2));
+    statsTooltip.style.left = `${left}px`;
+    statsTooltip.style.top = `${Math.max(8, y - rect.height - 12)}px`;
+  };
+  const hideTip = () => statsTooltip.classList.add("hidden");
+  historyStatsPanel.addEventListener("pointermove", (e) => {
+    const target = e.target.closest?.("[data-tip]");
+    if (target) showTip(target, e.clientX, e.clientY);
+    else hideTip();
+  });
+  historyStatsPanel.addEventListener("pointerleave", hideTip);
+  historyStatsPanel.addEventListener("focusin", (e) => {
+    const target = e.target.closest?.("[data-tip]");
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    showTip(target, rect.left + rect.width / 2, rect.top);
+  });
+  historyStatsPanel.addEventListener("focusout", hideTip);
+  showHistoryTab(window.location.hash === "#stats" ? "stats" : "files");
+}
+
+// --- media player (item page) ----------------------------------------------
+// NOTE: MediaGrab's own controls instead of the browser's built-in ones,
+// which look different in every browser and carry a "Download" entry in
+// their menu (meaningless here - the file is already on this machine/server).
+// Deliberately simple, Drive/YouTube-style: no playlists, no quality menu
+// (a downloaded file only ever holds one quality - see the Resolution row).
+
+const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+const PLAYER_ICONS = {
+  play: '<path d="M8 5.5v13l11-6.5z"/>',
+  pause: '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>',
+  volume:
+    '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  muted:
+    '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  pip: '<path d="M3.5 5.5h17v13h-17z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12h7v5h-7z"/>',
+  fullscreen:
+    '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  exitFullscreen:
+    '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+};
+
+function playerIcon(name) {
+  return `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">${PLAYER_ICONS[name]}</svg>`;
+}
+
+// NOTE: "1:05", or "1:02:05" past an hour; anything not yet known (NaN
+// before metadata loads, Infinity for a still-growing file) shows as 0:00.
+function formatPlayerTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+  seconds = Math.floor(seconds);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = String(seconds % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+// NOTE: the same keys YouTube uses, so nothing new to learn. Pure (key in,
+// action out) so it can be tested outside a browser; null = not ours, let
+// the browser handle it.
+function playerKeyAction(key) {
+  if (key === " " || key === "k" || key === "K") return { type: "toggle" };
+  if (key === "ArrowLeft") return { type: "seekBy", value: -5 };
+  if (key === "ArrowRight") return { type: "seekBy", value: 5 };
+  if (key === "j" || key === "J") return { type: "seekBy", value: -10 };
+  if (key === "l" || key === "L") return { type: "seekBy", value: 10 };
+  if (key === "ArrowUp") return { type: "volumeBy", value: 0.1 };
+  if (key === "ArrowDown") return { type: "volumeBy", value: -0.1 };
+  if (key === "m" || key === "M") return { type: "mute" };
+  if (key === "f" || key === "F") return { type: "fullscreen" };
+  if (key === "Home") return { type: "seekTo", fraction: 0 };
+  if (key === "End") return { type: "seekTo", fraction: 1 };
+  if (/^[0-9]$/.test(key)) return { type: "seekTo", fraction: Number(key) / 10 };
+  return null;
+}
+
+function speedLabel(rate) {
+  return rate === 1 ? t().playerSpeedNormal : `${rate}×`;
+}
+
+function loadPlayerPrefs() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem("mediagrab_player") || "{}");
+    return prefs && typeof prefs === "object" ? prefs : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function savePlayerPrefs(media) {
+  try {
+    localStorage.setItem(
+      "mediagrab_player",
+      JSON.stringify({ volume: media.volume, muted: media.muted, rate: media.playbackRate }),
+    );
+  } catch (e) {}
+}
+
+// NOTE: builds the player inside `container` and returns a destroy()
+// function (pauses, leaves picture-in-picture, unhooks the page-wide
+// keyboard listener).
+function createMediaPlayer(container, src, kind) {
+  const isVideo = kind === "video";
+  const canPip = isVideo && document.pictureInPictureEnabled === true;
+  const speedItems = PLAYER_SPEEDS.map(
+    (rate) =>
+      `<button type="button" role="menuitemradio" class="mgp-speed-item" data-rate="${rate}">${speedLabel(rate)}</button>`,
+  ).join("");
+  container.innerHTML = `
+    <div class="mgp ${isVideo ? "mgp-video" : "mgp-audio"} mgp-paused">
+      <${kind} class="mgp-media" preload="metadata" playsinline></${kind}>
+      ${isVideo ? `<button type="button" class="mgp-big-play" aria-label="${t().playerPlay}">${playerIcon("play")}</button>` : ""}
+      <div class="mgp-osd" aria-hidden="true"></div>
+      <div class="mgp-bar">
+        <div class="mgp-progress">
+          <div class="mgp-track"><div class="mgp-buffered"></div><div class="mgp-played"></div></div>
+          <input class="mgp-seek" type="range" min="0" max="1000" step="1" value="0" aria-label="${t().playerSeek}">
+          <div class="mgp-hover-time"></div>
+        </div>
+        <div class="mgp-controls">
+          <button type="button" class="mgp-btn mgp-play"></button>
+          <div class="mgp-volume">
+            <button type="button" class="mgp-btn mgp-mute"></button>
+            <input class="mgp-volume-slider" type="range" min="0" max="1" step="0.05" aria-label="${t().playerVolume}">
+          </div>
+          <span class="mgp-time">0:00 / 0:00</span>
+          <span class="mgp-spacer"></span>
+          <div class="mgp-speed">
+            <button type="button" class="mgp-btn mgp-speed-btn" aria-haspopup="menu" aria-expanded="false" title="${t().playerSpeed}" aria-label="${t().playerSpeed}"></button>
+            <div class="mgp-speed-menu hidden" role="menu" aria-label="${t().playerSpeed}">${speedItems}</div>
+          </div>
+          ${canPip ? `<button type="button" class="mgp-btn mgp-pip" title="${t().playerPip}" aria-label="${t().playerPip}">${playerIcon("pip")}</button>` : ""}
+          ${isVideo ? `<button type="button" class="mgp-btn mgp-fullscreen"></button>` : ""}
+        </div>
+      </div>
+    </div>`;
+
+  const root = container.querySelector(".mgp");
+  const media = root.querySelector(".mgp-media");
+  const q = (sel) => root.querySelector(sel);
+  const playBtn = q(".mgp-play");
+  const bigPlay = q(".mgp-big-play");
+  const muteBtn = q(".mgp-mute");
+  const volumeSlider = q(".mgp-volume-slider");
+  const seek = q(".mgp-seek");
+  const played = q(".mgp-played");
+  const buffered = q(".mgp-buffered");
+  const hoverTime = q(".mgp-hover-time");
+  const timeText = q(".mgp-time");
+  const speedBtn = q(".mgp-speed-btn");
+  const speedMenu = q(".mgp-speed-menu");
+  const pipBtn = q(".mgp-pip");
+  const fsBtn = q(".mgp-fullscreen");
+  const osd = q(".mgp-osd");
+  const progress = q(".mgp-progress");
+
+  const prefs = loadPlayerPrefs();
+  if (typeof prefs.volume === "number") media.volume = Math.min(1, Math.max(0, prefs.volume));
+  media.muted = prefs.muted === true;
+  media.src = src;
+  // NOTE: set after src - loading a new source resets playbackRate to
+  // defaultPlaybackRate, so both are set.
+  const savedRate = PLAYER_SPEEDS.includes(prefs.rate) ? prefs.rate : 1;
+  media.defaultPlaybackRate = savedRate;
+  media.playbackRate = savedRate;
+
+  function setButton(btn, icon, label) {
+    if (!btn) return;
+    btn.innerHTML = playerIcon(icon);
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+  }
+
+  function isFullscreen() {
+    return document.fullscreenElement === root;
+  }
+
+  // NOTE: video controls fade out while playing and the mouse is still -
+  // the picture is the point. Audio has nothing to cover, so they stay.
+  let hideTimer = null;
+  function showControls() {
+    root.classList.remove("mgp-idle");
+    clearTimeout(hideTimer);
+  }
+  function scheduleHide() {
+    if (!isVideo) return;
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      if (!media.paused && speedMenu.classList.contains("hidden")) root.classList.add("mgp-idle");
+    }, 2500);
+  }
+  function poke() {
+    showControls();
+    if (!media.paused) scheduleHide();
+  }
+
+  function renderPlayState() {
+    const paused = media.paused;
+    root.classList.toggle("mgp-paused", paused);
+    setButton(playBtn, paused ? "play" : "pause", paused ? t().playerPlay : t().playerPause);
+    if (paused) showControls();
+    else scheduleHide();
+  }
+
+  function renderVolume() {
+    const silent = media.muted || media.volume === 0;
+    setButton(muteBtn, silent ? "muted" : "volume", silent ? t().playerUnmute : t().playerMute);
+    const level = media.muted ? 0 : media.volume;
+    volumeSlider.value = level;
+    volumeSlider.style.setProperty("--fill", `${level * 100}%`);
+  }
+
+  function renderSpeed() {
+    speedBtn.textContent = `${media.playbackRate}×`;
+    speedMenu.querySelectorAll(".mgp-speed-item").forEach((item) => {
+      item.setAttribute("aria-checked", Number(item.dataset.rate) === media.playbackRate ? "true" : "false");
+    });
+  }
+
+  function renderFullscreen() {
+    if (!fsBtn) return;
+    const on = isFullscreen();
+    root.classList.toggle("mgp-is-fullscreen", on);
+    setButton(fsBtn, on ? "exitFullscreen" : "fullscreen", on ? t().playerExitFullscreen : t().playerFullscreen);
+  }
+
+  function renderTime() {
+    const duration = Number.isFinite(media.duration) ? media.duration : 0;
+    const fraction = duration ? media.currentTime / duration : 0;
+    played.style.width = `${fraction * 100}%`;
+    seek.value = Math.round(fraction * 1000);
+    const label = `${formatPlayerTime(media.currentTime)} / ${formatPlayerTime(duration)}`;
+    seek.setAttribute("aria-valuetext", label);
+    timeText.textContent = label;
+  }
+
+  function renderBuffered() {
+    const duration = media.duration;
+    if (!Number.isFinite(duration) || !duration || media.buffered.length === 0) return;
+    // NOTE: the buffered range around the playhead - what the user cares about.
+    let end = 0;
+    for (let i = 0; i < media.buffered.length; i++) {
+      if (media.buffered.start(i) <= media.currentTime + 0.5) end = Math.max(end, media.buffered.end(i));
+    }
+    buffered.style.width = `${(end / duration) * 100}%`;
+  }
+
+  let osdTimer = null;
+  function flashOsd(text) {
+    osd.textContent = text;
+    osd.classList.add("visible");
+    clearTimeout(osdTimer);
+    osdTimer = setTimeout(() => osd.classList.remove("visible"), 700);
+  }
+
+  function togglePlay() {
+    if (media.paused || media.ended) media.play().catch(() => {});
+    else media.pause();
+  }
+
+  function seekBy(delta) {
+    if (!Number.isFinite(media.duration)) return;
+    media.currentTime = Math.min(media.duration, Math.max(0, media.currentTime + delta));
+    flashOsd(`${delta > 0 ? "+" : "−"}${Math.abs(delta)} ${t().playerSeconds}`);
+  }
+
+  function setVolume(value) {
+    media.volume = Math.min(1, Math.max(0, Math.round(value * 100) / 100));
+    media.muted = media.volume === 0;
+  }
+
+  function toggleMute() {
+    if (media.muted || media.volume === 0) {
+      media.muted = false;
+      if (media.volume === 0) media.volume = 0.5;
+    } else {
+      media.muted = true;
+    }
+  }
+
+  async function toggleFullscreen() {
+    if (!isVideo) return;
+    try {
+      if (isFullscreen()) await document.exitFullscreen();
+      else if (root.requestFullscreen) await root.requestFullscreen();
+      // NOTE: iPhone Safari has no element fullscreen - only the video's own.
+      else if (media.webkitEnterFullscreen) media.webkitEnterFullscreen();
+    } catch (e) {}
+  }
+
+  async function togglePip() {
+    try {
+      if (document.pictureInPictureElement === media) await document.exitPictureInPicture();
+      else await media.requestPictureInPicture();
+    } catch (e) {}
+  }
+
+  function closeSpeedMenu() {
+    speedMenu.classList.add("hidden");
+    speedBtn.setAttribute("aria-expanded", "false");
+  }
+
+  media.addEventListener("play", renderPlayState);
+  media.addEventListener("pause", renderPlayState);
+  media.addEventListener("ended", renderPlayState);
+  media.addEventListener("timeupdate", renderTime);
+  media.addEventListener("durationchange", renderTime);
+  media.addEventListener("loadedmetadata", renderTime);
+  media.addEventListener("progress", renderBuffered);
+  // NOTE: tearing down (destroy below) unloads the source, which resets the
+  // speed to 1x and fires ratechange - that must not overwrite the user's
+  // saved choice, so saving stops first.
+  let destroyed = false;
+  media.addEventListener("volumechange", () => {
+    renderVolume();
+    if (!destroyed) savePlayerPrefs(media);
+  });
+  media.addEventListener("ratechange", () => {
+    renderSpeed();
+    if (!destroyed) savePlayerPrefs(media);
+  });
+  // NOTE: no right-click menu on the picture - the browser's own one offers
+  // "Save video as...", the very thing the custom controls leave out.
+  media.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // NOTE: mouse: click = play/pause, double-click = full screen. Touch: while
+  // the controls are hidden, a tap only brings them back - tapping straight
+  // into a pause while reaching for the controls is the classic mobile
+  // player annoyance.
+  let lastPointer = "mouse";
+  media.addEventListener("pointerdown", (e) => {
+    lastPointer = e.pointerType;
+  });
+  media.addEventListener("click", () => {
+    if (lastPointer === "touch" && root.classList.contains("mgp-idle")) {
+      poke();
+      return;
+    }
+    togglePlay();
+  });
+  media.addEventListener("dblclick", toggleFullscreen);
+  bigPlay?.addEventListener("click", togglePlay);
+  playBtn.addEventListener("click", togglePlay);
+  muteBtn.addEventListener("click", toggleMute);
+  volumeSlider.addEventListener("input", () => setVolume(Number(volumeSlider.value)));
+  seek.addEventListener("input", () => {
+    if (Number.isFinite(media.duration)) media.currentTime = (Number(seek.value) / 1000) * media.duration;
+  });
+  progress.addEventListener("pointermove", (e) => {
+    if (!Number.isFinite(media.duration)) return;
+    const rect = progress.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    hoverTime.textContent = formatPlayerTime(fraction * media.duration);
+    hoverTime.style.left = `${fraction * 100}%`;
+    hoverTime.classList.add("visible");
+  });
+  progress.addEventListener("pointerleave", () => hoverTime.classList.remove("visible"));
+  speedBtn.addEventListener("click", () => {
+    const opening = speedMenu.classList.contains("hidden");
+    speedMenu.classList.toggle("hidden", !opening);
+    speedBtn.setAttribute("aria-expanded", opening ? "true" : "false");
+    if (opening) showControls();
+  });
+  speedMenu.addEventListener("click", (e) => {
+    const item = e.target.closest(".mgp-speed-item");
+    if (!item) return;
+    media.playbackRate = Number(item.dataset.rate);
+    closeSpeedMenu();
+    poke();
+  });
+  pipBtn?.addEventListener("click", togglePip);
+  fsBtn?.addEventListener("click", toggleFullscreen);
+  root.addEventListener("pointermove", poke);
+  root.addEventListener("pointerleave", () => {
+    if (!media.paused) scheduleHide();
+  });
+  document.addEventListener("fullscreenchange", renderFullscreen);
+
+  const onOutsideClick = (e) => {
+    if (!e.target.closest?.(".mgp-speed")) closeSpeedMenu();
+  };
+  document.addEventListener("click", onOutsideClick);
+
+  // NOTE: page-wide, not just while the player has focus - on this page the
+  // player is the only thing a key could mean (YouTube does the same).
+  // Typing in a field and browser shortcuts (Ctrl/Cmd/Alt + key) are left
+  // alone; the player's own two sliders are not "typing".
+  const onKeyDown = (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const target = e.target;
+    const inPlayerSlider = target?.classList?.contains("mgp-seek") || target?.classList?.contains("mgp-volume-slider");
+    if (!inPlayerSlider && (target?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName))) {
+      return;
+    }
+    if (e.key === "Escape" && !speedMenu.classList.contains("hidden")) {
+      closeSpeedMenu();
+      return;
+    }
+    const action = playerKeyAction(e.key);
+    if (!action) return;
+    // NOTE: a focused button would otherwise ALSO activate on Space, and a
+    // focused slider would move on the arrows on top of the shortcut.
+    e.preventDefault();
+    poke();
+    if (action.type === "toggle") togglePlay();
+    else if (action.type === "seekBy") seekBy(action.value);
+    else if (action.type === "seekTo") {
+      if (Number.isFinite(media.duration)) media.currentTime = action.fraction * media.duration;
+    } else if (action.type === "volumeBy") {
+      setVolume((media.muted ? 0 : media.volume) + action.value);
+      flashOsd(`${Math.round(media.volume * 100)}%`);
+    } else if (action.type === "mute") toggleMute();
+    else if (action.type === "fullscreen") toggleFullscreen();
+  };
+  // NOTE: Space activates a focused button on key UP - swallowed too, so a
+  // focused control doesn't fire a second time after the shortcut.
+  const onKeyUp = (e) => {
+    if (e.key === " " && e.target?.closest?.(".mgp")) e.preventDefault();
+  };
+  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keyup", onKeyUp);
+
+  renderPlayState();
+  renderVolume();
+  renderSpeed();
+  renderFullscreen();
+  renderTime();
+  media.play().catch(() => {});
+
+  return function destroy() {
+    destroyed = true;
+    clearTimeout(hideTimer);
+    clearTimeout(osdTimer);
+    document.removeEventListener("keydown", onKeyDown);
+    document.removeEventListener("keyup", onKeyUp);
+    document.removeEventListener("click", onOutsideClick);
+    document.removeEventListener("fullscreenchange", renderFullscreen);
+    if (document.pictureInPictureElement === media) document.exitPictureInPicture().catch(() => {});
+    if (isFullscreen()) document.exitFullscreen().catch(() => {});
+    media.pause();
+    media.removeAttribute("src");
+    media.load();
+    container.innerHTML = "";
+  };
+}
+
+let destroyItemPlayer = null;
+
+function closeItemPlayer() {
+  destroyItemPlayer?.();
+  destroyItemPlayer = null;
+  itemPreviewPlayer?.classList.add("hidden");
+}
+
+itemRevealBtn?.addEventListener("click", async () => {
+  const outcome = await revealFile(itemRevealBtn.dataset.revealUrl, itemRevealBtn.dataset.filename);
+  showSaveOutcome(itemRevealBtn, outcome);
+  if (outcome === "removed") {
+    // NOTE: the file is gone from the server now - playing it would only 404.
+    closeItemPlayer();
+    itemPreviewBtn?.classList.add("hidden");
+  }
+});
 itemPreviewBtn?.addEventListener("click", () => {
   if (!itemPreviewPlayer) return;
   if (itemPreviewPlayer.classList.contains("hidden")) {
-    const tag = itemPreviewBtn.dataset.ext === "mp4" ? "video" : "audio";
-    itemPreviewPlayer.innerHTML = `<${tag} controls autoplay src="${itemPreviewBtn.dataset.streamUrl}"></${tag}>`;
+    const kind = itemPreviewBtn.dataset.ext === "mp4" ? "video" : "audio";
     itemPreviewPlayer.classList.remove("hidden");
+    destroyItemPlayer = createMediaPlayer(itemPreviewPlayer, itemPreviewBtn.dataset.streamUrl, kind);
     itemPreviewBtn.textContent = t().itemPreviewClose;
   } else {
-    itemPreviewPlayer.innerHTML = "";
-    itemPreviewPlayer.classList.add("hidden");
+    closeItemPlayer();
     itemPreviewBtn.textContent = t().itemPreviewPlay;
   }
 });
@@ -3786,6 +4722,10 @@ updateChannelChoiceVisibility();
 // so awaiting just the one flag first costs nothing but a few ms.
 (async () => {
   await loadClientInfo();
+  initHistoryTabs();
+  // NOTE: the item page's label is rendered server-side, which can't know
+  // whether THIS browser supports the save picker - fixed up here.
+  if (itemRevealBtn) itemRevealBtn.textContent = revealOrDownloadLabel();
   loadHistory();
   loadChannels();
   loadPending();

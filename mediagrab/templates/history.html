@@ -7,20 +7,65 @@
   <h1 id="history-page-title">{{ ui.history_page_title }}</h1>
   <button type="button" id="history-clear-btn" class="clear-history-btn hidden">{{ ui.history_clear }}</button>
 </div>
-<div class="history-filter-row">
-  <input type="text" id="history-search" placeholder="{{ ui.history_search_placeholder }}" autocomplete="off" aria-label="{{ ui.history_search_placeholder }}">
-  <select id="history-channel-filter" aria-label="{{ ui.history_all_channels }}">
-    <option value="">{{ ui.history_all_channels }}</option>
-  </select>
-  <select id="history-type-filter" aria-label="{{ ui.history_type_filter_label }}">
-    <option value=""></option>
-  </select>
-  <div class="history-view-toggle" role="group" aria-label="{{ ui.history_view_grid }} / {{ ui.history_view_list }}">
-    <button type="button" id="history-view-grid" data-view="grid" title="{{ ui.history_view_grid }}" aria-label="{{ ui.history_view_grid }}">⊞</button>
-    <button type="button" id="history-view-list" data-view="list" title="{{ ui.history_view_list }}" aria-label="{{ ui.history_view_list }}">☰</button>
-  </div>
+<div class="format-tabs history-tabs" role="tablist">
+  <button type="button" class="format-tab active" id="history-tab-files" data-history-tab="files" role="tab" aria-selected="true" aria-controls="history-files-panel">{{ ui.history_tab_files }}</button>
+  <button type="button" class="format-tab" id="history-tab-stats" data-history-tab="stats" role="tab" aria-selected="false" aria-controls="history-stats-panel">{{ ui.history_tab_stats }}</button>
 </div>
-<div id="history-error" class="error hidden" role="alert"></div>
-<div id="history-list" class="history-grid"></div>
+
+<section id="history-files-panel" role="tabpanel" aria-labelledby="history-tab-files">
+  <div class="history-filter-row">
+    <input type="text" id="history-search" placeholder="{{ ui.history_search_placeholder }}" autocomplete="off" aria-label="{{ ui.history_search_placeholder }}">
+    <select id="history-channel-filter" aria-label="{{ ui.history_all_channels }}">
+      <option value="">{{ ui.history_all_channels }}</option>
+    </select>
+    <select id="history-type-filter" aria-label="{{ ui.history_type_filter_label }}">
+      <option value=""></option>
+    </select>
+    <div class="history-view-toggle" role="group" aria-label="{{ ui.history_view_grid }} / {{ ui.history_view_list }}">
+      <button type="button" id="history-view-grid" data-view="grid" title="{{ ui.history_view_grid }}" aria-label="{{ ui.history_view_grid }}">⊞</button>
+      <button type="button" id="history-view-list" data-view="list" title="{{ ui.history_view_list }}" aria-label="{{ ui.history_view_list }}">☰</button>
+    </div>
+  </div>
+  <div id="history-error" class="error hidden" role="alert"></div>
+  <div id="history-list" class="history-grid"></div>
+</section>
+
+<section id="history-stats-panel" class="hidden" role="tabpanel" aria-labelledby="history-tab-stats">
+  <div class="stats-toolbar">
+    <div class="cookie-modes stats-periods" role="radiogroup" aria-label="{{ ui.stats_period_label }}">
+      <button type="button" role="radio" data-stats-period="day">{{ ui.stats_period_day }}</button>
+      <button type="button" role="radio" data-stats-period="week">{{ ui.stats_period_week }}</button>
+      <button type="button" role="radio" data-stats-period="month">{{ ui.stats_period_month }}</button>
+    </div>
+    <button type="button" id="stats-reset-btn" class="clear-history-btn">{{ ui.stats_reset }}</button>
+  </div>
+  <div id="stats-status" class="stats-status hidden" role="status"></div>
+  <div id="stats-tiles" class="stats-tiles"></div>
+  <div class="stats-card">
+    <h2>{{ ui.stats_downloads_title }}</h2>
+    <div id="stats-bars" class="stats-bars"></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stats-card">
+      <h2>{{ ui.stats_sites_title }}</h2>
+      <div id="stats-sites"></div>
+    </div>
+    <div class="stats-card">
+      <h2>{{ ui.stats_audio_title }}</h2>
+      <div id="stats-audio"></div>
+    </div>
+    <div class="stats-card">
+      <h2>{{ ui.stats_video_title }}</h2>
+      <div id="stats-video"></div>
+    </div>
+  </div>
+  <div class="stats-card">
+    <h2>{{ ui.stats_disk_title }}</h2>
+    <div id="stats-disk"></div>
+  </div>
+  <p class="stats-privacy">{{ ui.stats_privacy }}</p>
+</section>
+
+<div id="stats-tooltip" class="stats-tooltip hidden" role="presentation"></div>
 
 {% endblock %}

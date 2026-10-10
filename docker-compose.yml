@@ -58,3 +58,8 @@ services:
       # so it needs no empty placeholder file created first - Docker creates
       # the folder itself, and the file only exists once something is uploaded.
       - ./data/cookies:/data/cookies
+      # NOTE: download statistics (History -> Statistics, see
+      # store.STATS_PATH) - a folder mount for the same reason as cookies.
+      # Without it statistics still work, but restart from zero whenever the
+      # container is recreated.
+      - ./data/stats:/data/stats

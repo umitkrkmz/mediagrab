@@ -379,3 +379,264 @@ def test_the_age_verification_notice_is_shown(degraded_helpers):
 def test_requested_format_not_available_gets_a_friendly_message(error_hints):
     raw = "ERROR: [youtube] qpgTC9MDx1o: Requested format is not available. Use --list-formats for a list of available formats"
     assert _run_js(error_hints, f"friendlyErrorEntry({json.dumps(raw)}).key") == "errFormatUnavailable"
+
+
+# --- saveFileToFolder ("Save to folder", host's own browser in Docker) ------
+# NOTE: the bug this guards: cancelling Chrome's Save As dialog still let the
+# server delete the file (relay mode), because the browser had already
+# fetched it in the background. The server may only hear "/saved" once the
+# bytes are really written to the folder the user picked.
+
+
+def _run_js_async(snippet: str, expression: str):
+    script = (
+        f"{snippet}\nPromise.resolve({expression})"
+        ".then((v) => process.stdout.write(JSON.stringify(v)))"
+        ".catch((e) => process.stdout.write(JSON.stringify({ thrown: String(e && e.message || e) })));"
+    )
+    result = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=30
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+SAVE_HARNESS = r"""
+const calls = [];
+const written = [];
+function picker(behaviour) {
+  return async (opts) => {
+    calls.push(["pick", opts.suggestedName || null]);
+    if (behaviour === "cancel") { const e = new Error("aborted"); e.name = "AbortError"; throw e; }
+    return { createWritable: async () => ({ write: async (b) => written.push(b), close: async () => written.push("<closed>") }) };
+  };
+}
+function fakeFetch({ deleted = false, failMidway = false } = {}) {
+  return async (url, init) => {
+    calls.push([init && init.method || "GET", url]);
+    if (url.endsWith("/saved")) return { ok: true, json: async () => ({ deleted }) };
+    return { ok: true, body: { pipeTo: async (w) => {
+      await w.write("bytes");
+      if (failMidway) throw new Error("connection lost");
+      await w.close();
+    } } };
+  };
+}
+"""
+
+
+@pytest.fixture(scope="module")
+def save_to_folder():
+    return _extract(r"async function saveFileToFolder\(.*?\n\}") + SAVE_HARNESS
+
+
+def test_cancelling_the_picker_never_downloads_or_confirms(save_to_folder):
+    result = _run_js_async(
+        save_to_folder,
+        "saveFileToFolder(picker('cancel'), fakeFetch(), '/api/history/file/V.mp4', 'V.mp4').then((r) => [r, calls])",
+    )
+    assert result == ["cancelled", [["pick", "V.mp4"]]]
+
+
+def test_a_completed_save_confirms_to_the_server(save_to_folder):
+    result = _run_js_async(
+        save_to_folder,
+        "saveFileToFolder(picker('ok'), fakeFetch(), '/api/history/file/V.mp4', 'V.mp4').then((r) => [r, calls, written])",
+    )
+    outcome, calls, written = result
+    assert outcome == "saved"
+    assert calls == [
+        ["pick", "V.mp4"],
+        ["GET", "/api/history/file/V.mp4/download"],
+        ["POST", "/api/history/file/V.mp4/saved"],
+    ]
+    assert written == ["bytes", "<closed>"]
+
+
+def test_the_outcome_says_when_the_server_removed_its_copy(save_to_folder):
+    result = _run_js_async(
+        save_to_folder,
+        "saveFileToFolder(picker('ok'), fakeFetch({ deleted: true }), '/api/file/j1', 'V.mp4')",
+    )
+    assert result == "removed"
+
+
+def test_an_interrupted_write_never_confirms(save_to_folder):
+    result = _run_js_async(
+        save_to_folder,
+        "saveFileToFolder(picker('ok'), fakeFetch({ failMidway: true }), '/api/file/j1', 'V.mp4')"
+        ".catch((e) => ({ thrown: e.message, calls }))",
+    )
+    assert result["thrown"] == "connection lost"
+    assert not any(method == "POST" for method, _url in result["calls"])
+
+
+@pytest.mark.parametrize(
+    "is_local, same_machine, has_picker, expected",
+    [
+        (False, True, True, True),  # host's own browser in Docker, Chromium
+        (False, True, False, False),  # same, but Firefox: plain download (never auto-deleted)
+        (False, False, True, False),  # a LAN device
+        (True, True, True, False),  # native install: "show in folder" instead
+    ],
+)
+def test_save_to_folder_is_offered_only_on_the_docker_host_with_a_picker(is_local, same_machine, has_picker, expected):
+    snippet = (
+        f"let isLocalClient = {json.dumps(is_local)}; let isSameMachine = {json.dumps(same_machine)};\n"
+        f"const window = {{ showSaveFilePicker: {'() => {}' if has_picker else 'undefined'} }};\n"
+        + _extract(r"function canSaveToFolder\(\) \{.*?\n\}")
+    )
+    assert _run_js(snippet, "canSaveToFolder()") is expected
+
+
+# --- I18N: tr and en must offer the same keys ----------------------------------
+
+
+def test_app_js_tr_and_en_strings_have_the_same_keys():
+    # NOTE: the same rule test_i18n.py enforces for the server-side dicts -
+    # a key present in only one language renders as "undefined" in the other.
+    # The whole dict is too long for a Windows command line (`node -e`), so
+    # the script goes in on stdin instead.
+    script = (
+        _extract(r"const I18N = \{.*?\n\};")
+        + "\nconst walk = (o, p = '') => Object.entries(o).flatMap(([k, v]) =>"
+        " v && typeof v === 'object' ? walk(v, p + k + '.') : [p + k]);"
+        "\nprocess.stdout.write(JSON.stringify({ tr: walk(I18N.tr), en: walk(I18N.en) }));"
+    )
+    result = subprocess.run(["node"], input=script, capture_output=True, text=True, encoding="utf-8", timeout=30)
+    assert result.returncode == 0, result.stderr
+    keys = json.loads(result.stdout)
+    assert len(keys["tr"]) > 100
+    assert set(keys["tr"]) ^ set(keys["en"]) == set()
+
+
+# --- media player ------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def player_time():
+    return _extract(r"function formatPlayerTime\(seconds\) \{.*?\n\}")
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [(0, "0:00"), (5.9, "0:05"), (65, "1:05"), (3725, "1:02:05"), ("NaN", "0:00"), ("Infinity", "0:00"), (-3, "0:00")],
+)
+def test_player_time_format(player_time, seconds, expected):
+    assert _run_js(player_time, f"formatPlayerTime({seconds})") == expected
+
+
+@pytest.fixture(scope="module")
+def player_keys():
+    return _extract(r"function playerKeyAction\(key\) \{.*?\n\}")
+
+
+@pytest.mark.parametrize(
+    "key, expected",
+    [
+        (" ", {"type": "toggle"}),
+        ("k", {"type": "toggle"}),
+        ("K", {"type": "toggle"}),
+        ("ArrowLeft", {"type": "seekBy", "value": -5}),
+        ("ArrowRight", {"type": "seekBy", "value": 5}),
+        ("j", {"type": "seekBy", "value": -10}),
+        ("l", {"type": "seekBy", "value": 10}),
+        ("ArrowUp", {"type": "volumeBy", "value": 0.1}),
+        ("ArrowDown", {"type": "volumeBy", "value": -0.1}),
+        ("m", {"type": "mute"}),
+        ("F", {"type": "fullscreen"}),
+        ("Home", {"type": "seekTo", "fraction": 0}),
+        ("End", {"type": "seekTo", "fraction": 1}),
+        ("3", {"type": "seekTo", "fraction": 0.3}),
+    ],
+)
+def test_player_keyboard_shortcuts(player_keys, key, expected):
+    assert _run_js(player_keys, f"playerKeyAction({json.dumps(key)})") == expected
+
+
+@pytest.mark.parametrize("key", ["Tab", "Enter", "Escape", "a", "F5", "Shift"])
+def test_other_keys_are_left_to_the_browser(player_keys, key):
+    assert _run_js(player_keys, f"playerKeyAction({json.dumps(key)})") is None
+
+
+def test_the_player_never_shows_the_browsers_own_controls():
+    # NOTE: the browser's built-in controls carry a "Download" menu entry -
+    # the reason MediaGrab draws its own. A `controls` attribute sneaking
+    # back onto the media element would bring both sets back at once.
+    source = _extract(r"function createMediaPlayer\(container, src, kind\) \{.*?\n\}")
+    media_tag = re.search(r"<\$\{kind\} class=\"mgp-media\"[^>]*>", source)
+    assert media_tag, "the player's media element template moved - update this test"
+    assert "controls" not in media_tag.group(0)
+    assert '"contextmenu"' in source, "right-click 'Save video as' must stay suppressed"
+
+
+# --- History -> Statistics ---------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def format_bytes():
+    return _extract(r"function formatBytes\(bytes, language\) \{.*?\n\}")
+
+
+@pytest.mark.parametrize(
+    "size, language, expected",
+    [
+        (0, "tr", "0 B"),
+        (512, "tr", "512 B"),
+        (1536, "tr", "2 KB"),
+        (5 * 1024**2, "tr", "5 MB"),
+        (int(1.5 * 1024**3), "tr", "1,5 GB"),
+        (int(1.5 * 1024**3), "en", "1.5 GB"),
+        (int(155.7 * 1024**3), "tr", "156 GB"),
+        (2 * 1024**4, "en", "2 TB"),
+    ],
+)
+def test_format_bytes(format_bytes, size, language, expected):
+    assert _run_js(format_bytes, f"formatBytes({size}, {json.dumps(language)})") == expected
+
+
+@pytest.fixture(scope="module")
+def stats_shares():
+    return (
+        _extract(r"const STATS_FORMAT_ORDER = \{.*?\n\};")
+        + "\n"
+        + _extract(r"function statsShares\(rows, kind\) \{.*?\n\}")
+    )
+
+
+def test_a_format_keeps_its_colour_slot_whatever_its_rank(stats_shares):
+    # NOTE: colour follows the entity - 1080p is slot 3 whether it's the most
+    # or the least downloaded resolution, so a new download never repaints it.
+    first = _run_js(
+        stats_shares,
+        "statsShares([{name:'1080p',count:9,bytes:0},{name:'720p',count:1,bytes:0}], 'video').map(s => [s.name, s.slot])",
+    )
+    second = _run_js(
+        stats_shares,
+        "statsShares([{name:'720p',count:9,bytes:0},{name:'1080p',count:1,bytes:0}], 'video').map(s => [s.name, s.slot])",
+    )
+    assert first == second == [["1080p", 3], ["720p", 4]]
+
+
+def test_unknown_formats_fold_into_one_neutral_segment_at_the_end(stats_shares):
+    shares = _run_js(
+        stats_shares,
+        "statsShares([{name:'4320p',count:1,bytes:5},{name:'',count:1,bytes:5},{name:'480p',count:2,bytes:0}], 'video')",
+    )
+    assert [(s["name"], s["slot"], s["count"]) for s in shares] == [("480p", 5, 2), ("", 0, 2)]
+    assert [round(s["percent"]) for s in shares] == [50, 50]
+
+
+def test_no_downloads_means_no_segments(stats_shares):
+    assert _run_js(stats_shares, "statsShares([], 'audio')") == []
+
+
+@pytest.fixture(scope="module")
+def bucket_label():
+    return _extract(r"function statsBucketLabel\(startIso, period, language\) \{.*?\n\}")
+
+
+def test_bucket_labels_follow_the_page_language(bucket_label):
+    assert _run_js(bucket_label, "statsBucketLabel('2026-10-05', 'day', 'tr')") == "5 Eki"
+    assert _run_js(bucket_label, "statsBucketLabel('2026-10-05', 'day', 'en')") == "Oct 5"
+    assert _run_js(bucket_label, "statsBucketLabel('2026-01-01', 'month', 'tr')") == "Oca 26"

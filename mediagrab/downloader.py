@@ -1211,6 +1211,106 @@ def get_metadata(path: str) -> dict:
     return {"title": tags.get("title"), "artist": tags.get("artist"), "duration": _ffprobe_duration(path)}
 
 
+# NOTE: ffprobe's codec_name -> the name people know. Anything missing here
+# is simply shown upper-cased.
+_CODEC_NAMES = {
+    "h264": "H.264",
+    "hevc": "H.265",
+    "vp9": "VP9",
+    "vp8": "VP8",
+    "av1": "AV1",
+    "aac": "AAC",
+    "opus": "Opus",
+    "mp3": "MP3",
+    "vorbis": "Vorbis",
+    "flac": "FLAC",
+}
+
+# NOTE: (long side, label) - the same ladder YouTube's quality menu uses. The
+# LONG side decides, so a 1920x800 cinema-ratio upload is "1080p" (as it was
+# offered before downloading), and a 1080x1920 vertical video is too.
+_QUALITY_LADDER = (
+    (7680, "4320p"),
+    (3840, "2160p"),
+    (2560, "1440p"),
+    (1920, "1080p"),
+    (1280, "720p"),
+    (854, "480p"),
+    (640, "360p"),
+    (426, "240p"),
+    (256, "144p"),
+)
+
+
+def quality_label(width: int, height: int) -> Optional[str]:
+    long_side = max(width, height)
+    for threshold, label in _QUALITY_LADDER:
+        # NOTE: a few pixels of slack - encoders round odd sizes (e.g. 1918).
+        if long_side >= threshold - 16:
+            return label
+    return None
+
+
+def _parse_fps(rate: str) -> Optional[float]:
+    try:
+        num, _, den = (rate or "").partition("/")
+        value = float(num) / float(den or 1)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return round(value, 2) if value > 0 else None
+
+
+def get_stream_info(path: str) -> dict:
+    """What's actually inside a downloaded file - for the detail page.
+
+    Returns {"video": {...} or None, "audio": {...} or None}.
+    """
+    # NOTE: answers "which quality did I actually get?" - the file only ever
+    # holds one, so this is read from the file itself rather than trusted
+    # from whatever was picked before downloading.
+    data = _ffprobe_json(
+        path,
+        "stream=codec_type,codec_name,width,height,avg_frame_rate,sample_rate,channels,bit_rate"
+        ":stream_disposition=attached_pic",
+    )
+    video = audio = None
+    for stream in data.get("streams", []):
+        kind = stream.get("codec_type")
+        codec = stream.get("codec_name") or ""
+        name = _CODEC_NAMES.get(codec, codec.upper() or None)
+        if kind == "video" and video is None:
+            # NOTE: embedded cover art is a "video" stream too (attached_pic)
+            # - an MP3's thumbnail must not show up as a 1280x720 video.
+            if (stream.get("disposition") or {}).get("attached_pic") == 1:
+                continue
+            width, height = stream.get("width"), stream.get("height")
+            if not width or not height:
+                continue
+            video = {
+                "width": width,
+                "height": height,
+                "quality": quality_label(width, height),
+                "fps": _parse_fps(stream.get("avg_frame_rate")),
+                "codec": name,
+            }
+        elif kind == "audio" and audio is None:
+            try:
+                bitrate = int(stream.get("bit_rate")) // 1000
+            except (TypeError, ValueError):
+                bitrate = None
+            try:
+                sample_rate = int(stream.get("sample_rate"))
+            except (TypeError, ValueError):
+                sample_rate = None
+            audio = {
+                "codec": name,
+                "sample_rate": sample_rate,
+                "channels": stream.get("channels"),
+                "bitrate_kbps": bitrate or None,
+            }
+    return {"video": video, "audio": audio}
+
+
 def reveal_in_explorer(path: str) -> None:
     # NOTE: since this is a locally-run tool, the request was to open the file
     # selected in the OS file explorer at the moment "Download file" is

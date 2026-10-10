@@ -5,7 +5,10 @@ where a mistake is silent and dangerous (serving a file outside the download
 folder, deleting the wrong thing, losing a restored backup).
 """
 
+import contextlib
 import os
+from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 from fastapi import HTTPException
@@ -479,17 +482,17 @@ def client_settings(tmp_path, monkeypatch):
 
 def test_client_info_reports_local_for_loopback(client_settings):
     with TestClient(app_module.app, client=("127.0.0.1", 12345)) as c:
-        assert c.get("/api/client-info").json() == {"is_local": True}
+        assert c.get("/api/client-info").json() == {"is_local": True, "same_machine": True}
 
 
 def test_client_info_reports_ipv6_loopback_as_local(client_settings):
     with TestClient(app_module.app, client=("::1", 12345)) as c:
-        assert c.get("/api/client-info").json() == {"is_local": True}
+        assert c.get("/api/client-info").json() == {"is_local": True, "same_machine": True}
 
 
 def test_client_info_reports_a_lan_address_as_not_local(client_settings):
     with TestClient(app_module.app, client=("192.168.1.50", 12345)) as c:
-        assert c.get("/api/client-info").json() == {"is_local": False}
+        assert c.get("/api/client-info").json() == {"is_local": False, "same_machine": False}
 
 
 def test_the_download_route_is_tried_before_the_greedy_reveal_route(download_dir, client_settings, monkeypatch):
@@ -566,21 +569,21 @@ def test_job_download_404s_before_the_job_is_ready(client_settings):
 # --- keep vs. relay: deleting a remote device's file after it's fully sent ---
 
 
-def test_relay_delete_background_is_none_for_local_requests_regardless_of_mode(client_settings):
+def test_relay_delete_background_is_none_for_same_machine_requests_regardless_of_mode(client_settings):
     store.save_settings(remote_download_mode="relay")
-    assert app_module._relay_delete_background("C:/whatever.mp4", is_local=True) is None
+    assert app_module._relay_delete_background("C:/whatever.mp4", same_machine=True) is None
 
 
 def test_relay_delete_background_is_none_in_keep_mode_regardless_of_locality(client_settings):
     # NOTE: "keep" is also the default, so this doubles as "a fresh install
     # with no settings.json at all never auto-deletes anything".
     assert store.get_settings()["remote_download_mode"] == "keep"
-    assert app_module._relay_delete_background("C:/whatever.mp4", is_local=False) is None
+    assert app_module._relay_delete_background("C:/whatever.mp4", same_machine=False) is None
 
 
 def test_relay_delete_background_returns_a_task_only_for_a_remote_relay_download(client_settings):
     store.save_settings(remote_download_mode="relay")
-    background = app_module._relay_delete_background("C:/whatever.mp4", is_local=False)
+    background = app_module._relay_delete_background("C:/whatever.mp4", same_machine=False)
     assert isinstance(background, app_module.BackgroundTask)
 
 
@@ -635,3 +638,184 @@ def test_a_remote_relay_job_download_deletes_the_file_after_it_is_fully_sent(dow
     finally:
         with app_module.jobs_lock:
             app_module.jobs.pop(job_id, None)
+
+
+# --- Docker: the host's own browser is "the same machine", not a LAN device ---
+# NOTE: regression for a real bug. In Docker every request arrives from the
+# bridge gateway (172.18.0.1), so the host's own browser counted as a remote
+# device; with relay on, Chrome's background fetch behind an open (and then
+# cancelled) Save As dialog deleted the only copy. The Host header is what
+# tells the host (localhost:8420) apart from a phone (LAN IP).
+
+DOCKER_GATEWAY = ("172.18.0.1", 50000)
+
+
+@pytest.fixture
+def docker_client(monkeypatch):
+    # NOTE: Docker is only switched on AFTER startup - the app's lifespan
+    # also checks is_docker() (first-run password requirement), which is
+    # irrelevant here.
+    @contextlib.contextmanager
+    def make(base_url):
+        with TestClient(app_module.app, client=DOCKER_GATEWAY, base_url=base_url) as c:
+            monkeypatch.setattr(app_module, "is_docker", lambda: True)
+            yield c
+
+    return make
+
+
+def test_docker_host_browser_on_localhost_is_the_same_machine_but_not_local(client_settings, docker_client):
+    # NOTE: not "local" - "show in folder" would open an explorer inside the
+    # container - but the same machine, so it gets "Save to folder" instead.
+    with docker_client("http://localhost:8420") as c:
+        assert c.get("/api/client-info").json() == {"is_local": False, "same_machine": True}
+
+
+def test_docker_lan_device_is_not_the_same_machine(client_settings, docker_client):
+    with docker_client("http://192.168.1.199:8420") as c:
+        assert c.get("/api/client-info").json() == {"is_local": False, "same_machine": False}
+
+
+def test_outside_docker_a_localhost_host_header_from_a_lan_address_is_not_trusted(client_settings):
+    # NOTE: without Docker the client address is reliable on its own, so a
+    # Host header can't widen anything there.
+    with TestClient(app_module.app, client=("192.168.1.50", 12345), base_url="http://localhost:8420") as c:
+        assert c.get("/api/client-info").json() == {"is_local": False, "same_machine": False}
+
+
+def test_docker_host_relay_download_never_deletes_the_file(download_dir, client_settings, docker_client):
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with docker_client("http://localhost:8420") as c:
+        res = c.get("/api/history/file/Video.mp4/download")
+        assert res.status_code == 200
+        assert media.exists(), "a fully sent response doesn't mean the user kept it - the host's copy must stay"
+        assert c.get("/api/history/stream/Video.mp4").status_code in (200, 206)
+
+
+def test_docker_lan_relay_download_still_deletes_the_file(download_dir, client_settings, docker_client):
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+
+    with docker_client("http://192.168.1.199:8420") as c:
+        res = c.get("/api/history/file/Video.mp4/download")
+    assert res.status_code == 200
+    assert not media.exists(), "a phone's relay download must still free the host's space"
+
+
+# --- /saved: the browser confirms the file was written to the chosen folder ---
+
+
+def test_saved_in_keep_mode_leaves_the_file(download_dir, client_settings):
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+    with TestClient(app_module.app) as c:
+        res = c.post("/api/history/file/Video.mp4/saved")
+    assert res.status_code == 200
+    assert res.json() == {"deleted": False}
+    assert media.exists()
+
+
+def test_saved_in_relay_mode_removes_the_file_and_its_sidecar(download_dir, client_settings):
+    store.save_settings(remote_download_mode="relay")
+    folder = download_dir / "Kanal Adi"
+    folder.mkdir()
+    media = folder / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+    sidecar = Path(app_module.downloader.metadata_sidecar_path(str(media)))
+    sidecar.write_text("{}", encoding="utf-8")
+
+    with TestClient(app_module.app) as c:
+        res = c.post("/api/history/file/Kanal Adi/Video.mp4/saved")
+    assert res.status_code == 200
+    assert res.json() == {"deleted": True}
+    assert not media.exists()
+    assert not sidecar.exists()
+
+
+def test_saved_404s_for_a_missing_file(download_dir, client_settings):
+    store.save_settings(remote_download_mode="relay")
+    with TestClient(app_module.app) as c:
+        assert c.post("/api/history/file/Yok.mp4/saved").status_code == 404
+
+
+def test_saved_cannot_escape_the_download_dir(download_dir, client_settings, tmp_path_factory):
+    store.save_settings(remote_download_mode="relay")
+    outside = tmp_path_factory.mktemp("elsewhere") / "outside.mp4"
+    outside.write_bytes(b"not yours")
+    rel = os.path.relpath(outside, download_dir).replace(os.sep, "/")
+    with TestClient(app_module.app) as c:
+        res = c.post(f"/api/history/file/{quote(rel, safe='')}/saved")
+    assert res.status_code == 404
+    assert outside.exists()
+
+
+def test_job_saved_in_relay_mode_removes_the_file(download_dir, client_settings):
+    store.save_settings(remote_download_mode="relay")
+    media = download_dir / "Video.mp4"
+    media.write_bytes(b"fake video bytes")
+    job_id = "test-saved-job"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = {"state": "bitti", "ready": True, "filepath": str(media)}
+    try:
+        with TestClient(app_module.app) as c:
+            res = c.post(f"/api/file/{job_id}/saved")
+        assert res.json() == {"deleted": True}
+        assert not media.exists()
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)
+
+
+def test_status_reports_the_finished_file_name(download_dir, client_settings):
+    # NOTE: the "Save to folder" picker suggests this name.
+    media = download_dir / "Kanal Adi" / "Video.mp4"
+    job_id = "test-status-filename"
+    with app_module.jobs_lock:
+        app_module.jobs[job_id] = {**app_module._new_job_record(), "state": "bitti", "ready": True, "filepath": str(media)}
+    try:
+        with TestClient(app_module.app) as c:
+            assert c.get(f"/api/status/{job_id}").json()["filename"] == "Video.mp4"
+    finally:
+        with app_module.jobs_lock:
+            app_module.jobs.pop(job_id, None)
+
+
+# --- item page: what's actually inside the file --------------------------------
+
+
+def test_stream_rows_format_a_video_in_turkish():
+    info = {
+        "video": {"width": 1920, "height": 1080, "quality": "1080p", "fps": 29.97, "codec": "VP9"},
+        "audio": {"codec": "Opus", "sample_rate": 48000, "channels": 2, "bitrate_kbps": None},
+    }
+    assert app_module._stream_rows(info, "tr") == [
+        ("Çözünürlük", "1920×1080 (1080p) · 29,97 fps"),
+        ("Video", "VP9"),
+        ("Ses", "Opus · 48 kHz · stereo"),
+    ]
+
+
+def test_stream_rows_format_an_audio_file_in_english():
+    info = {"video": None, "audio": {"codec": "MP3", "sample_rate": 44100, "channels": 1, "bitrate_kbps": 320}}
+    assert app_module._stream_rows(info, "en") == [("Audio", "MP3 · 44.1 kHz · mono · 320 kbps")]
+
+
+def test_stream_rows_are_empty_when_nothing_could_be_read():
+    assert app_module._stream_rows({"video": None, "audio": None}, "tr") == []
+
+
+def test_item_page_shows_the_resolution_row(download_dir, client_settings, monkeypatch):
+    (download_dir / "Video.mp4").write_bytes(b"fake video bytes")
+    monkeypatch.setattr(
+        app_module.downloader,
+        "get_stream_info",
+        lambda path: {"video": {"width": 854, "height": 480, "quality": "480p", "fps": 25.0, "codec": "VP9"}, "audio": None},
+    )
+    with TestClient(app_module.app) as c:
+        html = c.get("/item/Video.mp4?lang=tr").text
+    assert "Çözünürlük" in html
+    assert "854×480 (480p) · 25 fps" in html

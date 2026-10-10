@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[Latest Release: v2.2.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v2.2.0)** · **[Changelog](CHANGELOG.md)** · **[License](LICENSE)**
+**[Latest Release: v2.3.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v2.3.0)** · **[Changelog](CHANGELOG.md)** · **[License](LICENSE)**
 
 ---
 
@@ -12,8 +12,8 @@
 
 ## Öne çıkanlar / Highlights
 
-- **TR:** Ses/video indirme, playlist ve kanal takibi · telefondan kullanım (QR kodla) · Raspberry Pi'de 7/24 ev sunucusu · Docker desteği · Türkçe/İngilizce arayüz
-- **EN:** Audio/video downloads, playlists and channel following · use it from your phone (via QR code) · an always-on home server on a Raspberry Pi · Docker support · Turkish/English UI
+- **TR:** Ses/video indirme, playlist ve kanal takibi · indirme istatistikleri · telefondan kullanım (QR kodla) · Raspberry Pi'de 7/24 ev sunucusu · Docker desteği · Türkçe/İngilizce arayüz
+- **EN:** Audio/video downloads, playlists and channel following · download statistics · use it from your phone (via QR code) · an always-on home server on a Raspberry Pi · Docker support · Turkish/English UI
 
 ## Kurulum / Installation
 

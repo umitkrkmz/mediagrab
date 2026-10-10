@@ -1,12 +1,16 @@
 """Tests for the pure logic in downloader.py.
 
-NOTE: nothing here touches the network or spawns yt-dlp/ffmpeg - these cover
-the parsing and file-shuffling code where the real bugs have actually been,
-so the suite stays fast and runs offline.
+NOTE: nothing here touches the network or spawns yt-dlp - these cover the
+parsing and file-shuffling code where the real bugs have actually been, so
+the suite stays fast and runs offline. The one exception to "no ffmpeg" is
+test_stream_info_reads_a_real_file (a 1-second local clip, skipped when
+ffmpeg isn't installed).
 """
 
 import os
 import re
+import shutil
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -757,3 +761,94 @@ def test_probe_of_a_normal_video_has_audio_only_and_no_notices(monkeypatch):
     result = _probe_returning(monkeypatch, [MUXED_360P, OPUS_AUDIO], [("debug", "[youtube] x: Downloading webpage")])
     assert result["audio_only"] is True
     assert result["notices"] == []
+
+
+# --- get_stream_info: what's actually inside a downloaded file ----------------
+
+
+@pytest.mark.parametrize(
+    "width, height, expected",
+    [
+        (1920, 1080, "1080p"),
+        (1920, 800, "1080p"),  # cinema ratio - offered as 1080p before downloading too
+        (1080, 1920, "1080p"),  # vertical
+        (854, 480, "480p"),
+        (1918, 1080, "1080p"),  # encoder rounding
+        (3840, 2160, "2160p"),
+        (200, 112, None),
+    ],
+)
+def test_quality_label(width, height, expected):
+    assert downloader.quality_label(width, height) == expected
+
+
+@pytest.mark.parametrize(
+    "rate, expected", [("30/1", 30.0), ("30000/1001", 29.97), ("25", 25.0), ("0/0", None), ("", None), (None, None)]
+)
+def test_parse_fps(rate, expected):
+    assert downloader._parse_fps(rate) == expected
+
+
+def test_stream_info_skips_embedded_cover_art(monkeypatch):
+    # NOTE: an MP3/M4A's thumbnail is a "video" stream (attached_pic) - it
+    # must not turn an audio file into a "1280x720 video".
+    monkeypatch.setattr(
+        downloader,
+        "_ffprobe_json",
+        lambda path, entries: {
+            "streams": [
+                {"codec_type": "audio", "codec_name": "mp3", "sample_rate": "44100", "channels": 2, "bit_rate": "320000"},
+                {"codec_type": "video", "codec_name": "mjpeg", "width": 1280, "height": 720, "disposition": {"attached_pic": 1}},
+            ]
+        },
+    )
+    info = downloader.get_stream_info("x.mp3")
+    assert info["video"] is None
+    assert info["audio"] == {"codec": "MP3", "sample_rate": 44100, "channels": 2, "bitrate_kbps": 320}
+
+
+def test_stream_info_names_codecs_and_tolerates_missing_fields(monkeypatch):
+    monkeypatch.setattr(
+        downloader,
+        "_ffprobe_json",
+        lambda path, entries: {
+            "streams": [
+                {"codec_type": "video", "codec_name": "vp9", "width": 854, "height": 480, "avg_frame_rate": "25/1"},
+                {"codec_type": "audio", "codec_name": "opus", "sample_rate": "48000", "channels": 2},
+            ]
+        },
+    )
+    info = downloader.get_stream_info("x.mp4")
+    assert info["video"] == {"width": 854, "height": 480, "quality": "480p", "fps": 25.0, "codec": "VP9"}
+    assert info["audio"]["codec"] == "Opus"
+    assert info["audio"]["bitrate_kbps"] is None
+
+
+def test_stream_info_is_empty_when_ffprobe_fails(monkeypatch):
+    monkeypatch.setattr(downloader, "_ffprobe_json", lambda path, entries: {})
+    assert downloader.get_stream_info("x.mp4") == {"video": None, "audio": None}
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="ffmpeg is not installed")
+def test_stream_info_reads_a_real_file(tmp_path):
+    # NOTE: the one test here that runs ffmpeg/ffprobe for real - proves the
+    # -show_entries query matches what ffprobe actually returns.
+    path = tmp_path / "sample.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=1:size=640x360:rate=30",
+            "-f", "lavfi", "-i", "sine=duration=1:sample_rate=48000", "-ac", "2",
+            "-c:v", "libx264", "-c:a", "aac", "-shortest", str(path),
+        ],
+        check=True,
+        timeout=60,
+    )
+    info = downloader.get_stream_info(str(path))
+    assert info["video"]["width"] == 640
+    assert info["video"]["height"] == 360
+    assert info["video"]["quality"] == "360p"
+    assert info["video"]["fps"] == 30.0
+    assert info["video"]["codec"] == "H.264"
+    assert info["audio"]["codec"] == "AAC"
+    assert info["audio"]["sample_rate"] == 48000
+    assert info["audio"]["channels"] == 2

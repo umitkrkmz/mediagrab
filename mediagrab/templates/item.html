@@ -39,6 +39,12 @@
         <span class="k">{% if lang == "en" %}Size{% else %}Boyut{% endif %}</span>
         <span class="v">{{ size }}</span>
       </div>
+      {% for label, value in stream_rows %}
+      <div class="item-meta-row">
+        <span class="k">{{ label }}</span>
+        <span class="v">{{ value }}</span>
+      </div>
+      {% endfor %}
       {% if duration_label %}
       <div class="item-meta-row">
         <span class="k">{% if lang == "en" %}Duration{% else %}Süre{% endif %}</span>
@@ -51,7 +57,7 @@
       </div>
     </div>
 
-    <button type="button" id="item-reveal-btn" class="download-btn item-download-btn" data-reveal-url="/api/history/file/{{ filename_url }}">
+    <button type="button" id="item-reveal-btn" class="download-btn item-download-btn" data-reveal-url="/api/history/file/{{ filename_url }}" data-filename="{{ filename }}">
       {% if is_local %}
         {% if lang == "en" %}Show in folder{% else %}Klasörde göster{% endif %}
       {% else %}

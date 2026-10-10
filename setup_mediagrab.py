@@ -39,7 +39,10 @@ PYTHON_DOWNLOAD_URL = "https://www.python.org/downloads/"
 FFMPEG_DOWNLOAD_URL = "https://www.ffmpeg.org/download.html"
 DOCKER_DOWNLOAD_URL = "https://www.docker.com/products/docker-desktop/"
 DOCKER_IMAGE = "ghcr.io/umitkrkmz/mediagrab:latest"
-USER_DATA_ENTRIES = ("indirilenler", "channels.json", "settings.json")
+# NOTE: everything the app keeps beside itself (see tests/test_setup.py,
+# which reads the real list out of the mediagrab package) - Remove/Repair
+# wipes every other file in the folder.
+USER_DATA_ENTRIES = ("indirilenler", "channels.json", "settings.json", "cookies.txt", "stats.json")
 
 # NOTE: the app's own code uses list[dict] (3.9+) but no 3.10-only syntax, so
 # 3.9 is the real floor. Checked here rather than left to fail later with a
@@ -583,6 +586,7 @@ def docker_compose_yaml(password: str, host_lan_ip) -> str:
         "      - ./data/channels.json:/app/channels.json\n"
         "      - ./data/pip-packages:/data/pip-packages\n"
         "      - ./data/cookies:/data/cookies\n"
+        "      - ./data/stats:/data/stats\n"
     )
 
 

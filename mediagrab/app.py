@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, auth, deps, downloader, store
+from . import __version__, auth, deps, downloader, stats, store
 from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
@@ -107,6 +107,7 @@ async def lifespan(_app: FastAPI):
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
     threading.Thread(target=_check_all_channels, daemon=True).start()
+    _start_stats_backfill()
     settings = store.get_settings()
     if settings.get("home_server_mode"):
         threading.Thread(target=_periodic_channel_check_loop, daemon=True).start()
@@ -125,6 +126,29 @@ async def lifespan(_app: FastAPI):
             threading.Thread(target=_register_mdns, args=(ip, port), daemon=True).start()
     yield
     _close_mdns()
+
+
+_stats_backfill_running = threading.Event()
+
+
+def _run_stats_backfill(cutoff: float) -> None:
+    try:
+        stats.backfill(cutoff)
+    except Exception:
+        pass
+    finally:
+        _stats_backfill_running.clear()
+
+
+def _start_stats_backfill() -> None:
+    # NOTE: once per installation - counts what's already in indirilenler/
+    # the first time a version with statistics starts, so the panel doesn't
+    # open empty. On a thread: it runs ffprobe on every video, which can take
+    # a while for a big library and must never delay startup.
+    if store.get_stats()["backfilled"] or _stats_backfill_running.is_set():
+        return
+    _stats_backfill_running.set()
+    threading.Thread(target=_run_stats_backfill, args=(time.time(),), daemon=True).start()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -358,9 +382,29 @@ def _is_local_request(request: Request) -> bool:
     return client is None or client.host in ("127.0.0.1", "::1")
 
 
+_LOOPBACK_HOSTNAMES = ("localhost", "127.0.0.1", "::1")
+
+
+def _is_same_machine(request: Request) -> bool:
+    # NOTE: a wider question than _is_local_request - "is this browser on the
+    # computer MediaGrab's files live on?" rather than "can the server open a
+    # file explorer on this browser's screen?". The two only differ in Docker:
+    # there every request (the host's own browser AND a phone on the LAN)
+    # arrives from the bridge gateway (e.g. 172.18.0.1), so the client address
+    # can't tell them apart. The Host header can - the host's browser reaches
+    # the published port as localhost:8420, a LAN device has to use the
+    # machine's LAN IP. A LAN device could send a forged Host header, but this
+    # only ever decides "don't auto-delete the server's copy" (see
+    # _relay_delete_background), never anything security-relevant - the login
+    # gate doesn't look at either function.
+    if _is_local_request(request):
+        return True
+    return is_docker() and request.url.hostname in _LOOPBACK_HOSTNAMES
+
+
 @app.get("/api/client-info", response_model=ClientInfoResponse)
 def client_info(request: Request) -> dict:
-    return {"is_local": _is_local_request(request)}
+    return {"is_local": _is_local_request(request), "same_machine": _is_same_machine(request)}
 
 
 def _history_path(rel_path: str) -> str:
@@ -389,12 +433,18 @@ _event_queues: set[asyncio.Queue] = set()
 _event_queues_lock = threading.Lock()
 
 
+def _job_filename(job: dict) -> Optional[str]:
+    # NOTE: just the file's own name - the "Save to folder" picker in app.js
+    # offers it as the suggested name.
+    return os.path.basename(job["filepath"]) if job.get("filepath") else None
+
+
 def _broadcast_job_event(job_id: str, job: dict) -> None:
     with _event_queues_lock:
         queues = list(_event_queues)
     if not queues or _event_loop is None:
         return
-    payload = json.dumps({"job_id": job_id, **job})
+    payload = json.dumps({"job_id": job_id, **job, "filename": _job_filename(job)})
     for queue in queues:
         # NOTE: this can run on a download WORKER THREAD (yt-dlp progress
         # hooks call _set_job synchronously from there) - call_soon_threadsafe
@@ -528,6 +578,11 @@ def _run_job(
             url, kind, choice, on_progress, on_postprocess, subtitle_langs=subtitle_langs, audio_langs=audio_langs
         )
         _set_job(job_id, state="bitti", percent=100.0, ready=True, filepath=filepath)
+        # NOTE: counted the moment it's finished, not by looking at the disk
+        # later - relay mode deletes files once they're sent, and History's
+        # own delete button exists too.
+        if kind in ("audio", "video"):
+            stats.record_finished(filepath)
     except JobCancelled:
         # NOTE: mark it cancelled BEFORE cleaning up - the cleanup waits for
         # the download's file handles to close, and the UI shouldn't sit on
@@ -1022,7 +1077,7 @@ def status(job_id: str) -> dict:
         job = jobs.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Is bulunamadi")
-        return {**job, "queue_position": _queue_position(job)}
+        return {**job, "queue_position": _queue_position(job), "filename": _job_filename(job)}
 
 
 @app.get("/api/events")
@@ -1087,15 +1142,31 @@ def _delete_relayed_file(path: str) -> None:
     _cleanup_empty_dir(path)
 
 
-def _relay_delete_background(path: str, is_local: bool) -> Optional[BackgroundTask]:
+def _relay_delete_background(path: str, same_machine: bool) -> Optional[BackgroundTask]:
     # NOTE: "relay" mode only ever applies to a REMOTE device's own transfer.
-    # The host's own downloads are never auto-deleted in either mode - there
-    # is no "other device" they were relayed to, so deleting the only copy
-    # the user directly asked for on their own machine would just be data
-    # loss with no corresponding benefit.
-    if is_local or store.get_settings().get("remote_download_mode") != "relay":
+    # The host's own downloads are never auto-deleted here in either mode - a
+    # fully sent response only proves the BROWSER received the bytes, not
+    # that the user kept them: with "ask where to save" on, Chrome/Edge fetch
+    # the whole file in the background while the Save As dialog is still
+    # open, so cancelling that dialog used to delete the only copy (found in
+    # Docker, where the host's browser counted as remote - see
+    # _is_same_machine). On the host, deletion instead waits for the
+    # browser's own confirmation that the file was written (/saved below).
+    if same_machine or store.get_settings().get("remote_download_mode") != "relay":
         return None
     return BackgroundTask(_delete_relayed_file, path)
+
+
+def _confirm_saved(path: str) -> dict:
+    # NOTE: called by the "Save to folder" flow in app.js only AFTER the
+    # browser's File System Access API reports the file fully written to the
+    # folder the user picked - cancelling the picker never reaches this. Same
+    # keep/relay rule as a remote device's transfer, just triggered by a
+    # confirmed save instead of a sent response.
+    if store.get_settings().get("remote_download_mode") != "relay":
+        return {"deleted": False}
+    _delete_relayed_file(path)
+    return {"deleted": not os.path.exists(path)}
 
 
 @app.get("/api/file/{job_id}/download")
@@ -1112,8 +1183,20 @@ def download_file(job_id: str, request: Request) -> FileResponse:
         if job is None or not job.get("ready"):
             raise HTTPException(status_code=404, detail="Dosya henuz hazir degil")
         filepath = job["filepath"]
-    background = _relay_delete_background(filepath, _is_local_request(request))
+    background = _relay_delete_background(filepath, _is_same_machine(request))
     return FileResponse(filepath, filename=os.path.basename(filepath), background=background)
+
+
+@app.post("/api/file/{job_id}/saved")
+def file_saved(job_id: str) -> dict:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None or not job.get("ready"):
+            raise HTTPException(status_code=404, detail="Dosya henuz hazir degil")
+        filepath = job["filepath"]
+    if not os.path.isfile(filepath):
+        raise HTTPException(status_code=404, detail="Dosya bulunamadi")
+    return _confirm_saved(filepath)
 
 
 @app.get("/api/locale", response_model=LocaleResponse)
@@ -1161,6 +1244,59 @@ def diagnostics_text() -> str:
         f" / home server mode: {'on' if settings.get('home_server_mode') else 'off'}",
     ]
     return "\n".join(lines)
+
+
+def _folder_size(folder: str) -> int:
+    total = 0
+    for root, _dirs, files in os.walk(folder):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+            except OSError:
+                pass
+    return total
+
+
+def _disk_status() -> Optional[dict]:
+    # NOTE: the disk the downloads folder is on. In Docker that's the host's
+    # own drive (the folder is a bind mount), not the container's - checked
+    # live on Docker Desktop: the numbers match the Windows drive.
+    # NOTE: before the first download the folder may not exist yet - the
+    # nearest existing parent is on the same drive.
+    folder = os.path.abspath(downloader.DOWNLOAD_DIR)
+    while not os.path.isdir(folder) and os.path.dirname(folder) != folder:
+        folder = os.path.dirname(folder)
+    try:
+        usage = shutil.disk_usage(folder)
+    except OSError:
+        return None
+    return {
+        "total": usage.total,
+        "used": usage.used,
+        "free": usage.free,
+        "downloads": _folder_size(downloader.DOWNLOAD_DIR),
+    }
+
+
+@app.get("/api/stats")
+def stats_summary(period: str = "day", tz: int = 0) -> dict:
+    # NOTE: tz is the viewer's offset from UTC in minutes (Turkey: 180) -
+    # the stored hours are UTC, the days/weeks/months shown are the viewer's.
+    if period not in stats.PERIODS:
+        raise HTTPException(status_code=400, detail="Gecersiz donem")
+    tz = max(-14 * 60, min(14 * 60, tz))
+    data = store.get_stats()
+    return {
+        **stats.summarize(data, period, tz),
+        "backfilling": _stats_backfill_running.is_set(),
+        "disk": _disk_status(),
+    }
+
+
+@app.post("/api/stats/reset")
+def stats_reset() -> dict:
+    store.reset_stats()
+    return {"ok": True}
 
 
 @app.get("/api/diagnostics")
@@ -1458,8 +1594,13 @@ def history_download(filename: str, request: Request) -> FileResponse:
     # suffix as part of `filename` if the plain route were tried first
     # (reproduced directly - see tests/test_app.py's ordering regression test).
     path = _history_path(filename)
-    background = _relay_delete_background(path, _is_local_request(request))
+    background = _relay_delete_background(path, _is_same_machine(request))
     return FileResponse(path, filename=os.path.basename(path), background=background)
+
+
+@app.post("/api/history/file/{filename:path}/saved")
+def history_saved(filename: str) -> dict:
+    return _confirm_saved(_history_path(filename))
 
 
 @app.get("/api/history/file/{filename:path}")
@@ -1623,6 +1764,45 @@ def _fmt_duration(seconds: Optional[int]) -> Optional[str]:
     return f"{m}:{s:02d}"
 
 
+def _fmt_number(value: float, lang: str) -> str:
+    # NOTE: 30.0 -> "30", 29.97 -> "29.97" ("29,97" in Turkish).
+    text = f"{value:.2f}".rstrip("0").rstrip(".")
+    return text.replace(".", ",") if lang == "tr" else text
+
+
+def _stream_rows(info: dict, lang: str) -> list[tuple[str, str]]:
+    """The detail page's "what's in this file" rows, already formatted."""
+    ui = ui_text(lang)
+    rows = []
+    video = info.get("video")
+    if video:
+        resolution = f"{video['width']}×{video['height']}"
+        if video.get("quality"):
+            resolution += f" ({video['quality']})"
+        if video.get("fps"):
+            resolution += f" · {_fmt_number(video['fps'], lang)} fps"
+        rows.append((ui["item_resolution"], resolution))
+        if video.get("codec"):
+            rows.append((ui["item_video_codec"], video["codec"]))
+    audio = info.get("audio")
+    if audio:
+        parts = [audio["codec"]] if audio.get("codec") else []
+        if audio.get("sample_rate"):
+            parts.append(f"{_fmt_number(audio['sample_rate'] / 1000, lang)} kHz")
+        channels = audio.get("channels")
+        if channels == 1:
+            parts.append(ui["item_channels_mono"])
+        elif channels == 2:
+            parts.append(ui["item_channels_stereo"])
+        elif channels:
+            parts.append(ui["item_channels_n"].format(n=channels))
+        if audio.get("bitrate_kbps"):
+            parts.append(f"{audio['bitrate_kbps']} kbps")
+        if parts:
+            rows.append((ui["item_audio"], " · ".join(parts)))
+    return rows
+
+
 @app.get("/item/{filename:path}")
 def item_detail(request: Request, filename: str, lang: Optional[str] = None):
     lang = _resolve_lang(lang, request)
@@ -1652,6 +1832,7 @@ def item_detail(request: Request, filename: str, lang: Optional[str] = None):
         "title": meta["title"] or base_name,
         "artist": meta["artist"],
         "duration_label": _fmt_duration(meta["duration"]),
+        "stream_rows": _stream_rows(downloader.get_stream_info(path), lang),
         "is_local": _is_local_request(request),
     }
     return templates.TemplateResponse(request, "item.html", context)

@@ -575,13 +575,16 @@ def test_user_data_is_on_the_keep_list(setup_mod):
 
 
 def test_every_file_the_app_persists_is_kept(setup_mod):
-    """Whatever store.py writes beside the app must survive Remove/Repair."""
-    # NOTE: derived from store.py rather than listed here, because a hand-kept
-    # list is exactly what let settings.json ship unprotected in v1.6.0 - the
-    # file was added to the app and nobody thought to update the installer.
-    store_py = SETUP_PY.parent / "mediagrab" / "store.py"
-    persisted = set(re.findall(r'app_dir\(\),\s*"([^"]+)"', store_py.read_text(encoding="utf-8")))
-    assert persisted, "no persisted files found - has store.py been restructured?"
+    """Whatever the app writes beside itself must survive Remove/Repair."""
+    # NOTE: derived from the package rather than listed here, because a
+    # hand-kept list is exactly what let settings.json ship unprotected in
+    # v1.6.0 - the file was added to the app and nobody thought to update the
+    # installer. Every module, not just store.py: an uploaded cookies.txt
+    # (downloader.py) slipped through for the same reason in v2.2.0.
+    persisted = set()
+    for module in (SETUP_PY.parent / "mediagrab").glob("*.py"):
+        persisted |= set(re.findall(r'app_dir\(\),\s*"([^"]+)"', module.read_text(encoding="utf-8")))
+    assert {"channels.json", "settings.json", "indirilenler"} <= persisted, "has the package been restructured?"
     missing = persisted - set(setup_mod.USER_DATA_ENTRIES)
     assert not missing, f"the installer would delete: {sorted(missing)}"
 
@@ -589,7 +592,10 @@ def test_every_file_the_app_persists_is_kept(setup_mod):
 def test_refreshing_the_path_only_ever_adds_entries(setup_mod, monkeypatch):
     # NOTE: the process is handed a PATH it may genuinely need (PyInstaller
     # adds its own unpack directory), so refreshing must never drop entries.
-    marker = os.path.join("Z:" + os.sep, "mediagrab-test-marker")
+    # NOTE: no drive letter - on Linux/macOS the ":" in "Z:\..." is the PATH
+    # separator itself and split the marker in two (found running the suite
+    # on Linux for the push CI job).
+    marker = os.path.join(os.sep, "mediagrab-test-marker")
     monkeypatch.setenv("PATH", marker)
     setup_mod.refresh_path_from_registry()
     assert marker in os.environ["PATH"].split(os.pathsep)
