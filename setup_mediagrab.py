@@ -175,6 +175,7 @@ STRINGS = {
         "log_docker_data_dirs": "Veri klasörleri hazırlanıyor...",
         "log_docker_writing_compose": "docker-compose.yml yazılıyor...",
         "log_docker_pulling": "Docker imajı indirilip başlatılıyor (ilk seferde biraz sürebilir)...",
+        "log_docker_pull_failed": "Güncel imaj indirilemedi (internet bağlantısını kontrol edin); bilgisayarda bir imaj varsa onunla devam ediliyor...",
         "log_docker_done": "MediaGrab Docker'da çalışıyor: http://localhost:8420",
         "open_browser": "Tarayıcıda Aç",
         "progress_title_docker": "Docker ile kuruluyor…",
@@ -341,6 +342,7 @@ STRINGS = {
         "log_docker_data_dirs": "Preparing data folders...",
         "log_docker_writing_compose": "Writing docker-compose.yml...",
         "log_docker_pulling": "Pulling and starting the Docker image (this can take a while the first time)...",
+        "log_docker_pull_failed": "Couldn't download the latest image (check your internet connection); continuing with the image already on this computer, if there is one...",
         "log_docker_done": "MediaGrab is running in Docker: http://localhost:8420",
         "open_browser": "Open in Browser",
         "progress_title_docker": "Installing with Docker…",
@@ -1278,6 +1280,15 @@ class SetupApp(tk.Tk):
             f.write(docker_compose_yaml(password, detect_host_lan_ip()))
 
         self.log(self.t("log_docker_pulling"))
+        # NOTE: an explicit pull first - `up -d` alone only downloads an image
+        # that's MISSING. With an older `latest` already on the machine (any
+        # earlier Docker install, even after its container and folder were
+        # deleted) it silently started that old version; found installing
+        # v2.3.0 over a removed v2.2.0. A failed pull isn't fatal: offline,
+        # an image that's already here is still better than no install, and
+        # if there's none `up` fails with Docker's own message right after.
+        if not self._run_cmd([self.docker_path, "compose", "pull"], cwd=self.docker_folder):
+            self.log(self.t("log_docker_pull_failed"))
         if not self._run_cmd([self.docker_path, "compose", "up", "-d"], cwd=self.docker_folder):
             return False
         if not self._wait_for_docker_container():

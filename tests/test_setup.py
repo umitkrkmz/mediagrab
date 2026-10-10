@@ -449,6 +449,28 @@ def test_docker_install_creates_data_files_without_clobbering_existing(setup_mod
         assert "a-real-password" in f.read()
 
 
+def test_docker_install_pulls_the_image_before_starting_it(setup_mod, app, tmp_path):
+    # NOTE: regression. `up -d` alone only fetches a MISSING image - with an
+    # older `latest` still on the machine it quietly started that instead
+    # (installing v2.3.0 over a removed v2.2.0 gave v2.2.0).
+    app.docker_folder = str(tmp_path / "Pull")
+    calls = []
+    app._run_cmd = lambda cmd, cwd: calls.append(cmd[1:]) or True
+    app._wait_for_docker_container = lambda: True
+
+    assert app._do_docker_install("a-real-password") is True
+    assert ["compose", "pull"] in calls
+    assert calls.index(["compose", "pull"]) < calls.index(["compose", "up", "-d"])
+
+
+def test_docker_install_continues_when_only_the_pull_fails(setup_mod, app, tmp_path):
+    # NOTE: offline with an image already here - still installs.
+    app.docker_folder = str(tmp_path / "Offline")
+    app._run_cmd = lambda cmd, cwd: cmd[1:] != ["compose", "pull"]
+    app._wait_for_docker_container = lambda: True
+    assert app._do_docker_install("a-real-password") is True
+
+
 def test_docker_install_fails_when_compose_up_fails(setup_mod, app, tmp_path):
     app.docker_folder = str(tmp_path / "Fail")
     app._run_cmd = lambda cmd, cwd: False

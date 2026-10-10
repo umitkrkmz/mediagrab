@@ -1,6 +1,6 @@
 # MediaGrab
 
-**[Latest Release: v2.3.0](https://github.com/umitkrkmz/mediagrab/releases/tag/v2.3.0)** · **[Changelog](CHANGELOG.md)** · **[License](LICENSE)**
+**[Latest Release: v2.3.1](https://github.com/umitkrkmz/mediagrab/releases/tag/v2.3.1)** · **[Changelog](CHANGELOG.md)** · **[License](LICENSE)**
 
 ---
 

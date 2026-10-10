@@ -11,6 +11,16 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.3.1] — 2026-10-10
+
+#### Düzeltilen
+
+- **Windows kurulum programının "Docker ile kur" seçeneği eski bir imajı kurabiliyordu** — bilgisayarda daha önceki bir kurulumdan kalma `latest` imajı varsa (container'ı ve klasörü silinmiş olsa bile), kurulum yeni sürümü indirmeden o eski imajı başlatıyordu; `docker compose up -d` yalnızca hiç olmayan bir imajı indiriyor. Kurulum artık önce `docker compose pull` ile güncel imajı indiriyor. İnternet yoksa ve bilgisayarda bir imaj varsa kurulum onunla devam ediyor ve bunu günlükte belirtiyor
+
+#### Güncellerken
+
+- **Uygulamanın kendisinde değişiklik yok** — yalnızca `MediaGrabSetup.exe` değişti. Docker kullanıyorsanız ve Ayarlar'da sürüm 2.3.0 görünüyorsa bir şey yapmanız gerekmiyor; v2.3.0'ı kurduğunuz halde 2.2.0 görünüyorsa `docker-compose.yml`'in bulunduğu klasörde `docker compose pull && docker compose up -d` çalıştırın
+
 ### [2.3.0] — 2026-10-10
 
 #### Eklenen
@@ -319,6 +329,16 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.3.1] — 2026-10-10
+
+#### Fixed
+
+- **The Windows installer's "Install with Docker" could install an old image** — if an older `latest` image from a previous install was still on the computer (even with its container and folder deleted), the installer started that old image instead of downloading the new release; `docker compose up -d` only downloads an image that's missing. The installer now runs `docker compose pull` first. Offline with an image already present, it carries on with that one and says so in the log
+
+#### When updating
+
+- **No change to the app itself** — only `MediaGrabSetup.exe` changed. If you use Docker and Settings shows version 2.3.0, there's nothing to do; if you installed v2.3.0 but it shows 2.2.0, run `docker compose pull && docker compose up -d` in the folder with your `docker-compose.yml`
 
 ### [2.3.0] — 2026-10-10
 
