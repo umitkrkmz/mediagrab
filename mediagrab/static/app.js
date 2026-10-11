@@ -514,6 +514,7 @@ const I18N = {
     ffmpegYourSystem: "sisteminiz",
     ffmpegRestartNote: "Kurulumdan sonra MediaGrab'ı kapatıp yeniden açın (PATH güncellemesi için).",
     ffmpegDockerNote: "Docker imajıyla birlikte gelir; imaj güncellendiğinde o da güncellenir.",
+    ffmpegBundledNote: "MediaGrab ile birlikte gelir; MediaGrab güncellendiğinde o da güncellenir.",
     depsUpdatesAvailable: "paket güncellenebilir",
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
@@ -940,6 +941,7 @@ const I18N = {
     ffmpegYourSystem: "your system",
     ffmpegRestartNote: "Restart MediaGrab after installing, so it picks up the updated PATH.",
     ffmpegDockerNote: "Bundled with the Docker image; it's updated whenever the image is.",
+    ffmpegBundledNote: "Comes with MediaGrab; it's updated whenever MediaGrab is.",
     depsUpdatesAvailable: "packages can be updated",
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
@@ -2672,12 +2674,14 @@ async function loadFfmpegVersion() {
     <span class="ytdlp-badge ${info.ok ? "uptodate" : "outdated"}">${info.ok ? t().ffmpegInstalled : t().ffmpegNotFound}</span>
     <span class="ytdlp-version-row">${versions}</span>`;
 
-  // NOTE: in Docker ffmpeg comes with the image - per-OS install commands
-  // (and the "not bundled, install it yourself" hint) would be wrong there.
-  if (info.is_docker) {
+  // NOTE: in Docker ffmpeg comes with the image, and the Windows installer
+  // ships its own copy - per-OS install commands (and the "not bundled,
+  // install it yourself" hint) would be wrong in both.
+  if (info.is_docker || info.bundled) {
     ffmpegHint?.classList.add("hidden");
     ffmpegInstructions?.classList.add("hidden");
-    ffmpegStatus.insertAdjacentHTML("beforeend", `<p class="settings-hint">${t().ffmpegDockerNote}</p>`);
+    const note = info.is_docker ? t().ffmpegDockerNote : t().ffmpegBundledNote;
+    ffmpegStatus.insertAdjacentHTML("beforeend", `<p class="settings-hint">${note}</p>`);
     return;
   }
   ffmpegHint?.classList.remove("hidden");

@@ -852,3 +852,24 @@ def test_stream_info_reads_a_real_file(tmp_path):
     assert info["audio"]["codec"] == "AAC"
     assert info["audio"]["sample_rate"] == 48000
     assert info["audio"]["channels"] == 2
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="ffmpeg is not installed")
+def test_metadata_keeps_non_ascii_titles(tmp_path):
+    # NOTE: regression. ffprobe prints UTF-8, but text=True decoded it with
+    # the Windows ANSI code page (cp1254 on Turkish Windows): the detail page
+    # showed "YaÅŸ AltÄ±na" for "Yaş Altına" (found trying the installer).
+    path = tmp_path / "clip.m4a"
+    title = "15 Yaş Altına Sosyal Medya Yasağı Geldi! — ğüşiöç ĞÜŞİÖÇ 日本"
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=duration=1",
+            "-metadata", f"title={title}", "-metadata", "artist=Murat Gamsız",
+            "-c:a", "aac", str(path),
+        ],
+        check=True,
+        timeout=60,
+    )
+    meta = downloader.get_metadata(str(path))
+    assert meta["title"] == title
+    assert meta["artist"] == "Murat Gamsız"

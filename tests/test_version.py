@@ -8,6 +8,7 @@ import importlib.util
 import inspect
 import io
 import json
+import os
 import re
 from pathlib import Path
 
@@ -158,3 +159,57 @@ def test_the_repo_compose_file_uses_the_published_image():
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert re.search(r"^\s*image:\s*ghcr\.io/umitkrkmz/mediagrab:latest\s*$", compose, re.M)
     assert not re.search(r"^\s*build:", compose, re.M)
+
+
+# --- the Windows installer's bundled ffmpeg -------------------------------------
+
+
+def _installer_layout(tmp_path, with_python=True, with_ffmpeg=True):
+    app = tmp_path / "MediaGrab" / "app"
+    app.mkdir(parents=True)
+    if with_python:
+        (tmp_path / "MediaGrab" / "python").mkdir()
+    if with_ffmpeg:
+        (tmp_path / "MediaGrab" / "ffmpeg").mkdir()
+        (tmp_path / "MediaGrab" / "ffmpeg" / "ffmpeg.exe").write_bytes(b"")
+    return app
+
+
+def test_bundled_ffmpeg_is_found_in_the_installer_layout(monkeypatch, tmp_path):
+    app = _installer_layout(tmp_path)
+    monkeypatch.setattr(paths, "app_dir", lambda: str(app))
+    assert paths.bundled_ffmpeg_dir() == str(tmp_path / "MediaGrab" / "ffmpeg")
+
+
+@pytest.mark.parametrize("with_python, with_ffmpeg", [(False, True), (True, False)])
+def test_no_bundled_ffmpeg_outside_the_full_installer_layout(monkeypatch, tmp_path, with_python, with_ffmpeg):
+    # NOTE: a source checkout next to some unrelated "ffmpeg" folder must not
+    # pick up whatever binaries happen to be in it.
+    app = _installer_layout(tmp_path, with_python, with_ffmpeg)
+    monkeypatch.setattr(paths, "app_dir", lambda: str(app))
+    assert paths.bundled_ffmpeg_dir() is None
+
+
+def test_use_bundled_ffmpeg_puts_it_first_on_path(monkeypatch, tmp_path):
+    app = _installer_layout(tmp_path)
+    monkeypatch.setattr(paths, "app_dir", lambda: str(app))
+    monkeypatch.setenv("PATH", "C:/elsewhere")
+    paths.use_bundled_ffmpeg()
+    assert os.environ["PATH"].split(os.pathsep)[0] == str(tmp_path / "MediaGrab" / "ffmpeg")
+
+
+def test_use_bundled_ffmpeg_leaves_path_alone_for_a_source_checkout(monkeypatch):
+    monkeypatch.setenv("PATH", "C:/elsewhere")
+    paths.use_bundled_ffmpeg()
+    assert os.environ["PATH"] == "C:/elsewhere"
+
+
+def test_ffmpeg_version_reports_the_installers_bundled_copy(monkeypatch):
+    # NOTE: the Settings page hides the "install ffmpeg yourself" commands
+    # when this is true - they'd be wrong for the Windows installer.
+    monkeypatch.setattr(app_module, "bundled_ffmpeg_dir", lambda: "C:/x/MediaGrab/ffmpeg")
+    with TestClient(app_module.app) as c:
+        assert c.get("/api/ffmpeg-version").json()["bundled"] is True
+    monkeypatch.setattr(app_module, "bundled_ffmpeg_dir", lambda: None)
+    with TestClient(app_module.app) as c:
+        assert c.get("/api/ffmpeg-version").json()["bundled"] is False

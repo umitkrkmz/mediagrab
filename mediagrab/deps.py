@@ -40,7 +40,9 @@ def _tool_version(tool: str) -> Optional[str]:
         result = subprocess.run(
             [tool, "-version"],
             capture_output=True,
-            text=True,
+            # NOTE: ffmpeg/ffprobe print UTF-8; see downloader._ffprobe_json.
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             creationflags=_NO_WINDOW,
         )
@@ -156,6 +158,7 @@ def update_dependencies() -> dict:
             [sys.executable, "-m", "pip", "install", "--upgrade", "-r", f"{app_dir()}/requirements.txt"],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=300,
             creationflags=_NO_WINDOW,
         )

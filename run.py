@@ -4,6 +4,7 @@ browser automatically and handles the port-already-in-use case gracefully."""
 import http.client
 import os
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -13,7 +14,7 @@ import webbrowser
 import uvicorn
 
 from mediagrab.app import app, lan_ip as _app_lan_ip
-from mediagrab.paths import is_docker
+from mediagrab.paths import app_dir, is_docker, use_bundled_ffmpeg
 from mediagrab.store import get_settings, remote_access_active
 
 # NOTE: HOST is what THIS process uses to reach the server itself (probing
@@ -62,7 +63,86 @@ def _open_browser(port: int) -> None:
     webbrowser.open(f"http://{HOST}:{port}")
 
 
+LOG_NAME = "mediagrab.log"
+# NOTE: past this size the old log is kept once as .old and a new one starts -
+# enough history for a bug report without growing forever.
+LOG_MAX_BYTES = 2 * 1024 * 1024
+
+
+def _ensure_output_streams(folder: str) -> "str | None":
+    """Give stdout/stderr somewhere to go when there's no console.
+
+    The Windows installer starts MediaGrab with pythonw.exe (no console
+    window), where sys.stdout and sys.stderr are None. uvicorn's log setup
+    calls sys.stdout.isatty() and crashed on that before the server ever
+    started - silently, since there was no window to show it (found trying
+    the first installer build). Returns the log file's path, or None when
+    real streams exist and nothing was changed.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return None
+    path = os.path.join(folder, LOG_NAME)
+    try:
+        if os.path.getsize(path) > LOG_MAX_BYTES:
+            os.replace(path, path + ".old")
+    except OSError:
+        pass
+    stream = open(path, "a", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stdout or stream
+    sys.stderr = sys.stderr or stream
+    return path
+
+
+def _hide_child_console_windows() -> None:
+    """Stop every console program MediaGrab starts from popping a window.
+
+    Without a console of its own (pythonw), each console child - ffprobe for
+    a cover or a duration, ffmpeg merging, Deno, the version checks - got a
+    brand-new console window that flashed open and shut, several per
+    download; on a non-technical user's screen that looks like malware (found
+    trying the first installer build). Patched once at subprocess.Popen,
+    which every call goes through - yt-dlp's own Popen subclass included -
+    instead of at each call site. GUI programs (explorer) ignore the flag.
+    """
+    if os.name != "nt":
+        return
+    original_init = subprocess.Popen.__init__
+
+    def init(self, *args, **kwargs):
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | subprocess.CREATE_NO_WINDOW
+        original_init(self, *args, **kwargs)
+
+    subprocess.Popen.__init__ = init
+
+
+def _report_fatal(log_path: "str | None") -> None:
+    traceback.print_exc()
+    if sys.stdin is not None and sys.stdin.isatty():
+        # NOTE: a console window closes the instant the process exits, so a
+        # crash would flash red text and vanish - wait for a keypress.
+        input("\nBir hata oluştu / An error occurred. Kapatmak için Enter'a basın / Press Enter to close...")
+        return
+    # NOTE: no console (pythonw): input() itself raises "lost sys.stdin" and
+    # buried the real error. Windows' own message box is the only thing the
+    # user can see; the details are in the log.
+    if os.name == "nt":
+        import ctypes
+
+        where = f"\n\n{log_path}" if log_path else ""
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            f"MediaGrab başlatılamadı.\nMediaGrab could not start.{where}",
+            "MediaGrab",
+            0x10,  # MB_ICONERROR
+        )
+
+
 def main() -> None:
+    log_path = _ensure_output_streams(app_dir())
+    if log_path:
+        # NOTE: no console of our own (pythonw) - see the function.
+        _hide_child_console_windows()
+    use_bundled_ffmpeg()
     port = PORT
     if _port_in_use(port):
         if _is_mediagrab_running(port):
@@ -118,12 +198,7 @@ def main() -> None:
     try:
         uvicorn.run(app, host=bind_host, port=port)
     except Exception:
-        # NOTE: a console-mode PyInstaller exe closes its window the instant
-        # the process exits, so an unhandled exception would flash red text
-        # and vanish before anyone could read it. Print the traceback and
-        # wait for a keypress instead.
-        traceback.print_exc()
-        input("\nBir hata oluştu / An error occurred. Kapatmak için Enter'a basın / Press Enter to close...")
+        _report_fatal(log_path)
         sys.exit(1)
 
 

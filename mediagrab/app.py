@@ -49,7 +49,7 @@ from .models import (
     StatusResponse,
     YtdlpVersionResponse,
 )
-from .paths import install_type, is_docker, resource_dir
+from .paths import bundled_ffmpeg_dir, install_type, is_docker, resource_dir
 
 
 # NOTE: the running event loop, captured once at startup by `lifespan` below -
@@ -1524,8 +1524,9 @@ def cookie_delete() -> dict:
 def ffmpeg_version() -> dict:
     # NOTE: in Docker ffmpeg is baked into the image, so the per-OS install
     # commands are meaningless there (and "your system" would say Linux - the
-    # container's OS, not the user's).
-    return {**deps.check_ffmpeg(), "is_docker": is_docker()}
+    # container's OS, not the user's). The same goes for the Windows
+    # installer, which ships its own ffmpeg (paths.bundled_ffmpeg_dir).
+    return {**deps.check_ffmpeg(), "is_docker": is_docker(), "bundled": bundled_ffmpeg_dir() is not None}
 
 
 @app.get("/api/dependencies")

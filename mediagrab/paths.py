@@ -41,6 +41,36 @@ def is_docker() -> bool:
     return os.path.exists("/.dockerenv")
 
 
+def bundled_ffmpeg_dir() -> "str | None":
+    """The ffmpeg folder shipped by the Windows installer, if this is one.
+
+    The installer's layout is <install>\\app (this code), <install>\\python
+    (the embedded interpreter) and <install>\\ffmpeg - see
+    packaging/build_windows.py. All three must be there: a source checkout
+    that merely happens to sit next to some "ffmpeg" folder must not pick up
+    whatever binaries are in it.
+    """
+    base = app_dir()
+    install = os.path.dirname(base)
+    folder = os.path.join(install, "ffmpeg")
+    if (
+        os.path.basename(base) == "app"
+        and os.path.isdir(os.path.join(install, "python"))
+        and os.path.isfile(os.path.join(folder, "ffmpeg.exe"))
+    ):
+        return folder
+    return None
+
+
+def use_bundled_ffmpeg() -> None:
+    # NOTE: put first on PATH rather than passed around - yt-dlp, the
+    # Settings version check (deps._tool_version) and every ffprobe call
+    # all find ffmpeg through PATH already, so this one line covers them.
+    folder = bundled_ffmpeg_dir()
+    if folder:
+        os.environ["PATH"] = folder + os.pathsep + os.environ.get("PATH", "")
+
+
 # NOTE: the launcher setup_mediagrab.py writes into every folder it installs
 # to (see its _launcher_name) - a deliberate small duplicate, since the
 # installer runs before this package exists and can't share code with it

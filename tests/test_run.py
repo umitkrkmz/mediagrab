@@ -116,3 +116,93 @@ def test_opens_the_existing_instance_instead_of_starting_a_second_one(base_env, 
 
     assert opened == [f"http://{run.HOST}:{run.PORT}"]
     assert base_env["uvicorn"] == [], "must not start a second server on top of the running one"
+
+
+# --- no console (pythonw.exe, the Windows installer's shortcut) ----------------
+# NOTE: regression. Under pythonw sys.stdout/sys.stderr/sys.stdin are None:
+# uvicorn's log setup called sys.stdout.isatty() and crashed, then the
+# "press Enter" input() in the error handler raised "lost sys.stdin" - the app
+# died with nothing on screen (found in the first installer build).
+
+
+def test_without_a_console_output_goes_to_a_log_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(run.sys, "stdout", None)
+    monkeypatch.setattr(run.sys, "stderr", None)
+    path = run._ensure_output_streams(str(tmp_path))
+    try:
+        assert path == str(tmp_path / run.LOG_NAME)
+        assert run.sys.stdout is run.sys.stderr
+        assert run.sys.stdout.isatty() is False  # what uvicorn asks
+        print("hello from pythonw")
+    finally:
+        run.sys.stdout.close()
+    assert "hello from pythonw" in (tmp_path / run.LOG_NAME).read_text(encoding="utf-8")
+
+
+def test_with_a_console_nothing_is_redirected(monkeypatch, tmp_path):
+    before = (run.sys.stdout, run.sys.stderr)
+    assert run._ensure_output_streams(str(tmp_path)) is None
+    assert (run.sys.stdout, run.sys.stderr) == before
+    assert not (tmp_path / run.LOG_NAME).exists()
+
+
+def test_a_large_log_is_kept_once_as_old(monkeypatch, tmp_path):
+    log = tmp_path / run.LOG_NAME
+    log.write_bytes(b"x" * (run.LOG_MAX_BYTES + 1))
+    monkeypatch.setattr(run.sys, "stdout", None)
+    monkeypatch.setattr(run.sys, "stderr", None)
+    run._ensure_output_streams(str(tmp_path))
+    run.sys.stdout.close()
+    assert (tmp_path / (run.LOG_NAME + ".old")).stat().st_size == run.LOG_MAX_BYTES + 1
+    assert log.stat().st_size == 0
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the message box is Windows-only")
+def test_a_startup_crash_without_a_console_shows_a_message_box(base_env, monkeypatch, tmp_path):
+    import ctypes
+
+    boxes = []
+    monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", lambda *a: boxes.append(a[1]) or 1)
+    monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("input() needs a console"))
+    monkeypatch.setattr(run.sys, "stdin", None)
+
+    def crash(app, host, port):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(run.uvicorn, "run", crash)
+    with pytest.raises(SystemExit) as exit_info:
+        run.main()
+    assert exit_info.value.code == 1
+    assert len(boxes) == 1
+    assert "MediaGrab" in boxes[0]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="console windows are a Windows thing")
+def test_without_a_console_child_programs_open_no_window(monkeypatch):
+    # NOTE: regression. Under pythonw every console child (ffprobe, ffmpeg,
+    # Deno, version checks) flashed its own console window open and shut.
+    import subprocess
+
+    seen = []
+    original = subprocess.Popen.__init__
+
+    def recorder(self, *args, **kwargs):
+        seen.append(kwargs.get("creationflags", 0))
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess.Popen, "__init__", recorder)
+    run._hide_child_console_windows()
+
+    subprocess.run([run.sys.executable, "-c", "pass"], check=True)
+    subprocess.run([run.sys.executable, "-c", "pass"], check=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    assert seen[0] & subprocess.CREATE_NO_WINDOW
+    assert seen[1] & subprocess.CREATE_NO_WINDOW
+    assert seen[1] & subprocess.CREATE_NEW_PROCESS_GROUP, "a caller's own flags must survive"
+
+
+def test_with_a_console_child_programs_are_left_alone(base_env, monkeypatch):
+    import subprocess
+
+    original = subprocess.Popen.__init__
+    run.main()
+    assert subprocess.Popen.__init__ is original

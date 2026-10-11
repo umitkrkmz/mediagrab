@@ -1130,7 +1130,13 @@ def _ffprobe_json(path: str, entries: str) -> dict:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", entries, "-of", "json", path],
             capture_output=True,
-            text=True,
+            # NOTE: ffprobe always prints UTF-8. Plain text=True decoded it
+            # with the Windows ANSI code page instead (cp1254 on Turkish
+            # Windows): "Yaş Altına" came back as "YaÅŸ AltÄ±na", and a title
+            # with a character outside that code page failed to decode at
+            # all, leaving the detail page with no title.
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
         )
         return json.loads(result.stdout or "{}")
@@ -1181,7 +1187,8 @@ def _ffprobe_duration(path: str) -> Optional[int]:
                 path,
             ],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
         )
         return int(float(result.stdout.strip()))
@@ -1419,6 +1426,9 @@ def update_ytdlp() -> dict:
             [sys.executable, "-m", "pip", "install", *pip_args, "--upgrade", YTDLP_PIP_SPEC],
             capture_output=True,
             text=True,
+            # NOTE: pip's output is only shown, never parsed - an odd byte
+            # must not turn a successful update into a crash.
+            errors="replace",
             timeout=120,
         )
         return {
