@@ -920,7 +920,31 @@ def supported_sites_page(request: Request, lang: Optional[str] = None):
 
 @app.get("/about")
 def about_page(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "about.html", _page_context(request, lang, "about"))
+    context = _page_context(request, lang, "about")
+    context["has_notices"] = _notices_path() is not None
+    return templates.TemplateResponse(request, "about.html", context)
+
+
+# NOTE: written by packaging/build_windows.py next to python\ and app\ - the
+# Windows package ships Python, FFmpeg (GPL) and many Python packages, and
+# says here what each is, under which license and where its source is.
+# Nothing to show for a source checkout or Docker.
+NOTICES_NAME = "THIRD-PARTY-NOTICES.txt"
+
+
+def _notices_path() -> Optional[str]:
+    install = windows_install_dir()
+    path = os.path.join(install, NOTICES_NAME) if install else None
+    return path if path and os.path.isfile(path) else None
+
+
+@app.get("/third-party-notices")
+def third_party_notices() -> Response:
+    path = _notices_path()
+    if not path:
+        raise HTTPException(status_code=404, detail="Not found")
+    with open(path, "r", encoding="utf-8-sig") as f:
+        return Response(f.read(), media_type="text/plain; charset=utf-8")
 
 
 # --- login gate for optional LAN/remote access --------------------------------

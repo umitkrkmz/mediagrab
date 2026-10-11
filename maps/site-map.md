@@ -39,7 +39,8 @@ own confirmation: `POST .../saved` (`_confirm_saved`).
 | `/channels` | `channels.html` | Follow YouTube channels (notify / auto-download); checked once per app start | `loadChannels`, `addChannel`, `renderChannelList` |
 | `/supported-sites` | `supported_sites.html` | Clickable, branded chips for popular yt-dlp sites + link to the full list | none (static) |
 | `/settings` | `settings.html` | Sidebar tabs: theme · default audio track · cookies · version checks (yt-dlp, ffmpeg, Python deps) · feedback | `showSettingsTab` (hash routing), `renderThemeControls`, cookie panel, `loadYtdlpVersion`, `loadFfmpegVersion`, `loadDependencies` |
-| `/about` | `about.html` | Project description, licence, GitHub / issues / changelog links | none (static) |
+| `/about` | `about.html` | Project description, licence, GitHub / issues / changelog links; in the Windows package also a link to `/third-party-notices` (`has_notices`) | none (static) |
+| `/third-party-notices` | — | Plain text: the Windows package's THIRD-PARTY-NOTICES.txt (written by packaging/build_windows.py next to python\ and app\); 404 anywhere else | — |
 | `/login` | `login.html` | Password prompt for LAN access - only reachable (not auto-redirected away) when remote access is on and there's no valid session | inline script in the template itself, not app.js |
 | `/sw.js` | — | Serves the PWA service worker from `static/` at the root scope | — |
 

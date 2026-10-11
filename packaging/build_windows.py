@@ -169,6 +169,76 @@ def stage_ffmpeg() -> None:
                     shutil.copyfileobj(src, dst)
 
 
+NOTICES_NAME = "THIRD-PARTY-NOTICES.txt"
+
+
+def _license_of(meta) -> str:
+    expression = meta.get("License-Expression")
+    if expression:
+        return expression
+    classifiers = [c.split("::")[-1].strip() for c in meta.get_all("Classifier") or [] if c.startswith("License ::")]
+    return "; ".join(classifiers) or (meta.get("License") or "see its license file").splitlines()[0][:80]
+
+
+def notices_text(stage: str, version: str) -> str:
+    """THIRD-PARTY-NOTICES.txt: everything in the package that isn't MediaGrab's.
+
+    NOTE: built from what's really staged (each wheel's own METADATA), so it
+    can't drift from the package. The license texts themselves ship next to
+    each part; this file says what is what, under which license, and where
+    the source is - FFmpeg is GPL, so its exact source has to be findable.
+    """
+    import email
+
+    ffmpeg_commit = FFMPEG_ASSET.split("-g", 1)[1].split("-", 1)[0]
+    site = os.path.join(stage, "python", "Lib", "site-packages")
+    lines = [
+        f"MediaGrab {version} - third-party software in this package",
+        "=" * 64,
+        "",
+        "MediaGrab itself: GPL-3.0-or-later (see app\\LICENSE).",
+        f"  Source: https://github.com/umitkrkmz/mediagrab/tree/v{version}",
+        "",
+        f"Python {PYTHON_VERSION} (embeddable package) - PSF License Version 2 (see python\\LICENSE.txt).",
+        f"  Source: https://www.python.org/downloads/release/python-{PYTHON_VERSION.replace('.', '')}/",
+        "",
+        "FFmpeg (ffmpeg\\*.exe, ffmpeg\\*.dll) - GPL-3.0-or-later as built, with the GPL",
+        "  libraries it was built with (see ffmpeg\\LICENSE.txt).",
+        f"  Build: {FFMPEG_ASSET} from yt-dlp/FFmpeg-Builds",
+        f"         https://github.com/yt-dlp/FFmpeg-Builds/releases/tag/{FFMPEG_TAG}",
+        f"  FFmpeg source (commit {ffmpeg_commit}): https://github.com/FFmpeg/FFmpeg/tree/{ffmpeg_commit}",
+        "  Build scripts (they pin each library's source): https://github.com/yt-dlp/FFmpeg-Builds",
+        "",
+        "Python packages (python\\Lib\\site-packages) - each one's license text is in",
+        "its *.dist-info folder:",
+        "",
+    ]
+    rows = []
+    for entry in sorted(os.listdir(site), key=str.lower):
+        if not entry.endswith(".dist-info"):
+            continue
+        with open(os.path.join(site, entry, "METADATA"), encoding="utf-8") as f:
+            meta = email.message_from_string(f.read())
+        rows.append((meta["Name"], meta["Version"], _license_of(meta), entry))
+    width = max(len(name) for name, *_ in rows)
+    for name, pkg_version, license_name, entry in rows:
+        lines.append(f"  {name:<{width}}  {pkg_version:<12}  {license_name}")
+        lines.append(f"  {'':<{width}}  {'':<12}  python\\Lib\\site-packages\\{entry}")
+    lines += [
+        "",
+        "The deno package above carries the Deno runtime (MIT), which yt-dlp uses for YouTube.",
+        "",
+    ]
+    return "\r\n".join(lines)
+
+
+def write_notices(stage: str) -> None:
+    with open(os.path.join(ROOT, "mediagrab", "__init__.py"), encoding="utf-8") as f:
+        version = re.search(r'__version__ = "([^"]+)"', f.read()).group(1)
+    with open(os.path.join(stage, NOTICES_NAME), "w", encoding="utf-8-sig", newline="") as f:
+        f.write(notices_text(stage, version))
+
+
 def folder_size(path: str) -> int:
     return sum(os.path.getsize(os.path.join(r, f)) for r, _d, files in os.walk(path) for f in files)
 
@@ -184,6 +254,7 @@ def main() -> None:
     stage_packages(python_dir)
     stage_launcher(python_dir)
     stage_ffmpeg()
+    write_notices(STAGE)
     for part in ("python", "app", "ffmpeg"):
         print(f"{part:7} {folder_size(os.path.join(STAGE, part)) / 2**20:7.1f} MB")
     total = folder_size(STAGE)
