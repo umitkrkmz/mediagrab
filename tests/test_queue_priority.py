@@ -139,8 +139,9 @@ def test_a_manual_download_is_submitted_directly_even_with_both_auto_slots_busy(
 
     assert res.status_code == 200
     assert len(submitted) == 1
-    # NOTE: goes straight to the real _run_job, never through
-    # _run_auto_download_job / the slot-counting machinery at all - a manual
-    # download's fate is never tied to how many auto-downloads are running.
-    assert submitted[0][0] is app_module._run_job
+    # NOTE: goes straight to _run_job (through the move gate every download
+    # passes, see _download_slot), never through _run_auto_download_job / the
+    # slot-counting machinery at all - a manual download's fate is never tied
+    # to how many auto-downloads are running.
+    assert submitted[0][0] is app_module._run_gated_job
     assert app_module._active_auto_downloads == app_module._MAX_CONCURRENT_AUTO_DOWNLOADS

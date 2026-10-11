@@ -3734,7 +3734,32 @@ button:disabled {
   margin-bottom: 12px;
 }
 
-#download-dir-reset-btn {
+/* NOTE: a move's result can list several lines (moved / conflicts / failed). */
+#download-dir-status {
+  white-space: pre-line;
+}
+
+.download-dir-previous-card {
+  margin: 12px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.download-dir-previous-card p {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.download-dir-previous-card .cookie-actions {
+  margin-top: 10px;
+}
+
+#download-dir-reset-btn,
+.download-dir-previous-card .btn-secondary {
   background: transparent;
   color: var(--text-muted-alt);
   border: 1px solid var(--border-strong-alt);

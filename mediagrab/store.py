@@ -70,6 +70,11 @@ DEFAULT_SETTINGS = {
     # _SETTINGS_BACKUP_EXCLUDED_KEYS) and is ignored in Docker, where the
     # compose file's volume decides where downloads go.
     "download_dir": "",
+    # NOTE: earlier downloads folders that still hold downloads after the
+    # folder was changed - Settings offers "Move here" / "Leave them there"
+    # for each (app.py's _remember_previous_download_dir). Machine paths too,
+    # so likewise never in a backup.
+    "previous_download_dirs": [],
 }
 
 

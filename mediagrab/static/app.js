@@ -526,6 +526,22 @@ const I18N = {
     downloadDirErrNotWritable: "Bu klasöre yazılamıyor (izin yok, disk dolu ya da sürücü çıkarılmış olabilir).",
     downloadDirErrNotAllowed: "Bu klasör yalnızca MediaGrab'ın kurulu olduğu bilgisayardan değiştirilebilir.",
     downloadDirErrPicker: "Klasör seçme penceresi açılamadı. Yolu elle yazabilirsiniz.",
+    downloadDirPrevTitle: "Önceki klasörde indirmeleriniz var",
+    downloadDirPrevText: "{path} klasöründe {files} ({size}) duruyor. Geçmiş yalnızca şu anki klasörü gösterir.",
+    downloadDirPrevFileOne: "{n} dosya",
+    downloadDirPrevFileMany: "{n} dosya",
+    downloadDirPrevMove: "Buraya taşı",
+    downloadDirPrevLeave: "Yerinde bırak",
+    downloadDirPrevHint: "Yerinde bırakırsanız hiçbir dosya silinmez; yalnızca bu soru kapanır. Taşıma sürerken yeni indirmeler sırada bekler.",
+    downloadDirPrevUnavailable: "{path} klasörüne şu an ulaşılamıyor (sürücü takılı olmayabilir). Takıldığında taşıyabilirsiniz.",
+    downloadDirMoving: "Taşınıyor… {done} / {total}",
+    downloadDirMoveDone: "Taşıma bitti: {files} taşındı.",
+    downloadDirMoveConflicts: "Yeni klasörde aynı adlı farklı bir dosya olduğu için taşınmadı (ikisi de yerinde): {list}",
+    downloadDirMoveFailed: "Taşınamadı, eski yerinde duruyor (açık olabilir; kapatıp yeniden deneyin): {list}",
+    downloadDirMoveNoSpace: "Yeni klasörün diskinde yeterli boş alan yok: {needed} gerekiyor, {free} boş. Hiçbir dosyaya dokunulmadı.",
+    downloadDirMoveBusy: "Önce süren indirmelerin bitmesini bekleyin, sonra yeniden deneyin.",
+    downloadDirErrMoving: "Bir taşıma sürüyor; bitmesini bekleyin.",
+    downloadDirMoveError: "Taşıma tamamlanamadı; taşınamayan dosyalar eski yerinde duruyor. Yeniden deneyebilirsiniz.",
     depsUpdatesAvailable: "paket güncellenebilir",
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
@@ -964,6 +980,22 @@ const I18N = {
     downloadDirErrNotWritable: "Can't write to this folder (no permission, disk full, or the drive was removed).",
     downloadDirErrNotAllowed: "This folder can only be changed on the computer MediaGrab is installed on.",
     downloadDirErrPicker: "Couldn't open the folder picker. You can type the path instead.",
+    downloadDirPrevTitle: "You have downloads in an earlier folder",
+    downloadDirPrevText: "{files} ({size}) are still in {path}. History only shows the current folder.",
+    downloadDirPrevFileOne: "{n} file",
+    downloadDirPrevFileMany: "{n} files",
+    downloadDirPrevMove: "Move here",
+    downloadDirPrevLeave: "Leave them there",
+    downloadDirPrevHint: "Leaving them there deletes nothing; it only closes this question. New downloads wait in the queue while a move runs.",
+    downloadDirPrevUnavailable: "{path} can't be reached right now (the drive may be unplugged). You can move them once it's back.",
+    downloadDirMoving: "Moving… {done} / {total}",
+    downloadDirMoveDone: "Move finished: {files} moved.",
+    downloadDirMoveConflicts: "Not moved because a different file with the same name is already in the new folder (both kept): {list}",
+    downloadDirMoveFailed: "Couldn't be moved and stayed where it was (it may be open; close it and try again): {list}",
+    downloadDirMoveNoSpace: "Not enough free space on the new folder's drive: {needed} needed, {free} free. No file was touched.",
+    downloadDirMoveBusy: "Wait for the running downloads to finish, then try again.",
+    downloadDirErrMoving: "A move is in progress; wait for it to finish.",
+    downloadDirMoveError: "The move couldn't finish; files that weren't moved are still in the old folder. You can try again.",
     depsUpdatesAvailable: "packages can be updated",
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
@@ -3072,6 +3104,7 @@ function downloadDirErrorText(code) {
     not_writable: t().downloadDirErrNotWritable,
     not_allowed: t().downloadDirErrNotAllowed,
     picker_failed: t().downloadDirErrPicker,
+    already_moving: t().downloadDirErrMoving,
   };
   return messages[code] || code || t().errUnknown;
 }
@@ -3095,6 +3128,148 @@ function renderDownloadDir(info) {
   downloadDirDocker.classList.toggle("hidden", !info.is_docker);
   downloadDirReadonly.classList.toggle("hidden", info.editable || info.is_docker);
   if (info.editable && document.activeElement !== downloadDirInput) downloadDirInput.value = info.path;
+  renderPreviousDownloadDirs(info);
+  if (info.move?.running) watchDownloadDirMove();
+}
+
+const downloadDirPrevious = document.getElementById("download-dir-previous");
+let downloadDirMoveTimer = null;
+
+function downloadDirFiles(n) {
+  return (n === 1 ? t().downloadDirPrevFileOne : t().downloadDirPrevFileMany).replace("{n}", n);
+}
+
+// NOTE: one card per earlier folder that still holds downloads (app.py's
+// previous_download_dirs). Built with textContent - the paths are the
+// user's own folder names, never markup.
+function renderPreviousDownloadDirs(info) {
+  if (!downloadDirPrevious) return;
+  downloadDirPrevious.replaceChildren();
+  const moving = Boolean(info.move?.running);
+  for (const prev of info.previous || []) {
+    const card = document.createElement("div");
+    card.className = "download-dir-previous-card";
+    const title = document.createElement("strong");
+    title.textContent = t().downloadDirPrevTitle;
+    const text = document.createElement("p");
+    text.textContent = prev.available
+      ? t()
+          .downloadDirPrevText.replace("{path}", prev.path)
+          .replace("{files}", downloadDirFiles(prev.files))
+          .replace("{size}", formatBytes(prev.bytes, lang))
+      : t().downloadDirPrevUnavailable.replace("{path}", prev.path);
+    card.append(title, text);
+    if (info.editable) {
+      const actions = document.createElement("div");
+      actions.className = "cookie-actions";
+      if (prev.available) {
+        const move = document.createElement("button");
+        move.type = "button";
+        move.textContent = t().downloadDirPrevMove;
+        move.disabled = moving;
+        move.addEventListener("click", () => startDownloadDirMove(prev.path));
+        actions.append(move);
+      }
+      const leave = document.createElement("button");
+      leave.type = "button";
+      leave.className = "btn-secondary";
+      leave.textContent = t().downloadDirPrevLeave;
+      leave.disabled = moving;
+      leave.addEventListener("click", () => forgetDownloadDir(prev.path));
+      actions.append(leave);
+      const hint = document.createElement("p");
+      hint.className = "settings-hint";
+      hint.textContent = t().downloadDirPrevHint;
+      card.append(actions, hint);
+    }
+    downloadDirPrevious.append(card);
+  }
+}
+
+function downloadDirMoveErrorText(code) {
+  return code === "downloads_running" ? t().downloadDirMoveBusy : downloadDirErrorText(code);
+}
+
+async function startDownloadDirMove(path) {
+  try {
+    const res = await fetch("/api/download-dir/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirMoveErrorText(data.detail), "bad");
+      return;
+    }
+    watchDownloadDirMove();
+    await loadDownloadDir();
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+function showDownloadDirMoveResult(state) {
+  if (state.error) {
+    const text =
+      state.error.code === "no_space"
+        ? t()
+            .downloadDirMoveNoSpace.replace("{needed}", formatBytes(state.error.needed, lang))
+            .replace("{free}", formatBytes(state.error.free, lang))
+        : t().downloadDirMoveError;
+    showDownloadDirStatus(text, "bad");
+    return;
+  }
+  const r = state.result || { moved: 0, conflicts: [], failed: [] };
+  const lines = [t().downloadDirMoveDone.replace("{files}", downloadDirFiles(r.moved))];
+  if (r.conflicts.length) lines.push(t().downloadDirMoveConflicts.replace("{list}", r.conflicts.join(", ")));
+  if (r.failed.length) lines.push(t().downloadDirMoveFailed.replace("{list}", r.failed.join(", ")));
+  showDownloadDirStatus(lines.join("\n"), r.conflicts.length || r.failed.length ? "bad" : "ok");
+}
+
+// NOTE: polled, not pushed - a move is rare and short-lived, and this keeps
+// it out of the download job events.
+function watchDownloadDirMove() {
+  if (downloadDirMoveTimer) return;
+  downloadDirMoveTimer = setInterval(async () => {
+    try {
+      const state = await (await fetch("/api/download-dir/move")).json();
+      if (state.running) {
+        showDownloadDirStatus(
+          t()
+            .downloadDirMoving.replace("{done}", formatBytes(state.done, lang))
+            .replace("{total}", formatBytes(state.total, lang)),
+          "ok"
+        );
+        return;
+      }
+      clearInterval(downloadDirMoveTimer);
+      downloadDirMoveTimer = null;
+      await loadDownloadDir();
+      showDownloadDirMoveResult(state);
+    } catch {
+      // NOTE: a dropped poll just tries again on the next tick.
+    }
+  }, 1000);
+}
+
+async function forgetDownloadDir(path) {
+  try {
+    const res = await fetch("/api/download-dir/forget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirMoveErrorText(data.detail), "bad");
+      return;
+    }
+    renderDownloadDir(data);
+    downloadDirStatus?.classList.add("hidden");
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
 }
 
 async function loadDownloadDir() {

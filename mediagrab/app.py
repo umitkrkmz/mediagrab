@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, auth, deps, downloader, stats, store
+from . import __version__, auth, deps, downloader, mover, stats, store
 from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
@@ -526,6 +526,35 @@ def _has_enough_disk_space(estimated_size_bytes: Optional[int]) -> bool:
     return free >= _MIN_FREE_DISK_BYTES
 
 
+# NOTE: a move of the downloads folder (Settings -> "Move here") and
+# downloads never run at the same time: a download landing mid-move could
+# collide with a file being moved, and the move's free-space check would be
+# stale. Downloads submitted meanwhile simply wait here, shown as queued.
+_move_cond = threading.Condition()
+_running_downloads = 0
+_move_state: dict = {"running": False, "path": None, "done": 0, "total": 0, "result": None, "error": None}
+
+
+@contextmanager
+def _download_slot():
+    global _running_downloads
+    with _move_cond:
+        while _move_state["running"]:
+            _move_cond.wait()
+        _running_downloads += 1
+    try:
+        yield
+    finally:
+        with _move_cond:
+            _running_downloads -= 1
+            _move_cond.notify_all()
+
+
+def _run_gated_job(*args) -> None:
+    with _download_slot():
+        _run_job(*args)
+
+
 def _run_job(
     job_id: str,
     url: str,
@@ -642,7 +671,7 @@ def _submit_auto_download(job_id: str, url: str, kind: str, choice: str, audio_l
 
 def _run_auto_download_job(job_id: str, url: str, kind: str, choice: str, audio_langs: list[str]) -> None:
     try:
-        _run_job(job_id, url, kind, choice, [], audio_langs)
+        _run_gated_job(job_id, url, kind, choice, [], audio_langs)
     finally:
         _finish_auto_download()
 
@@ -1061,7 +1090,7 @@ def start_download(req: DownloadRequest) -> dict:
     with jobs_lock:
         jobs[job_id] = _new_job_record()
     executor.submit(
-        _run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs, req.estimated_size_bytes
+        _run_gated_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs, req.estimated_size_bytes
     )
     return {"job_id": job_id}
 
@@ -1354,10 +1383,58 @@ def _check_download_dir(path: str) -> str:
     return folder
 
 
+def _move_exclude(old: str, current: str) -> Optional[str]:
+    # NOTE: when the current folder lies INSIDE the old one, its files are
+    # already where they belong - a move must not pick them up again.
+    return current if mover.is_inside(current, old) else None
+
+
+def _change_download_dir(setting: str) -> None:
+    """Save a new download_dir setting and remember the folder it replaces."""
+    old = downloader.download_dir()
+    store.save_settings(download_dir=setting)
+    current = downloader.download_dir()
+    previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if isinstance(p, str)]
+    # NOTE: back in a folder (or above it - History walks subfolders): its
+    # files are visible again, nothing left to offer.
+    previous = [p for p in previous if not mover.is_inside(p, current)]
+    if (
+        not mover.is_inside(old, current)
+        and not any(mover.is_inside(old, p) and mover.is_inside(p, old) for p in previous)
+        and mover.movable_files(old, HISTORY_EXTS, _move_exclude(old, current))
+    ):
+        previous.append(old)
+    store.save_settings(previous_download_dirs=previous)
+
+
+def _previous_download_dirs() -> list[dict]:
+    """Earlier folders still holding downloads; drops the ones now empty."""
+    current = downloader.download_dir()
+    kept, info = [], []
+    for path in store.get_settings().get("previous_download_dirs") or []:
+        if not isinstance(path, str):
+            continue
+        if not os.path.isdir(path):
+            # NOTE: e.g. a USB drive that's unplugged right now - kept, so the
+            # offer comes back when it's plugged in again.
+            kept.append(path)
+            info.append({"path": path, "available": False, "files": 0, "bytes": 0})
+            continue
+        files = mover.movable_files(path, HISTORY_EXTS, _move_exclude(path, current))
+        if files:
+            kept.append(path)
+            info.append({"path": path, "available": True, "files": len(files), "bytes": sum(s for _r, s in files)})
+    if kept != store.get_settings().get("previous_download_dirs"):
+        store.save_settings(previous_download_dirs=kept)
+    return info
+
+
 def _download_dir_info(request: Request) -> dict:
     current = downloader.download_dir()
     editable = _download_dir_editable(request)
     return {
+        "previous": [] if is_docker() else _previous_download_dirs(),
+        "move": _move_status(),
         "path": current,
         "default": downloader.DOWNLOAD_DIR,
         "is_default": os.path.normcase(os.path.abspath(current))
@@ -1393,7 +1470,7 @@ def _apply_installer_download_dir() -> None:
             same_as_default = os.path.normcase(os.path.abspath(chosen)) == os.path.normcase(
                 os.path.abspath(downloader.DOWNLOAD_DIR)
             )
-            store.save_settings(download_dir="" if same_as_default else _check_download_dir(chosen))
+            _change_download_dir("" if same_as_default else _check_download_dir(chosen))
     except (OSError, HTTPException):
         # NOTE: an unusable choice (a drive that's gone, say) just leaves the
         # default in place; Settings can change it any time.
@@ -1414,10 +1491,94 @@ def get_download_dir(request: Request) -> dict:
 def set_download_dir(req: DownloadDirRequest, request: Request) -> dict:
     if not _download_dir_editable(request):
         raise HTTPException(status_code=403, detail="not_allowed")
+    if _move_status()["running"]:
+        # NOTE: the move's target is the current folder - it can't change
+        # under a move that's halfway through.
+        raise HTTPException(status_code=409, detail="already_moving")
     path = req.path.strip()
-    # NOTE: only NEW downloads go to the new folder - files already in the
-    # old one stay where they are (moving them is a separate, later step).
-    store.save_settings(download_dir=_check_download_dir(path) if path else "")
+    # NOTE: switches right away, for NEW downloads; files already in the old
+    # folder stay put until the user picks "Move here" or "Leave them there"
+    # in Settings (the folder is remembered by _change_download_dir).
+    _change_download_dir(_check_download_dir(path) if path else "")
+    return _download_dir_info(request)
+
+
+def _move_status() -> dict:
+    with _move_cond:
+        return dict(_move_state)
+
+
+def _known_previous_dir(path: str) -> str:
+    # NOTE: only a folder MediaGrab itself remembered can be moved from or
+    # forgotten - never an arbitrary path sent in a request.
+    for known in store.get_settings().get("previous_download_dirs") or []:
+        if isinstance(known, str) and mover.is_inside(known, path) and mover.is_inside(path, known):
+            return known
+    raise HTTPException(status_code=404, detail="unknown_folder")
+
+
+def _run_move(src: str) -> None:
+    current = downloader.download_dir()
+
+    def progress(done: int, total: int) -> None:
+        with _move_cond:
+            _move_state.update(done=done, total=total)
+
+    result, error = None, None
+    try:
+        result = mover.move_files(src, current, HISTORY_EXTS, _move_exclude(src, current), progress)
+    except mover.NotEnoughSpace as exc:
+        error = {"code": "no_space", "needed": exc.needed, "free": exc.free}
+    except OSError:
+        error = {"code": "failed"}
+    finally:
+        with _move_cond:
+            _move_state.update(running=False, result=result, error=error)
+            _move_cond.notify_all()
+    # NOTE: dropped here, not left to _previous_download_dirs: a move that
+    # emptied the folder also removed it, and a missing folder there means
+    # "drive unplugged, keep offering".
+    if not os.path.isdir(src) or not mover.movable_files(src, HISTORY_EXTS, _move_exclude(src, current)):
+        previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if p != src]
+        store.save_settings(previous_download_dirs=previous)
+
+
+@app.post("/api/download-dir/move")
+def download_dir_move(req: DownloadDirRequest, request: Request) -> dict:
+    """Move an earlier folder's downloads into the current one, in the background."""
+    if not _download_dir_editable(request):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    src = _known_previous_dir(req.path)
+    if not os.path.isdir(src):
+        raise HTTPException(status_code=404, detail="unavailable")
+    with _move_cond:
+        if _move_state["running"]:
+            raise HTTPException(status_code=409, detail="already_moving")
+        # NOTE: running downloads finish first; ones that start meanwhile
+        # wait in _download_slot until the move is over.
+        if _running_downloads:
+            raise HTTPException(status_code=409, detail="downloads_running")
+        _move_state.update(running=True, path=src, done=0, total=0, result=None, error=None)
+    threading.Thread(target=_run_move, args=(src,), daemon=True).start()
+    return _move_status()
+
+
+@app.get("/api/download-dir/move")
+def download_dir_move_status() -> dict:
+    return _move_status()
+
+
+@app.post("/api/download-dir/forget")
+def download_dir_forget(req: DownloadDirRequest, request: Request) -> dict:
+    """ "Leave them there": stop offering to move this folder. Deletes nothing."""
+    if not _download_dir_editable(request):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    src = _known_previous_dir(req.path)
+    with _move_cond:
+        if _move_state["running"] and _move_state["path"] == src:
+            raise HTTPException(status_code=409, detail="already_moving")
+    previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if p != src]
+    store.save_settings(previous_download_dirs=previous)
     return _download_dir_info(request)
 
 
@@ -1553,7 +1714,12 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
 # download_dir is left out for a different reason: it's a path on THIS
 # machine. Restored on another computer (or into Docker) it would point at a
 # folder that doesn't exist there.
-_SETTINGS_BACKUP_EXCLUDED_KEYS = {"remote_access_password_salt", "remote_access_password_hash", "download_dir"}
+_SETTINGS_BACKUP_EXCLUDED_KEYS = {
+    "remote_access_password_salt",
+    "remote_access_password_hash",
+    "download_dir",
+    "previous_download_dirs",
+}
 
 
 @app.get("/api/settings/export")
@@ -1720,14 +1886,14 @@ def history() -> list[dict]:
     # older files from before that change may still sit flat in DOWNLOAD_DIR,
     # so both must keep showing up here.
     items = []
-    folder = downloader.download_dir()
-    for root, _dirs, files in os.walk(folder):
+    downloads = downloader.download_dir()
+    for root, _dirs, files in os.walk(downloads):
         for name in files:
             path = os.path.join(root, name)
             ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
             if ext not in HISTORY_EXTS or not os.path.isfile(path):
                 continue
-            rel = os.path.relpath(path, folder).replace(os.sep, "/")
+            rel = os.path.relpath(path, downloads).replace(os.sep, "/")
             folder = rel.rsplit("/", 1)[0] if "/" in rel else None
             stat = os.stat(path)
             items.append(
