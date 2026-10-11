@@ -11,7 +11,7 @@
 - [Örnek senaryolar](#örnek-senaryolar)
 - [Özellikler](#özellikler)
 - [Kurulum](#kurulum)
-  - [Yöntem A: Kolay kurulum (Windows)](#yöntem-a-kolay-kurulum-windows-mediagrabsetupexe)
+  - [Yöntem A: Windows kurulum programı (önerilen)](#yöntem-a-windows-kurulum-programı-önerilen)
   - [Yöntem B: Elle kurulum (her platform)](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform)
   - [Yöntem C: Docker (her platform)](#yöntem-c-docker-her-platform)
 - [Çalıştırma](#çalıştırma)
@@ -37,9 +37,9 @@ Link yapıştır, indir. Lokalde çalışan, kişisel kullanım için video/ses 
 
 | Yol | Kime uygun | Gerekenler |
 |---|---|---|
-| [Windows kolay kurulum](#yöntem-a-kolay-kurulum-windows-mediagrabsetupexe) | Windows'ta terminal komutu yazmak istemeyenler | Git, Python, ffmpeg |
-| [Docker](#yöntem-c-docker-her-platform) | 7/24 açık bir makine (Raspberry Pi, mini PC) veya Python kurmak istemeyenler | Docker |
-| [Elle kurulum](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform) | Her platform, geliştiriciler | Git, Python, ffmpeg |
+| [Windows kurulum programı](#yöntem-a-windows-kurulum-programı-önerilen) | Windows'ta herkes | hiçbir şey |
+| [Docker](#yöntem-c-docker-her-platform) | Linux, macOS, 7/24 açık bir makine (Raspberry Pi, mini PC) | Docker |
+| [Elle kurulum](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform) | Geliştiriciler, her platform | Git, Python, ffmpeg |
 
 Kurulumdan sonra tarayıcıda `http://localhost:8420` açılır. Ayrıntılı adımlar aşağıdaki [Kurulum](#kurulum) bölümünde.
 
@@ -129,7 +129,7 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 
 - **Uzaktan erişim** (`/settings`) — bir şifre belirleyip açtığınızda, aynı Wi-Fi/ağdaki telefon veya başka bir bilgisayar tarayıcıdan MediaGrab'e bağlanıp kendi başına indirme yapabilir; detaylar için [Uzaktan Erişim](#uzaktan-erişim-yerel-ağdan) bölümüne bakın
 - **Ev Sunucusu Modu** (`/settings`) — bir Raspberry Pi gibi 7/24 açık bir makinede çalıştıranlar için: periyodik (3 saatte bir) otomatik kanal kontrolü ve hatırlaması kolay `mediagrab.local` adresi; bkz. [Ev Sunucusu Modu](#ev-sunucusu-modu)
-- **Docker desteği** — Python veya Git kurmadan, doğrudan bir container'da çalıştırabilirsiniz; Windows kurulum programında tek tıkla, veya elle `docker compose up -d` ile — bkz. [Yöntem C](#yöntem-c-docker-her-platform)
+- **Docker desteği** — Python veya Git kurmadan, doğrudan bir container'da çalıştırabilirsiniz; Windows kurulum programındaki "Docker ile kurulum" seçeneğiyle, veya elle `docker compose up -d` ile — bkz. [Yöntem C](#yöntem-c-docker-her-platform)
 - **Ayarları yedekle / içe aktar** (`/settings`) — tüm ayarlarınızı ve takip listenizi tek bir dosyaya (şifreniz hariç) dışa aktarıp başka bir kuruluma aktarabilirsiniz
 
 ### Bakım
@@ -142,77 +142,45 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 
 ## Kurulum
 
-Üç yol var: **kolay kurulum** (Windows'a özel, hazır `.exe`, terminal komutu yazmadan), **elle kurulum** (git clone + pip, her platformda çalışır) veya **Docker** (container içinde, Python/Git kurmadan — her platformda çalışır).
+Üç yol var: **Windows kurulum programı** (önerilen; Python, Git ya da ffmpeg gerekmez), **elle kurulum** (git clone + pip, her platformda çalışır) veya **Docker** (container içinde — Linux, macOS, Raspberry Pi ve Windows).
 
-### Yöntem A: Kolay kurulum (Windows, `MediaGrabSetup.exe`)
+### Yöntem A: Windows kurulum programı (önerilen)
 
-**1. Önce Git ve Python'u kurun**
+**1. İndirin:** [MediaGrabSetup.exe](https://github.com/umitkrkmz/mediagrab/releases/latest/download/MediaGrabSetup.exe) — her zaman son sürüm. Python, Git ya da ffmpeg kurmanız **gerekmez**: Python, ffmpeg ve Deno kurulum programının içinde gelir. Yönetici izni istemez.
 
-- Git: [git-scm.com/downloads](https://git-scm.com/downloads)
-- Python 3.9+: [python.org/downloads](https://www.python.org/downloads/) — kurulum ekranında **"Add python.exe to PATH"** kutusunu işaretlemeyi unutmayın.
-
-**2. Kurulum programını indirin**
-
-[GitHub Release sayfasından](https://github.com/umitkrkmz/mediagrab/releases/latest) `MediaGrabSetup.exe`'yi indirin.
-
-İsterseniz dosyanın bozulmadığını doğrulayın — **o sürüme ait SHA256, release notlarının içinde yazar** (her sürümde farklıdır, çünkü exe her seferinde yeniden derlenir). PowerShell'de:
+İsterseniz dosyayı doğrulayın — her yayının notlarında o sürüme ait SHA256 değeri ve VirusTotal tarama bağlantısı yazar. PowerShell'de:
 
 ```powershell
-certutil -hashfile MediaGrabSetup.exe SHA256
+Get-FileHash .\MediaGrabSetup.exe
 ```
 
-Çıkan değeri release sayfasındaki ile karşılaştırın.
+**2. Çalıştırın.** Windows ilk seferde "Windows bilgisayarınızı korudu" diyebilir: kurulum programı ücretli bir kod imzası taşımıyor, Windows yayıncıyı henüz tanımıyor. **Ek bilgi → Yine de çalıştır** ile devam edin.
 
-**3. Kurulum klasörünü seçin**
+Kurulum Windows'un diline göre Türkçe ya da İngilizce açılır ve sırayla şunları sorar:
 
-Varsayılan olarak MediaGrab, `MediaGrabSetup.exe`'nin bulunduğu klasöre kurulur — ama kurulum penceresindeki **"Gözat…"** ile başka bir klasör de seçebilirsiniz. **MediaGrab'a ayrılmış boş bir klasör** kullanın (örn. `C:\MediaGrab\`).
+- **Kurulum türü** — *Normal kurulum* (önerilen) ya da *Docker ile kurulum* (ileri düzey, Docker Desktop gerekir — bkz. [Yöntem C](#yöntem-c-docker-her-platform)).
+- **Önceki MediaGrab** — yalnızca v2.4.0'dan önceki kurulum aracıyla kurulmuş bir MediaGrab bulunursa çıkar. Ayarlarınız, kanallarınız, çerezleriniz ve istatistikleriniz yeni MediaGrab'a aktarılır; videolarınız yerinde kalır ve MediaGrab açılınca Geçmiş ile Ayarlar'da onları yeni klasöre taşımayı teklif eder. Eski kurulum silinmez.
+- **Kurulum konumu** — varsayılan `%LOCALAPPDATA%\Programs\MediaGrab` (yalnızca program dosyaları).
+- **İndirme klasörü** — varsayılan `İndirilenler\MediaGrab`. MediaGrab'ın kendi program klasörünün içi seçilemez (güncelleme ya da kaldırma oradaki dosyaları silebilir).
 
-> **Önemli:** Bu klasör **OneDrive, Dropbox, Google Drive gibi bulut senkronizasyon servislerinin izlediği bir yerde olmasın** (dikkat: Windows'ta "Masaüstü" veya "Belgelerim" genellikle OneDrive ile senkronize edilir). İndirme sırasında çok sayıda küçük geçici dosya hızlıca yazılıp siliniyor; senkron servisi tam o anda bir dosyayı kilitlerse indirme "No such file or directory" hatasıyla yarıda kesilebilir. `C:\MediaGrab\` gibi senkronlanmayan düz bir klasör kullanmanızı öneririz.
->
-> Kurulum programı bunu zaten kendisi de kontrol eder: bulut klasörü seçerseniz uyarır, sürücü kökü ve kişisel klasörlerinizi (Masaüstü, Belgeler, kullanıcı klasörü) ise kabul etmez — çünkü **Kaldır** işlemi kurulum klasörünün içeriğini siler.
+**3. Kullanın.** Kurulum bitince MediaGrab açılır ve tarayıcıda `http://localhost:8420` gelir. Saatin yanındaki bildirim alanında mavi **M** simgesi MediaGrab'ın çalıştığını gösterir: tıklayınca sayfayı açar, sağ tıklayıp **MediaGrab'ı kapat** ile kapatırsınız (Windows 11 yeni simgeleri `^` okunun altına saklayabilir). Daha sonra Başlat menüsünden ya da masaüstü kısayolundan açabilirsiniz.
 
-**4. Çalıştırın**
+**Nerede ne durur:**
 
-`MediaGrabSetup.exe`'ye çift tıklayın. Açılış sayfası sistem dilinize göre Türkçe veya İngilizce gelir (sağ üstteki **TR / EN** ile değiştirebilirsiniz) ve üç seçenek sunar: **Kur**, **Onar / Güncelle**, **Kaldır**. **Kur**'u seçince sihirbaz sırayla ilerler:
+| Ne | Nerede |
+|---|---|
+| Program | `%LOCALAPPDATA%\Programs\MediaGrab` |
+| Ayarlar, kanallar, çerezler, istatistikler, günlük (`mediagrab.log`) | `%LOCALAPPDATA%\MediaGrab` |
+| İndirdikleriniz | seçtiğiniz klasör (varsayılan `İndirilenler\MediaGrab`) |
 
-- **Gereksinimler** — Git, Python (sürümüyle birlikte) ve ffmpeg kontrol edilir; eksik varsa indirme düğmeleri ve kopyalanabilir komut gösterilir, kurduktan sonra **Durumu yenile** ile tekrar bakar.
-- **Kurulum klasörü** — 3. adımdaki klasörü seçin; Masaüstüne / Başlat menüsüne kısayol kutucukları da burada.
-- **Özet** — ne yapılacağı (klasör, bulunan araçlar, kısayollar, varsa üzerine yazılacak mevcut dosyalar) tek sayfada; **Kur**'a basınca başlar.
-- **İşlem** — ilerleme canlı günlükte görünür; bitince **"MediaGrab'ı Başlat"** düğmesiyle doğrudan açabilirsiniz.
+İndirme klasörünü sonra **Ayarlar → İndirme Ayarları → İndirme Klasörü**'nden değiştirebilirsiniz (**Klasör Seç…** Windows'un klasör seçme penceresini açar). Değiştirdiğinizde yeni indirmeler yeni klasöre gider; eski klasördeki indirmeler için **Buraya taşı / Yerinde bırak** sorulur. Taşıma yalnızca MediaGrab'ın indirdiği dosyaları (ve `.json` bilgi dosyalarını) kanal klasörleriyle birlikte taşır, hiçbir dosyanın üzerine yazmaz; başka bir diske taşırken önce kopyalayıp boyutu doğrular, sonra eskisini siler.
 
-Kurulum programı son kurulum klasörünü hatırlar: daha sonra **Onar / Güncelle** ya da **Kaldır**'ı seçtiğinizde klasör kendiliğinden dolu gelir (isterseniz değiştirebilirsiniz).
+**Güncelleme:** Yeni bir sürüm çıktığında **Ayarlar → Sürüm Kontrolleri** bunu gösterir. Yeni `MediaGrabSetup.exe`'yi indirip çalıştırın — açıksa MediaGrab'ı kendisi kapatır (önce sorar); ayarlarınız ve videolarınız korunur. yt-dlp'yi ise aradaki zamanda **Ayarlar → Sürüm Kontrolleri**'nden tek tıkla güncelleyebilirsiniz.
 
-> Windows, imzasız bir `.exe` olduğu için ilk çalıştırmada "Windows bilgisayarınızı korudu" uyarısı gösterebilir — **Daha fazla bilgi → Yine de çalıştır** ile devam edebilirsiniz. Kaynak kodu repodaki `setup_mediagrab.py` dosyasında, isteyen inceleyebilir.
+**Kaldırma:** Windows Ayarları → Uygulamalar → Yüklü uygulamalar → MediaGrab → Kaldır. Kaldırıcı verilerinize ne olacağını sorar:
 
-**5. ffmpeg'i kurun (zorunlu — kurulum programı bunu yapmaz)**
-
-MediaGrab, ses/video birleştirme, format dönüştürme ve süre/kapak okuma için `ffmpeg` ve `ffprobe`'a ihtiyaç duyar. Bunlar MediaGrab ile birlikte gelmez ve `pip` ile de kurulmaz; **sisteminize ayrıca kurmanız gerekir.** Kurmazsanız uygulama açılır ama indirmeler birleştirme aşamasında hata verir.
-
-Kendi işletim sisteminize uygun komutu bir terminalde çalıştırın:
-
-```powershell
-winget install --id Gyan.FFmpeg -e
-```
-
-```bash
-brew install ffmpeg
-```
-
-```bash
-sudo apt install ffmpeg
-```
-
-Sırasıyla: Windows (PowerShell) · macOS (Homebrew) · Linux (Debian/Ubuntu).
-
-Kurduktan sonra **yeni bir terminal açın** (PATH güncellemesi zaten açık olan terminale yansımaz) ve `ffmpeg -version` ile doğrulayın.
-
-> Bu komutları uygulamanın içinden de bulabilirsiniz: **Ayarlar → ffmpeg / ffprobe** bölümü kurulu sürümü gösterir ve her platformun komutunu kopyalanabilir şekilde listeler.
-
-**6. Başlatın**
-
-Kurulum bitince oluşan **`MediaGrab Baslat.bat`** dosyasına çift tıklamanız yeterli — terminal açmanıza gerek yok (3. adımda kısayol eklediyseniz Masaüstünden/Başlat menüsünden de açabilirsiniz).
-
-Kurulumu daha sonra güncellemek veya kaldırmak isterseniz: `MediaGrabSetup.exe`'yi tekrar çalıştırın, **Onar / Güncelle** ya da **Kaldır**'a basın (indirdiğiniz dosyalar ve kanal takip listeniz her durumda korunur).
+- **Yalnızca MediaGrab'ı kaldır** (varsayılan) — ayarlar ve videolar kalır; yeniden kurunca her şey yerinde olur.
+- **MediaGrab'ın ayarlarını da sil** — kanallar, çerezler ve istatistikler de silinir. Bunu seçince **İndirdiğim videoları da sil** kutusu da açılır; işaretlerseniz son bir kez onay ister ve yalnızca MediaGrab'ın indirdiği dosyaları siler — klasördeki başka dosyalarınıza dokunmaz.
 
 ### Yöntem B: Elle kurulum (kaynak koddan, her platform)
 
@@ -279,7 +247,7 @@ Doğrulamak için: `ffmpeg -version`
 
 Python veya Git kurmadan, doğrudan bir Docker container'ında çalıştırabilirsiniz. Önce [Docker Desktop'ı kurun](https://www.docker.com/products/docker-desktop/) (veya Linux'ta Docker Engine + Compose plugin).
 
-**Windows'ta kolay yol:** `MediaGrabSetup.exe`'yi çalıştırın, ana sayfadan **"Docker ile kur"**a tıklayın. Sihirbaz Docker'ın kurulu ve çalışır olduğunu kontrol eder, bir klasör ve ilk yönetici şifresi ister, gerekli `docker-compose.yml` dosyasını kendisi yazıp `docker compose up -d` ile başlatır — terminal komutu yazmanıza gerek kalmaz.
+**Windows'ta kolay yol:** `MediaGrabSetup.exe`'yi çalıştırıp **Docker ile kurulum**'u seçin. Kurulum Docker Desktop'ın kurulu ve çalışır olduğunu denetler, bir klasör (varsayılan `C:\MediaGrab`) ve ilk parolayı sorar, `docker-compose.yml`'yi kendisi yazar, imajı indirip başlatır ve MediaGrab cevap verene kadar bekler — terminal komutu yazmanıza gerek kalmaz. Docker'da zaten bir MediaGrab varsa (eski kurulum aracıyla kurulmuş olanlar dahil) onu bulur, sürümünü gösterir ve parolanızla verilerinizi koruyarak yerinde günceller. Bu yolla kurulan Docker, kurulum programının sürümüne sabitlenmiş imajı kullanır (ör. `ghcr.io/umitkrkmz/mediagrab:2.4.0`); güncellemek için yeni kurulum programını çalıştırmanız yeterli. Kaldırınca konteyner silinir; verileriniz varsayılan olarak klasörde kalır.
 
 **Elle (her platform):**
 
@@ -288,7 +256,7 @@ git clone https://github.com/umitkrkmz/mediagrab.git
 cd mediagrab
 ```
 
-Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü gerçek bir şifreyle değiştirin — bu şifre yalnızca container ilk kez ayağa kalkarken, henüz bir şifre yokken kullanılır; sonrasında güvenle dosyada kalabilir, bir daha okunmaz. Linux'ta `network_mode: host` satırı varsayılan olarak açık (gerçek LAN IP'nin görünmesi ve `mediagrab.local` adresinin çalışması için gerekli); **Windows/Mac'te** Docker Desktop bunu desteklemediğinden o satırı yorum satırı yapıp altındaki `ports: ["8420:8420"]` satırlarını açın — **ve** hemen altındaki `MEDIAGRAB_HOST_LAN_IP` satırının yorumunu kaldırıp `ipconfig` (Windows) ile bulduğunuz gerçek LAN IP'nizi yazın; aksi halde Ayarlar sayfasındaki bağlantı adresi/QR kod, container'ın ulaşılamaz iç ağ adresini gösterir (Windows kurulum programının "Docker ile kur" seçeneği bunu sizin için otomatik yapar, elle kurulumda bu adım gerekli).
+Repodaki `docker-compose.yml` dosyasını açıp `MEDIAGRAB_INITIAL_PASSWORD`'ü gerçek bir şifreyle değiştirin — bu şifre yalnızca container ilk kez ayağa kalkarken, henüz bir şifre yokken kullanılır; sonrasında güvenle dosyada kalabilir, bir daha okunmaz. Linux'ta `network_mode: host` satırı varsayılan olarak açık (gerçek LAN IP'nin görünmesi ve `mediagrab.local` adresinin çalışması için gerekli); **Windows/Mac'te** Docker Desktop bunu desteklemediğinden o satırı yorum satırı yapıp altındaki `ports: ["8420:8420"]` satırlarını açın — **ve** hemen altındaki `MEDIAGRAB_HOST_LAN_IP` satırının yorumunu kaldırıp `ipconfig` (Windows) ile bulduğunuz gerçek LAN IP'nizi yazın; aksi halde Ayarlar sayfasındaki bağlantı adresi/QR kod, container'ın ulaşılamaz iç ağ adresini gösterir (Windows kurulum programının "Docker ile kurulum" seçeneği bunu sizin için otomatik yapar, elle kurulumda bu adım gerekli).
 
 ```bash
 docker compose up -d
@@ -304,13 +272,15 @@ docker compose pull && docker compose up -d
 
 Ayarlarınız, çerezleriniz, istatistikleriniz ve indirdikleriniz `./data/` klasöründe kaldığı için kaybolmaz. yt-dlp'yi ayrıca Ayarlar sayfasından tek tıkla güncelleyebilirsiniz (kalıcı bir klasöre kurulur, imaj yenilense bile kaybolmaz); diğer tüm bağımlılıklar (FastAPI, ffmpeg, Deno vb.) imaja gömülüdür ve imajla birlikte güncellenir.
 
-> **Eski bir kurulumunuz varsa:** v2.2.0'dan önce repodan elle kurduysanız compose dosyanızda `image:` yerine `build: .` satırı olabilir. O satırı `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirin, sonra yukarıdaki komutu kullanın. Kendi değişikliklerinizle yerel derleme yapmak isterseniz `build: .` kullanıp `docker compose up -d --build` çalıştırabilirsiniz. Windows kurulum programının "Docker ile kur" seçeneği zaten yayınlanmış imajı kullanır.
+> **Eski bir kurulumunuz varsa:** v2.2.0'dan önce repodan elle kurduysanız compose dosyanızda `image:` yerine `build: .` satırı olabilir. O satırı `image: ghcr.io/umitkrkmz/mediagrab:latest` ile değiştirin, sonra yukarıdaki komutu kullanın. Kendi değişikliklerinizle yerel derleme yapmak isterseniz `build: .` kullanıp `docker compose up -d --build` çalıştırabilirsiniz. Windows kurulum programının "Docker ile kurulum" seçeneği zaten yayınlanmış imajı kullanır.
 >
 > **v2.3.0'dan önce kurduysanız:** compose dosyanızın `volumes:` bölümüne `- ./data/stats:/data/stats` satırını ekleyin; eklemezseniz istatistikler çalışır ama container yeniden oluşturulunca sıfırlanır. (v2.2.0'dan önceki kurulumlar için `- ./data/cookies:/data/cookies` satırı da gerekir.)
 
 Ayarlar sayfasındaki "bağımlılıkları güncelle" düğmesi Docker'da devre dışıdır ve bunu size hatırlatır — kendisi imaj güncellemesi/derlemesi yapamaz.
 
 ## Çalıştırma
+
+> **Windows kurulum programıyla kurduysanız** bu bölüm sizin için değil: MediaGrab'ı Başlat menüsünden açın, bildirim alanındaki **M** simgesinden kapatın. Aşağısı kaynak koddan ([Yöntem B](#yöntem-b-elle-kurulum-kaynak-koddan-her-platform)) çalıştıranlar içindir.
 
 Sanal ortam etkinken, proje kök dizininden:
 
@@ -382,8 +352,8 @@ Kayıttan sonra bir özet görünür: kaç site ve çerez olduğu, ne zaman yük
   ```yaml
       - ./data/cookies:/data/cookies
   ```
-  "Docker ile kur" ile yapılan yeni kurulumlar ve repodaki compose dosyası bu satırı zaten içerir. Docker'da "Tarayıcıdan" seçeneği yoktur, çünkü container'ın içinde bir tarayıcı yoktur.
-- **Yerel kurulumda** dosya proje klasöründe `settings.json`'ın yanında `cookies.txt` olarak durur ve git'e dahil değildir.
+  Windows kurulum programının "Docker ile kurulum" seçeneğiyle yapılan kurulumlar ve repodaki compose dosyası bu satırı zaten içerir. Docker'da "Tarayıcıdan" seçeneği yoktur, çünkü container'ın içinde bir tarayıcı yoktur.
+- **Yerel kurulumda** dosya `settings.json`'ın yanında `cookies.txt` olarak durur (Windows kurulum programında `%LOCALAPPDATA%\MediaGrab`, kaynak koddan kurulumda proje klasörü) ve git'e dahil değildir.
 
 ### Gizlilik ve güvenlik
 
@@ -431,6 +401,9 @@ bash .github/scripts/smoke-docker.sh mediagrab:dev 8422
 ```
 
 ## Sorun Giderme
+
+**Windows kurulum programıyla kurdum, MediaGrab açılmıyor**
+Önce bildirim alanında mavi **M** simgesi var mı bakın (Windows 11'de `^` okunun altında olabilir) — varsa MediaGrab çalışıyordur, simgeye tıklayın. Bir hata kutusu çıktıysa ya da hiçbir şey olmuyorsa ayrıntılar `%LOCALAPPDATA%\MediaGrab\mediagrab.log` dosyasındadır; hata bildirirken bu dosyayı ekleyin.
 
 **`ModuleNotFoundError` veya "paket bulunamadı" hatası**
 Sanal ortamın etkin olduğundan emin olun (istem başında `(.venv)` görünmeli), sonra `pip install -r requirements.txt`'i tekrar çalıştırın.
@@ -511,9 +484,9 @@ README.md
 
 **MediaGrab v1.9.0 ve sonrası GNU GPL-3.0 (veya sonrası)** ile lisanslanmıştır (bkz. [LICENSE](../LICENSE)). Geçişin sebebi basit: `mutagen` gibi GPL lisanslı bir bağımlılığı MIT kalarak kullanmak, onu hiç doğrudan `import` etmemeyi ve yalnızca yt-dlp'nin arka planda, ayrı bir süreç olarak çalıştırmasına güvenmeyi gerektiriyordu (aşağıda anlatılıyor). GPL-3.0'a geçmek bu kısıtı ortadan kaldırıyor — ileride bir özellik gerçekten GPL lisanslı bir kütüphaneyi doğrudan kullanmak isterse, bunu MIT'te olduğu gibi dolambaçlı bir savunmaya ihtiyaç duymadan yapabiliriz. AGPL gibi daha kısıtlayıcı bir lisans yerine GPL-3.0 seçildi çünkü MediaGrab bir ağ servisi olarak sunulmuyor, yalnızca yerelde çalışan bir araç.
 
-**Uygulamanın kendisi kaynak kod olarak dağıtılır.** Kullanıcı repoyu klonlar, `pip install -r requirements.txt` ile bağımlılıkları kendi ortamına kurar ve çalıştırır. Aşağıdaki paketlerin hiçbiri MediaGrab ile birlikte paketlenmez — hepsini `pip` kendi indirir, yani lisans açısından "mere aggregation" (yan yana bulundurma) söz konusudur.
+**Kaynak koddan kurulumda** (Yöntem B) kullanıcı repoyu klonlar, `pip install -r requirements.txt` ile bağımlılıkları kendi ortamına kurar ve çalıştırır; aşağıdaki paketlerin hiçbiri MediaGrab ile birlikte paketlenmez — hepsini `pip` kendi indirir.
 
-**Release'deki `MediaGrabSetup.exe` bir istisna değil:** o dosya yalnızca *kurulumu yapan* küçük bir yardımcı programdır ve içinde **hiçbir üçüncü taraf paket yoktur** — sadece MediaGrab'ın kendi kodu, Python standart kütüphanesi ([PSF lisansı](https://docs.python.org/3/license.html)) ve arayüz için Tcl/Tk (BSD tarzı) bulunur. yt-dlp, ffmpeg ve diğer paketler bu exe'nin içinde **değildir**; exe onları çalıştırdığında `pip` ve sistem paket yöneticisi indirir.
+**Windows kurulum programı (v2.4.0'dan itibaren) ise bir dağıtımdır:** içinde Python 3.14 (gömülü paket, PSF lisansı), FFmpeg (yt-dlp/FFmpeg-Builds'in GPL derlemesi), Deno ve aşağıdaki Python paketleri birlikte gelir. Her birinin lisans metni pakette kendi yanında durur; hepsinin listesi, sürümleri, lisansları ve kaynak bağlantıları kurulum klasöründeki `THIRD-PARTY-NOTICES.txt` dosyasında ve uygulamanın **Hakkında** sayfasındadır. FFmpeg GPL lisanslı olduğu için her yayının ek dosyalarında o sürümde kullanılan FFmpeg'in kaynak kodu ve derleme betikleri de bulunur. Docker imajı da benzer şekilde Python paketlerini ve Debian'ın ffmpeg paketini içerir.
 
 | Paket | Lisans | Not |
 |---|---|---|
@@ -525,9 +498,9 @@ README.md
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML şablonlama |
 | [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **MediaGrab bunu import etmez** — yt-dlp, Opus dosyalarına kapak resmi gömmek için kullanır |
 | [`zeroconf`](https://github.com/python-zeroconf/python-zeroconf) | [LGPL-2.1-or-later](https://github.com/python-zeroconf/python-zeroconf/blob/master/LICENSE) | Ev Sunucusu Modu'ndaki `mediagrab.local` (mDNS) adresini yayınlar — mutagen'in aksine **MediaGrab'ın kendi kodu tarafından doğrudan import edilir** (`_register_mdns`, arka planda bir thread'de; hata durumunda sessizce devre dışı kalır). LGPL, GPL-3.0 dahil her lisanstan kodun onu kullanmasına izin verdiği için bu bir sorun oluşturmaz |
-| [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ veya GPL-2+](https://www.ffmpeg.org/legal.html) (derlemeye göre değişir) | projeye dahil DEĞİL — kullanıcı kendi sistemine ayrıca kurar; etiket/kapak okuma ve süre hesaplama da subprocess ile buradan yapılır |
+| [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ veya GPL-2+](https://www.ffmpeg.org/legal.html) (derlemeye göre değişir) | Windows kurulum programında GPL derlemesi pakete dahildir (kaynak kodu yayının ek dosyalarında); kaynak koddan kurulumda kullanıcı kendi sistemine kurar. Her durumda yalnızca ayrı bir program olarak subprocess ile çağrılır (birleştirme, dönüştürme, etiket/kapak ve süre okuma) |
 
-**`mutagen` hakkında:** MediaGrab'ın kaynak kodunda şu an `mutagen` importu **yoktur**; onu yt-dlp kendi içinde kullanır ve `pip` kullanıcının kendi ortamına indirir — biz onu paketlemiyor, dağıtmıyoruz. v1.8.0 ve öncesinde MIT kalabilmemizin sebebi tam olarak buydu: GPL'in copyleft yükümlülüğü ancak GPL kodu *birleştirip dağıttığınızda* devreye giriyor, biz hiç birleştirmediğimiz için MIT geçerliydi. v1.9.0'dan itibaren bu artık bir zorunluluk değil, tercih meselesi — MediaGrab kendisi GPL-3.0 olduğu için `mutagen`'i (GPL-2.0-or-later, GPL-3.0 ile uyumlu) ileride doğrudan import etsek bile sorun olmaz. `ffmpeg` için durum değişmedi: dağıtıma hiç dahil değil, yalnızca ayrı bir program olarak `subprocess` ile çağrılıyor.
+**`mutagen` hakkında:** MediaGrab'ın kaynak kodunda şu an `mutagen` importu **yoktur**; onu yt-dlp kendi içinde kullanır ve `pip` kullanıcının kendi ortamına indirir — biz onu paketlemiyor, dağıtmıyoruz. v1.8.0 ve öncesinde MIT kalabilmemizin sebebi tam olarak buydu: GPL'in copyleft yükümlülüğü ancak GPL kodu *birleştirip dağıttığınızda* devreye giriyor, biz hiç birleştirmediğimiz için MIT geçerliydi. v1.9.0'dan itibaren bu artık bir zorunluluk değil, tercih meselesi — MediaGrab kendisi GPL-3.0 olduğu için `mutagen`'i (GPL-2.0-or-later, GPL-3.0 ile uyumlu) ileride doğrudan import etsek bile sorun olmaz. `ffmpeg` her durumda ayrı bir program olarak `subprocess` ile çağrılır; Windows paketinde ise dağıtımın parçasıdır (bkz. yukarı).
 
 Projeyi faydalı bulduysanız ⭐ vermeniz, başkalarının da bulmasına yardımcı olur.
 
