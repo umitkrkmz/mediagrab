@@ -18,6 +18,16 @@ pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows tray icon")
 ICON = str(Path(__file__).parent.parent / "packaging" / "mediagrab.ico")
 
 
+@pytest.fixture(autouse=True)
+def _not_with_a_real_mediagrab_running():
+    # NOTE: these look the window up by class name - with the developer's
+    # own MediaGrab running they would find (and message!) that one.
+    from mediagrab import tray as tray_module
+
+    if tray_module.other_process_window():
+        pytest.skip("a real MediaGrab is running on this machine - quit it to run these")
+
+
 def _wait(condition, timeout=5.0):
     end = time.time() + timeout
     while time.time() < end:

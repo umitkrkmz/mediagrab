@@ -341,3 +341,22 @@ def _register_class(user32, hinstance) -> None:
         wc.hInstance = hinstance
         wc.lpszClassName = TRAY_WINDOW_CLASS
         user32.RegisterClassW(ctypes.byref(wc))
+
+
+def other_process_window() -> bool:
+    """True if ANOTHER process already has a MediaGrab tray window.
+
+    NOTE: for the tests - the installer finds the window by class name, so
+    with the user's real MediaGrab running a test could find (and close!)
+    that one instead of its own.
+    """
+    user32 = _api_user32()
+    user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+    user32.FindWindowW.restype = wintypes.HWND
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    hwnd = user32.FindWindowW(TRAY_WINDOW_CLASS, None)
+    if not hwnd:
+        return False
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value != os.getpid()

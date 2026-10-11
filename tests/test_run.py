@@ -268,11 +268,11 @@ def test_quitting_from_the_tray_stops_mediagrab(monkeypatch, clean_port_env):
         run.main()
         finished.set()
 
+    # NOTE: this process's own icon (tray._running), never a lookup by class
+    # name - that could hit the developer's real MediaGrab and close it.
     threading.Thread(target=serve, daemon=True).start()
-    find = ctypes.windll.user32.FindWindowW
-    find.restype = ctypes.c_void_p
     for _ in range(300):
-        if run._is_mediagrab_running(port) and find(tray.TRAY_WINDOW_CLASS, None):
+        if run._is_mediagrab_running(port) and tray._running is not None and tray._running.added:
             break
         run.time.sleep(0.05)
     else:
@@ -286,7 +286,9 @@ def test_quitting_from_the_tray_stops_mediagrab(monkeypatch, clean_port_env):
     stream.request("GET", "/api/events")
     assert stream.getresponse().status == 200
 
-    ctypes.windll.user32.PostMessageW(ctypes.c_void_p(find(tray.TRAY_WINDOW_CLASS, None)), tray.WM_CLOSE, 0, 0)
+    hwnd = tray._running.hwnd
+    ctypes.windll.user32.PostMessageW(ctypes.c_void_p(hwnd), tray.WM_CLOSE, 0, 0)
     assert finished.wait(20), "main() must return once the tray asks it to quit"
     assert not run._port_in_use(port)
-    assert not find(tray.TRAY_WINDOW_CLASS, None), "the icon is gone too"
+    assert not ctypes.windll.user32.IsWindow(ctypes.c_void_p(hwnd)), "the icon and its window are gone too"
+    assert tray._running is None

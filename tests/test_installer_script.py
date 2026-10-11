@@ -158,6 +158,13 @@ end;
 
 @pytest.fixture(scope="module")
 def close_harness(tmp_path_factory):
+    # NOTE: the harness finds MediaGrab by window class, exactly like the
+    # installer - with the developer's own MediaGrab running it would close
+    # THAT one. Never.
+    from mediagrab import tray
+
+    if tray.other_process_window():
+        pytest.skip("a real MediaGrab is running on this machine - quit it to run these")
     folder = tmp_path_factory.mktemp("iss-close")
     script = folder / "close.iss"
     script.write_text(

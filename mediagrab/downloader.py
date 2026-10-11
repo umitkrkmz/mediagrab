@@ -138,6 +138,22 @@ def outtmpl() -> str:
     return os.path.join(download_dir(), OUTTMPL_TAIL)
 
 
+def _console_attached() -> bool:
+    """True when stdout is a real terminal someone is watching.
+
+    NOTE: yt-dlp draws its own "[download] 45%" line even with quiet=True,
+    redrawn in place with \\r. Fine in a console window; but from the Windows
+    installer (pythonw: stdout is mediagrab.log) and in Docker (docker logs)
+    every redraw piles up - one download left a single ~300 KB line in the
+    log. MediaGrab's own progress bar comes from progress_hooks, which keep
+    working with noprogress; errors and warnings are unaffected.
+    """
+    try:
+        return bool(sys.stdout and sys.stdout.isatty())
+    except (AttributeError, ValueError):
+        return False
+
+
 # NOTE: the browsers yt-dlp can read cookies from at all. Firefox is listed
 # first and is the default on purpose - see usable_cookie_browsers().
 SUPPORTED_COOKIE_BROWSERS = ("firefox", "chrome", "chromium", "edge", "brave", "opera", "vivaldi", "safari")
@@ -1091,6 +1107,7 @@ def download(
             "outtmpl": outtmpl(),
             "quiet": True,
             "no_warnings": True,
+            "noprogress": not _console_attached(),
             "retries": 10,
             "fragment_retries": 10,
             "concurrent_fragment_downloads": 4,
