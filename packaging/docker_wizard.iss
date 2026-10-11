@@ -246,6 +246,17 @@ begin
   Result := RunDocker('compose down', Folder);
 end;
 
+// NOTE: the file types History lists (mover.py HISTORY_EXTS) - counted as
+// "files" the way a person would; .json info files only add to the size.
+function IsShownInHistory(const Name: String): Boolean;
+var
+  Ext: String;
+begin
+  Ext := Lowercase(ExtractFileExt(Name));
+  Result := (Ext = '.mp3') or (Ext = '.m4a') or (Ext = '.opus') or (Ext = '.mp4') or (Ext = '.mkv')
+    or (Ext = '.srt') or (Ext = '.txt');
+end;
+
 // NOTE: Pascal, not MediaGrab's Python - a Docker install has no Python on
 // the host. data\indirilenler is MediaGrab's own mount folder there.
 procedure CountFolder(const Folder: String; var Files: Integer; var Bytes: Int64);
@@ -261,7 +272,8 @@ begin
           CountFolder(AddBackslash(Folder) + Rec.Name, Files, Bytes)
         else
         begin
-          Files := Files + 1;
+          if IsShownInHistory(Rec.Name) then
+            Files := Files + 1;
           Bytes := Bytes + Rec.SizeLow + Int64(Rec.SizeHigh) * 4294967296;
         end;
       end;

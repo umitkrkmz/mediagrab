@@ -112,12 +112,16 @@ async def lifespan(_app: FastAPI):
     # runs either way.
     if is_docker():
         _ensure_docker_has_a_password()
+    # NOTE: the Windows installer's hand-offs come first - the channel check
+    # and the statistics import below read channels.json/stats.json and the
+    # downloads folder, which these two can bring over or change.
+    _apply_installer_migration()
+    _apply_installer_download_dir()
     global _event_loop
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
     threading.Thread(target=_check_all_channels, daemon=True).start()
     _start_stats_backfill()
-    _apply_installer_download_dir()
     settings = store.get_settings()
     if settings.get("home_server_mode"):
         threading.Thread(target=_periodic_channel_check_loop, daemon=True).start()
@@ -1423,7 +1427,9 @@ def _previous_download_dirs() -> list[dict]:
         files = mover.movable_files(path, HISTORY_EXTS, _move_exclude(path, current))
         if files:
             kept.append(path)
-            info.append({"path": path, "available": True, "files": len(files), "bytes": sum(s for _r, s in files)})
+            info.append(
+                {"path": path, "available": True, "files": mover.count_shown(files, HISTORY_EXTS), "bytes": sum(s for _r, s in files)}
+            )
     if kept != store.get_settings().get("previous_download_dirs"):
         store.save_settings(previous_download_dirs=kept)
     return info
@@ -1453,6 +1459,66 @@ def _download_dir_info(request: Request) -> dict:
 # settings.json from Pascal - this way the app's own checks
 # (_check_download_dir) decide, exactly as if it was chosen in Settings.
 INSTALLER_DOWNLOAD_DIR_FILE = "install-download-dir.txt"
+
+
+# NOTE: "Bring over my settings from the old MediaGrab" in the Windows
+# installer (the pre-v2.4.0 Tk installer kept everything next to the app, in
+# the folder it remembered in installer.json). The installer only names the
+# folder; the app does the copying, by its own rules and tested.
+INSTALLER_MIGRATE_FILE = "install-migrate-from.txt"
+
+
+def _migrated_targets() -> dict:
+    # NOTE: setup_mediagrab.py's USER_DATA_ENTRIES minus "indirilenler" -
+    # videos aren't copied, they stay where they are (see below).
+    return {
+        "settings.json": store.SETTINGS_PATH,
+        "channels.json": store.STORE_PATH,
+        "cookies.txt": downloader.COOKIES_PATH,
+        "stats.json": store.STATS_PATH,
+    }
+
+
+def _apply_installer_migration() -> None:
+    handoff = os.path.join(os.path.dirname(store.SETTINGS_PATH), INSTALLER_MIGRATE_FILE)
+    if not os.path.isfile(handoff):
+        return
+    try:
+        with open(handoff, "r", encoding="utf-8-sig") as f:
+            old = f.read().strip()
+        if not old or not os.path.isdir(old):
+            return
+        copied = set()
+        for name, target in _migrated_targets().items():
+            source = os.path.join(old, name)
+            # NOTE: never over something already here - a reinstall with data
+            # kept already has its own, newer copy.
+            if os.path.isfile(source) and not os.path.exists(target):
+                os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+                shutil.copy2(source, target)
+                copied.add(name)
+        settings = store.get_settings()
+        cookie_file = settings.get("cookie_file") or ""
+        # NOTE: an uploaded cookies.txt was recorded by its full path in the
+        # OLD folder; it now lives at COOKIES_PATH. A path the user typed in
+        # themselves (somewhere else) is theirs and left alone.
+        if "cookies.txt" in copied and cookie_file and mover.is_inside(cookie_file, old):
+            store.save_settings(cookie_file=downloader.COOKIES_PATH)
+        # NOTE: the videos stay put. Unless the installer's download-folder
+        # page chose that very folder (then this entry is dropped again by
+        # _change_download_dir), Settings offers "Move here" for them.
+        videos = os.path.join(old, "indirilenler")
+        if mover.movable_files(videos, HISTORY_EXTS):
+            previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if isinstance(p, str)]
+            if not any(mover.is_inside(p, videos) and mover.is_inside(videos, p) for p in previous):
+                store.save_settings(previous_download_dirs=previous + [videos])
+    except OSError:
+        pass
+    finally:
+        try:
+            os.remove(handoff)
+        except OSError:
+            pass
 
 
 def _apply_installer_download_dir() -> None:

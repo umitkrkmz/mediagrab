@@ -57,14 +57,34 @@ begin
   end;
 end;
 
-// The folder in an existing settings.json, or '' (no file, no setting,
-// the default folder, or anything unreadable).
-function ReadDownloadDirSetting(const SettingsPath: String): String;
+// One string value from a small JSON file written by Python, or ''.
+function ReadJsonFileString(const Path, Key: String): String;
 var
   Raw: AnsiString;
 begin
   Result := '';
-  if not LoadStringFromFile(SettingsPath, Raw) then Exit;
-  if not JsonStringValue(UTF8Decode(Raw), 'download_dir', Result) then
+  if not LoadStringFromFile(Path, Raw) then Exit;
+  if not JsonStringValue(UTF8Decode(Raw), Key, Result) then
+    Result := '';
+end;
+
+// The folder in an existing settings.json, or '' (no file, no setting,
+// the default folder, or anything unreadable).
+function ReadDownloadDirSetting(const SettingsPath: String): String;
+begin
+  Result := ReadJsonFileString(SettingsPath, 'download_dir');
+end;
+
+// NOTE: the pre-v2.4.0 Tk installer (setup_mediagrab.py) remembered its last
+// install folder in installer.json ({"last_install_dir": ...}) - in the very
+// %LOCALAPPDATA%\MediaGrab folder v2.4.0 keeps its data in. '' unless that
+// folder still holds such an install (its launcher, or run.py) with data.
+function FindOldInstall(const StatePath: String): String;
+begin
+  Result := ReadJsonFileString(StatePath, 'last_install_dir');
+  if Result = '' then Exit;
+  if not (FileExists(AddBackslash(Result) + 'MediaGrab Baslat.bat') or FileExists(AddBackslash(Result) + 'run.py'))
+    or not (FileExists(AddBackslash(Result) + 'settings.json') or FileExists(AddBackslash(Result) + 'channels.json')
+      or DirExists(AddBackslash(Result) + 'indirilenler')) then
     Result := '';
 end;

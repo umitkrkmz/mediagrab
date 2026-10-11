@@ -452,6 +452,8 @@ const I18N = {
     errInsufficientDisk: "Diskte yeterli boş alan yok. Yer açıp tekrar deneyin.",
     errNetworkIssue: "Ağ bağlantısı sorunu — internet bağlantınızı kontrol edip tekrar deneyin.",
     historyEmpty: "Henüz indirme yok",
+    historyPreviousNote: "Önceki indirme klasörünüzde {files} daha var ({path}). Burada görünmeleri için onları bu klasöre taşıyabilirsiniz.",
+    historyPreviousLink: "Ayarlar'da taşı →",
     historyNoMatches: "Aramayla eşleşen indirme yok",
     historyAllChannels: "Tüm kanallar",
     historyAllTypes: "Tüm türler",
@@ -484,8 +486,10 @@ const I18N = {
       "docker-compose.yml dosyanızın bulunduğu klasörde şu iki komutu çalıştırın. Ayarlarınız, çerezleriniz ve indirdikleriniz ./data/ klasöründe kalır.",
     mgUpdateDockerBuild:
       "Compose dosyanız image: yerine build: . kullanıyorsa (repodan elle kurulum) bunun yerine:",
-    mgUpdateInstaller: "MediaGrabSetup.exe'yi çalıştırıp \"Onar / Güncelle\"yi seçin. Elinizde yoksa son sürümü indirin:",
-    mgDownloadInstaller: "MediaGrabSetup.exe (son sürüm)",
+    mgUpdateInstaller:
+      "MediaGrab artık yeni bir kurulum programıyla geliyor; Python, Git ya da ffmpeg kurmanız gerekmez. Son sürümü indirip çalıştırın: eski kurulumunuzu bulur ve ayarlarınızı, kanallarınızı ve videolarınızı aktarmayı teklif eder.",
+    mgUpdateWindows: "Son sürümün kurulum programını indirip çalıştırın; ayarlarınız ve videolarınız korunur.",
+    mgDownloadInstaller: "Kurulum programı (son sürüm)",
     mgUpdateSource:
       "Proje klasöründe, sanal ortam etkinken şunları çalıştırın, sonra MediaGrab'ı yeniden başlatın:",
     ytdlpUpToDate: "Güncel",
@@ -908,6 +912,8 @@ const I18N = {
     errInsufficientDisk: "Not enough free disk space. Make some room and try again.",
     errNetworkIssue: "Network connection issue — check your internet connection and try again.",
     historyEmpty: "No downloads yet",
+    historyPreviousNote: "There are {files} more in your earlier downloads folder ({path}). Move them into this folder to see them here.",
+    historyPreviousLink: "Move them in Settings →",
     historyNoMatches: "No downloads match your search",
     historyAllChannels: "All channels",
     historyAllTypes: "All types",
@@ -939,8 +945,10 @@ const I18N = {
     mgUpdateDocker:
       "Run these two commands in the folder that has your docker-compose.yml. Your settings, cookies and downloads stay in ./data/.",
     mgUpdateDockerBuild: "If your compose file uses build: . instead of image: (a manual install from the repo), run this instead:",
-    mgUpdateInstaller: "Run MediaGrabSetup.exe and choose \"Repair / Update\". If you don't have it anymore, download the latest:",
-    mgDownloadInstaller: "MediaGrabSetup.exe (latest)",
+    mgUpdateInstaller:
+      "MediaGrab now comes with a new installer - no Python, Git or ffmpeg to install. Download and run the latest: it finds your current install and offers to bring over your settings, channels and videos.",
+    mgUpdateWindows: "Download and run the latest version's installer; your settings and videos are kept.",
+    mgDownloadInstaller: "Installer (latest version)",
     mgUpdateSource: "In the project folder, with the virtual environment active, run these, then restart MediaGrab:",
     ytdlpUpToDate: "Up to date",
     ytdlpUpdateAvailable: "Update available",
@@ -2013,6 +2021,36 @@ function resumeTrackedDockJobs() {
   dockJobs.forEach((j) => refreshJobOnce(j.jobId));
 }
 
+// NOTE: History lists only the current downloads folder - after the folder
+// changed (or an old install was brought over by the Windows installer) the
+// earlier videos would just seem gone. Settings has the "Move here" card;
+// this points there. Host only - only the host can move them.
+async function loadPreviousDownloadsNote() {
+  const note = document.getElementById("history-previous-note");
+  if (!note) return;
+  try {
+    const info = await (await fetch("/api/download-dir")).json();
+    const waiting = (info.previous || []).filter((p) => p.available && p.files > 0);
+    if (!info.editable || waiting.length === 0) {
+      note.classList.add("hidden");
+      return;
+    }
+    const files = waiting.reduce((sum, p) => sum + p.files, 0);
+    const text = document.createElement("span");
+    text.textContent =
+      t()
+        .historyPreviousNote.replace("{files}", downloadDirFiles(files))
+        .replace("{path}", waiting.map((p) => p.path).join(", ")) + " ";
+    const link = document.createElement("a");
+    link.href = "/settings#downloads";
+    link.textContent = t().historyPreviousLink;
+    note.replaceChildren(text, link);
+    note.classList.remove("hidden");
+  } catch {
+    note.classList.add("hidden");
+  }
+}
+
 async function loadHistory() {
   if (!historyList && !recentList) return;
   try {
@@ -2447,9 +2485,12 @@ function mediagrabUpdateHtml(info) {
       ${cmd("docker compose up -d")}
       <p class="settings-hint">${t().mgUpdateDockerBuild}</p>
       ${cmd("git pull && docker compose up -d --build")}`;
-  } else if (info.install_type === "installer") {
+  } else if (["windows", "docker-windows", "installer"].includes(info.install_type)) {
+    // NOTE: the v2.4.0 Windows installer (normal or Docker) updates by
+    // running a newer one; the old Tk installer's users move over to it.
+    const text = info.install_type === "installer" ? t().mgUpdateInstaller : t().mgUpdateWindows;
     steps = `
-      <p class="settings-hint">${t().mgUpdateInstaller}
+      <p class="settings-hint">${text}
         <a href="https://github.com/umitkrkmz/mediagrab/releases/latest" target="_blank" rel="noopener noreferrer">${t().mgDownloadInstaller}</a>
       </p>`;
   } else {
@@ -5044,6 +5085,7 @@ updateChannelChoiceVisibility();
   // whether THIS browser supports the save picker - fixed up here.
   if (itemRevealBtn) itemRevealBtn.textContent = revealOrDownloadLabel();
   loadHistory();
+  loadPreviousDownloadsNote();
   loadChannels();
   loadPending();
   loadMediagrabVersion();

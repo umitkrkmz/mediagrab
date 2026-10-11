@@ -368,7 +368,8 @@ def test_changing_the_folder_remembers_the_old_one_with_downloads(tmp_path):
     old = _old_folder_with_a_video()
     with TestClient(app_module.app, client=LOCAL) as c:
         info = c.post("/api/download-dir", json={"path": str(tmp_path / "Yeni")}).json()
-    assert info["previous"] == [{"path": str(old), "available": True, "files": 2, "bytes": 7}]
+    # NOTE: 1 - the video; its .json info file moves too but isn't "a file" to a person.
+    assert info["previous"] == [{"path": str(old), "available": True, "files": 1, "bytes": 7}]
 
 
 def test_an_empty_old_folder_is_not_offered(tmp_path):

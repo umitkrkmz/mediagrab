@@ -186,7 +186,13 @@ def main() -> None:
     stage_ffmpeg()
     for part in ("python", "app", "ffmpeg"):
         print(f"{part:7} {folder_size(os.path.join(STAGE, part)) / 2**20:7.1f} MB")
-    print(f"total   {folder_size(STAGE) / 2**20:7.1f} MB  ->  {STAGE}")
+    total = folder_size(STAGE)
+    print(f"total   {total / 2**20:7.1f} MB  ->  {STAGE}")
+    # NOTE: read by mediagrab.iss (ExtraDiskSpaceRequired) - those files are
+    # installed only for a normal install (a Check), and Inno leaves such
+    # files out of the "at least ... MB" it shows, which said 4.3 MB.
+    with open(os.path.join(os.path.dirname(STAGE), "payload-bytes.txt"), "w", encoding="ascii") as f:
+        f.write(str(total))
 
 
 if __name__ == "__main__":

@@ -291,7 +291,7 @@ def _videos(tmp_path):
 
 def test_the_uninstaller_reads_the_helpers_summary(tmp_path, uninstall_harness):
     videos, data = _videos(tmp_path)
-    assert uninstall_harness("summary", data) == f"{videos}|2|4 MB"
+    assert uninstall_harness("summary", data) == f"{videos}|1|4 MB"
 
 
 def test_the_uninstaller_has_the_helper_delete_only_mediagrabs_files(tmp_path, uninstall_harness):
@@ -560,3 +560,84 @@ def test_a_compose_file_in_the_default_folder_counts_without_a_container(detect_
 
 def test_nothing_installed_is_a_new_install(detect_harness, tmp_path):
     assert detect_harness(f"no-such-container-{os.getpid()}", tmp_path / "nowhere")[1:] == ["", "", ""]
+
+
+# --- an earlier (Tk installer) MediaGrab: FindOldInstall (settings_json.iss) ---------
+
+OLD_HARNESS = r"""
+[Setup]
+AppName=MediaGrab old-install harness
+AppVersion=1
+CreateAppDir=no
+Uninstallable=no
+PrivilegesRequired=lowest
+OutputDir={out}
+OutputBaseFilename=old-harness
+
+[Code]
+#include "{include}"
+
+function InitializeSetup(): Boolean;
+var
+  Lines: TArrayOfString;
+begin
+  SetArrayLength(Lines, 1);
+  Lines[0] := '[' + FindOldInstall(ExpandConstant('{param:state}')) + ']';
+  SaveStringsToUTF8File(ExpandConstant('{param:out}'), Lines, False);
+  Result := False;
+end;
+"""
+
+
+@pytest.fixture(scope="module")
+def old_harness(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("iss-old")
+    script = folder / "old.iss"
+    script.write_text(
+        OLD_HARNESS.replace("{out}", str(folder)).replace("{include}", str(ROOT / "packaging" / "settings_json.iss")),
+        encoding="utf-8-sig",
+    )
+    subprocess.run([_iscc(), "-Q", str(script)], check=True, capture_output=True)
+
+    def run(state):
+        out = folder / "result.txt"
+        if out.exists():
+            out.unlink()
+        subprocess.run([str(folder / "old-harness.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", f"/state={state}", f"/out={out}"], timeout=60)
+        return out.read_text(encoding="utf-8-sig").strip()[1:-1]
+
+    return run
+
+
+def _state(tmp_path, folder):
+    # NOTE: exactly how setup_mediagrab.py's save_last_install_dir wrote it.
+    state = tmp_path / "installer.json"
+    state.write_text(json.dumps({"last_install_dir": str(folder)}, ensure_ascii=False, indent=2), encoding="utf-8")
+    return state
+
+
+def test_finds_the_old_installers_folder(tmp_path, old_harness):
+    old = tmp_path / "Programlarım" / "MediaGrab Ş"
+    old.mkdir(parents=True)
+    (old / "MediaGrab Baslat.bat").write_text("", encoding="utf-8")
+    (old / "settings.json").write_text("{}", encoding="utf-8")
+    assert old_harness(_state(tmp_path, old)) == str(old)
+
+
+def test_a_folder_that_no_longer_holds_an_install_is_ignored(tmp_path, old_harness):
+    emptied = tmp_path / "MediaGrab"
+    emptied.mkdir()
+    (emptied / "settings.json").write_text("{}", encoding="utf-8")  # no launcher, no run.py
+    assert old_harness(_state(tmp_path, emptied)) == ""
+    assert old_harness(_state(tmp_path, tmp_path / "deleted")) == ""
+    assert old_harness(tmp_path / "no-installer.json") == ""
+
+
+def test_the_pascal_list_matches_historys_file_types():
+    # NOTE: docker_wizard.iss counts videos without Python (a Docker install
+    # has none on the host) - a deliberate copy of mover.HISTORY_EXTS.
+    from mediagrab import mover
+
+    iss = (ROOT / "packaging" / "docker_wizard.iss").read_text(encoding="utf-8")
+    body = iss[iss.index("function IsShownInHistory"):iss.index("procedure CountFolder")]
+    assert set(re.findall(r"'\.(\w+)'", body)) == mover.HISTORY_EXTS

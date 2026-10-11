@@ -38,7 +38,7 @@ def summary() -> list[str]:
     files = mover.movable_files(folder, mover.HISTORY_EXTS)
     total = sum(size for _rel, size in files)
     # NOTE: MB as well, rounded up - Pascal shows that without 64-bit maths.
-    return [folder, str(len(files)), str(total), str(-(-total // (1024 * 1024)))]
+    return [folder, str(mover.count_shown(files, mover.HISTORY_EXTS)), str(total), str(-(-total // (1024 * 1024)))]
 
 
 def delete_downloads() -> list[str]:

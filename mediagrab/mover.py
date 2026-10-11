@@ -83,6 +83,16 @@ def movable_files(src: str, exts: set[str], exclude: Optional[str] = None) -> li
     return found
 
 
+def count_shown(files: list[tuple[str, int]], exts: set[str]) -> int:
+    """How many of movable_files' files History would list.
+
+    NOTE: what a person counts - "3 videos", not "6 files" with each one's
+    .json info file (seen in the dev19 test). The .json files still move and
+    still count towards the size.
+    """
+    return sum(1 for rel, _size in files if os.path.splitext(rel)[1][1:].lower() in exts)
+
+
 def _same_drive(a: str, b: str) -> bool:
     try:
         return os.stat(a).st_dev == os.stat(b).st_dev

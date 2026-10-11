@@ -72,6 +72,30 @@ def test_install_type_source(monkeypatch, tmp_path):
     assert paths.install_type() == "source"
 
 
+def test_install_type_windows_installer(monkeypatch, tmp_path):
+    # NOTE: the Inno layout <install>\app + <install>\python.
+    (tmp_path / "app").mkdir()
+    (tmp_path / "python").mkdir()
+    monkeypatch.setattr(paths, "is_docker", lambda: False)
+    monkeypatch.setattr(paths, "app_dir", lambda: str(tmp_path / "app"))
+    assert paths.install_type() == "windows"
+
+
+def test_install_type_docker_from_the_windows_installer(monkeypatch):
+    monkeypatch.setattr(paths, "is_docker", lambda: True)
+    monkeypatch.setenv("MEDIAGRAB_INSTALLED_BY", "windows-installer")
+    assert paths.install_type() == "docker-windows"
+    monkeypatch.setenv("MEDIAGRAB_INSTALLED_BY", "something-else")
+    assert paths.install_type() == "docker"
+
+
+def test_the_marker_the_installer_writes_is_the_one_read():
+    # NOTE: two sides of one marker - packaging/docker_mode.iss writes it
+    # into docker-compose.yml, install_type() reads it.
+    iss = (ROOT / "packaging" / "docker_mode.iss").read_text(encoding="utf-8")
+    assert '"MEDIAGRAB_INSTALLED_BY=windows-installer"' in iss
+
+
 # --- the GitHub release check ------------------------------------------------------
 
 

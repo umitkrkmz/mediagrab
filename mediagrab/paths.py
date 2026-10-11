@@ -165,14 +165,27 @@ INSTALLER_LAUNCHERS = ("MediaGrab Baslat.bat", "mediagrab-baslat.sh")
 
 
 def install_type() -> str:
-    """How this copy was installed: "docker", "installer" or "source".
+    """How this copy was installed.
 
-    Decides which update instructions Settings -> Version Checks shows - each
-    of the three updates differently (pull a new image / run the installer's
-    Repair-Update / git pull + pip install).
+    "windows"         - the v2.4.0 Windows installer (Inno Setup);
+    "docker-windows"  - that installer's "Install with Docker" (it puts
+                        MEDIAGRAB_INSTALLED_BY=windows-installer in the
+                        compose file, packaging/docker_mode.iss);
+    "docker"          - any other Docker setup (the repo's compose file);
+    "installer"       - the old Tk installer (setup_mediagrab.py, before v2.4.0);
+    "source"          - a git checkout.
+
+    Decides which update instructions Settings -> Version Checks shows: both
+    Windows-installer kinds update by running a newer installer, plain Docker
+    pulls the image, the old Tk installer's users move to the new installer,
+    a checkout pulls and reinstalls requirements.
     """
     if is_docker():
+        if os.environ.get("MEDIAGRAB_INSTALLED_BY") == "windows-installer":
+            return "docker-windows"
         return "docker"
+    if windows_install_dir():
+        return "windows"
     base = app_dir()
     if any(os.path.isfile(os.path.join(base, name)) for name in INSTALLER_LAUNCHERS):
         return "installer"

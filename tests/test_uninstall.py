@@ -26,7 +26,7 @@ def _folder_with_downloads(tmp_path) -> Path:
 
 def test_summary_counts_what_history_shows(tmp_path):
     folder = _folder_with_downloads(tmp_path)
-    assert uninstall.summary() == [str(folder), "3", "10", "1"]
+    assert uninstall.summary() == [str(folder), "2", "10", "1"], "2 = what History shows, not the .json"
 
 
 def test_summary_never_creates_a_missing_folder(tmp_path, monkeypatch):
@@ -72,7 +72,7 @@ def test_main_writes_lines_the_installer_reads(tmp_path):
     assert uninstall.main(["summary", str(out)]) == 0
     raw = out.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf")
-    assert raw.decode("utf-8-sig").splitlines() == [str(folder), "3", "10", "1"]
+    assert raw.decode("utf-8-sig").splitlines() == [str(folder), "2", "10", "1"]
 
 
 def test_main_refuses_anything_else(tmp_path):

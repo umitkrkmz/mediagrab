@@ -23,6 +23,16 @@
   #define DockerImageTag AppVersion
 #endif
 #define DockerImage "ghcr.io/umitkrkmz/mediagrab:" + DockerImageTag
+; NOTE: the size of the normal install's files, written by build_windows.py.
+; They're installed with a Check (not for Docker), and Inno leaves such files
+; out of the "at least ... MB of free disk space" it shows - it said 4.3 MB.
+#define PayloadSizeFile AddBackslash(SourcePath) + "..\build\windows\payload-bytes.txt"
+#if !FileExists(PayloadSizeFile)
+  #error Run packaging/build_windows.py first (no build\windows\payload-bytes.txt)
+#endif
+#define PayloadHandle FileOpen(PayloadSizeFile)
+#define PayloadBytes Trim(FileRead(PayloadHandle))
+#expr FileClose(PayloadHandle)
 
 [Setup]
 ; NOTE: AppId is what Windows uses to recognise MediaGrab across versions
@@ -44,6 +54,7 @@ VersionInfoProductName=MediaGrab
 VersionInfoCopyright=GPL-3.0-or-later - github.com/umitkrkmz/mediagrab
 DefaultDirName={autopf}\MediaGrab
 DisableProgramGroupPage=yes
+ExtraDiskSpaceRequired={#PayloadBytes}
 ; NOTE: no "folder already exists, install anyway?" question - in this layout
 ; the folder only ever holds MediaGrab's own program files (user data lives in
 ; %LOCALAPPDATA%\MediaGrab and the downloads folder), and the question makes
@@ -213,6 +224,11 @@ english.DockerErrStart=Docker couldn't start MediaGrab:%n%1%n%nFor details, run 
 english.DockerErrNoAnswer=MediaGrab started but didn't answer within 60 seconds. For details, run "docker compose logs" in this folder:%n%1
 english.UninstallOptionsIntroDocker=MediaGrab has been removed from Docker (its container is deleted). Its data is still in %1 - what should happen to your settings and the videos you downloaded?
 english.DockerExistingData=This folder already holds data from an earlier MediaGrab (data\settings.json). If a password was set there, that one stays in use - the password below is only used when there isn't one yet.
+english.MigrateCaption=Your earlier MediaGrab
+english.MigrateDescription=An earlier MediaGrab installation was found on this computer
+english.MigrateSubCaption=%1%n%nThe new MediaGrab can take your settings, channel list, cookies and statistics from it. Your videos stay where they are for now: once MediaGrab is open, it offers to move them into the new downloads folder (History and Settings say so). The earlier installation isn't deleted. If it's open (a black console window), close it first.
+english.MigrateCheck=Bring over my settings, channels, cookies and statistics (recommended)
+english.MigrateMemo=Brought over from the earlier installation:
 english.DockerOpenInBrowser=Open MediaGrab in the browser
 english.DockerUninstallDownFailed=MediaGrab couldn't be stopped in Docker (Docker Desktop may be closed). You can delete the container in Docker Desktop.
 turkish.DockerCaption=Docker
@@ -259,6 +275,11 @@ turkish.DockerErrStart=Docker MediaGrab'ı başlatamadı:%n%1%n%nAyrıntı için
 turkish.DockerErrNoAnswer=MediaGrab başladı ama 60 saniye içinde cevap vermedi. Ayrıntı için bu klasörde "docker compose logs" çalıştırın:%n%1
 turkish.UninstallOptionsIntroDocker=MediaGrab Docker'dan kaldırıldı (konteyneri silindi). Verileri %1 klasöründe duruyor; ayarlarınız ve indirdiğiniz videolar ne olsun?
 turkish.DockerExistingData=Bu klasörde önceki bir MediaGrab'ın verisi var (data\settings.json). Orada bir parola belirlenmişse o geçerli kalır; aşağıdaki parola yalnızca henüz parola yoksa kullanılır.
+turkish.MigrateCaption=Önceki MediaGrab
+turkish.MigrateDescription=Bu bilgisayarda eski bir MediaGrab kurulumu bulundu
+turkish.MigrateSubCaption=%1%n%nYeni MediaGrab ayarlarınızı, kanal listenizi, çerezlerinizi ve istatistiklerinizi buradan alabilir. Videolarınız şimdilik yerinde kalır: MediaGrab açılınca onları yeni indirme klasörüne taşımayı teklif eder (Geçmiş ve Ayarlar'da yazar). Eski kurulum silinmez. Açıksa (siyah konsol penceresi) önce kapatın.
+turkish.MigrateCheck=Ayarlarımı, kanallarımı, çerezlerimi ve istatistiklerimi aktar (önerilen)
+turkish.MigrateMemo=Önceki kurulumdan aktarılacak:
 turkish.DockerOpenInBrowser=MediaGrab'ı tarayıcıda aç
 turkish.DockerUninstallDownFailed=Docker'daki MediaGrab durdurulamadı (Docker Desktop kapalı olabilir). Konteyneri Docker Desktop'tan silebilirsiniz.
 
@@ -285,6 +306,13 @@ var
   DockerIsReady: Boolean;
   DockerDirPage: TInputDirWizardPage;
   DockerPasswordPage: TInputQueryWizardPage;
+  // NOTE: a pre-v2.4.0 (Tk installer) MediaGrab found on this computer.
+  OldInstallFolder: String;
+  // NOTE: its videos are NOT taken over as the downloads folder (user's
+  // choice, dev18 test): they live inside the old install's own folder, and
+  // whoever deletes that folder later would lose them. The app offers
+  // "Move here" for them instead (app.py _apply_installer_migration).
+  MigratePage: TInputOptionWizardPage;
 
 // NOTE: also a Check: for [Files]/[Icons]/[INI]/[Run] - evaluated when
 // installing, after the wizard.
@@ -303,6 +331,11 @@ end;
 function DefaultDockerFolder(): String;
 begin
   Result := ExpandConstant('{sd}\MediaGrab');
+end;
+
+function Migrating(): Boolean;
+begin
+  Result := (OldInstallFolder <> '') and not IsDockerMode() and IsFirstInstall() and MigratePage.Values[0];
 end;
 
 function DockerFolder(): String;
@@ -418,6 +451,13 @@ begin
   DockerPasswordPage.Add(CustomMessage('DockerPassword'), True);
   DockerPasswordPage.Add(CustomMessage('DockerPasswordAgain'), True);
 
+  // --- normal: an earlier (Tk installer) MediaGrab --------------------------
+  OldInstallFolder := FindOldInstall(ExpandConstant('{localappdata}\MediaGrab\installer.json'));
+  MigratePage := CreateInputOptionPage(DockerPasswordPage.ID, CustomMessage('MigrateCaption'),
+    CustomMessage('MigrateDescription'), FmtMessage(CustomMessage('MigrateSubCaption'), [OldInstallFolder]), False, False);
+  MigratePage.Add(CustomMessage('MigrateCheck'));
+  MigratePage.Values[0] := True;
+
   // --- normal: downloads folder (first install only) -----------------------
   DefaultDir := AddBackslash(UserDownloadsFolder()) + 'MediaGrab';
   PreviousDownloadDir := ReadDownloadDirSetting(ExpandConstant('{localappdata}\MediaGrab\settings.json'));
@@ -449,6 +489,8 @@ begin
     Result := not IsDockerMode()
   else if (PageID = DockerDirPage.ID) or (PageID = DockerPasswordPage.ID) then
     Result := not IsDockerMode() or (ExistingDockerFolder <> '')
+  else if PageID = MigratePage.ID then
+    Result := IsDockerMode() or not IsFirstInstall() or (OldInstallFolder = '')
   else if PageID = wpSelectDir then
     // NOTE: a Docker install keeps only its uninstaller and icon in {app};
     // the folder that matters is the Docker folder, asked for separately.
@@ -577,6 +619,8 @@ begin
   else
   begin
     Result := MemoDirInfo + NewLine + NewLine;
+    if Migrating() then
+      Result := Result + CustomMessage('MigrateMemo') + NewLine + Space + OldInstallFolder + NewLine + NewLine;
     if IsFirstInstall() then
     begin
       Caption := CustomMessage('DownloadDirCaption');
@@ -625,6 +669,13 @@ begin
     ForceDirectories(DataDir);
     Lines[0] := DownloadDirPage.Values[0];
     SaveStringsToUTF8File(DataDir + '\install-download-dir.txt', Lines, False);
+    // NOTE: the app copies the files itself on its first start
+    // (app.py _apply_installer_migration) - never over newer ones.
+    if Migrating() then
+    begin
+      Lines[0] := OldInstallFolder;
+      SaveStringsToUTF8File(DataDir + '\install-migrate-from.txt', Lines, False);
+    end;
   end;
 end;
 
