@@ -21,6 +21,7 @@ the user's own, writable folder).
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -136,6 +137,23 @@ def stage_app() -> None:
     shutil.copy2(os.path.join(ROOT, "packaging", "mediagrab.ico"), STAGE)
 
 
+def stage_launcher(python_dir: str) -> None:
+    # NOTE: MediaGrab.exe = pythonw.exe under MediaGrab's name and icon, so
+    # Task Manager doesn't list MediaGrab as "Python" - see exe_branding.py
+    # (and why its signature is removed rather than left broken).
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import exe_branding
+
+    with open(os.path.join(ROOT, "mediagrab", "__init__.py"), encoding="utf-8") as f:
+        version = re.search(r'__version__ = "([^"]+)"', f.read()).group(1)
+    exe_branding.brand(
+        os.path.join(python_dir, "pythonw.exe"),
+        os.path.join(python_dir, "MediaGrab.exe"),
+        os.path.join(ROOT, "packaging", "mediagrab.ico"),
+        version,
+    )
+
+
 def stage_ffmpeg() -> None:
     target = os.path.join(STAGE, "ffmpeg")
     os.makedirs(target)
@@ -162,7 +180,9 @@ def main() -> None:
         shutil.rmtree(STAGE)
     os.makedirs(STAGE)
     stage_app()
-    stage_packages(stage_python())
+    python_dir = stage_python()
+    stage_packages(python_dir)
+    stage_launcher(python_dir)
     stage_ffmpeg()
     for part in ("python", "app", "ffmpeg"):
         print(f"{part:7} {folder_size(os.path.join(STAGE, part)) / 2**20:7.1f} MB")

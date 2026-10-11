@@ -73,13 +73,15 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\build\windows\MediaGrab\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-; NOTE: pythonw.exe = no console window; run.py opens the browser itself and,
+; NOTE: MediaGrab.exe = the embedded pythonw.exe (no console window) under
+; MediaGrab's own name and icon, so Task Manager says "MediaGrab", not
+; "Python" (packaging/exe_branding.py). run.py opens the browser itself and,
 ; if MediaGrab is already running, only opens the browser again.
-Name: "{autoprograms}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"
-Name: "{autodesktop}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"; Tasks: desktopicon
+Name: "{autoprograms}\MediaGrab"; Filename: "{app}\python\MediaGrab.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"
+Name: "{autodesktop}\MediaGrab"; Filename: "{app}\python\MediaGrab.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; Description: "{cm:LaunchProgram,MediaGrab}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\python\MediaGrab.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; Description: "{cm:LaunchProgram,MediaGrab}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; NOTE: files created after install aren't in Inno's uninstall log - an
