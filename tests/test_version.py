@@ -4,8 +4,6 @@ and the "is there a newer release?" check against GitHub.
 NOTE: no real network - every GitHub call is faked.
 """
 
-import importlib.util
-import inspect
 import io
 import json
 import os
@@ -43,15 +41,11 @@ def test_the_about_page_shows_the_version():
 # --- install type ---------------------------------------------------------------
 
 
-def test_installer_launcher_names_match_the_installer():
-    # NOTE: paths.INSTALLER_LAUNCHERS is a deliberate duplicate (the installer
-    # runs before this package exists) - this keeps the two from drifting.
-    spec = importlib.util.spec_from_file_location("setup_for_version_test", ROOT / "setup_mediagrab.py")
-    setup_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(setup_mod)
-    source = inspect.getsource(setup_mod._launcher_name)
-    for name in paths.INSTALLER_LAUNCHERS:
-        assert f'"{name}"' in source
+def test_old_installs_are_recognised_by_their_launcher():
+    # NOTE: the launcher names the old Tk installer (setup_mediagrab.py,
+    # removed in v2.4.0) wrote - a fixed fact now; installs made with it are
+    # still out there and must keep being told how to move on.
+    assert paths.INSTALLER_LAUNCHERS == ("MediaGrab Baslat.bat", "mediagrab-baslat.sh")
 
 
 def test_install_type_docker(monkeypatch):

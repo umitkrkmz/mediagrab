@@ -5,7 +5,6 @@ install-migrate-from.txt (packaging/mediagrab.iss); app.py's
 _apply_installer_migration does the rest. Isolated folders from conftest.py.
 """
 
-import importlib.util
 import json
 from pathlib import Path
 
@@ -116,9 +115,8 @@ def test_the_installer_names_the_file_the_app_reads():
 
 
 def test_the_copied_files_are_the_old_installers_user_data():
-    # NOTE: setup_mediagrab.py (the old installer) defines what it kept as
-    # user data; everything but the videos is brought over.
-    spec = importlib.util.spec_from_file_location("setup_mediagrab", ROOT / "setup_mediagrab.py")
-    setup_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(setup_mod)
-    assert set(app_module._migrated_targets()) == set(setup_mod.USER_DATA_ENTRIES) - {"indirilenler"}
+    # NOTE: what the old Tk installer (setup_mediagrab.py, removed in v2.4.0)
+    # kept as user data - its USER_DATA_ENTRIES, a fixed fact now. Everything
+    # but the videos is brought over.
+    old_user_data = ("indirilenler", "channels.json", "settings.json", "cookies.txt", "stats.json")
+    assert set(app_module._migrated_targets()) == set(old_user_data) - {"indirilenler"}

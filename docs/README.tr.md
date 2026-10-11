@@ -451,7 +451,11 @@ mediagrab/
     deps.py         # ffmpeg/ffprobe ve Python paket sürüm kontrolleri
     store.py        # channels.json / settings.json / stats.json okuma-yazma, DB değil
     stats.py        # indirme istatistikleri: sınıflandırma, ilk içe aktarma, gün/hafta/ay özeti
-    paths.py         # kaynak/exe modunda doğru klasör yollarını çözer
+    paths.py        # program/veri/indirme klasörlerini kurulum türüne göre çözer
+    mover.py        # indirme klasörü değişince eski indirmeleri taşıma
+    tray.py         # Windows bildirim alanı simgesi (yalnızca Windows kurulumu)
+    folder_picker.py  # Windows'un klasör seçme penceresi
+    uninstall.py    # Windows kaldırıcısının "videoları da sil" yardımcısı
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
     static/icons/   # desteklenen site logoları (Simple Icons'tan, yerelde tutulur)
@@ -464,7 +468,7 @@ settings.json       # çerez ve varsayılan ses dili ayarları (git'e dahil değ
 cookies.txt         # Ayarlar → Çerezler'den yüklenen dosya (git'e dahil değil; Docker'da ./data/cookies/)
 stats.json          # indirme istatistikleri, yalnızca sayılar (git'e dahil değil; Docker'da ./data/stats/)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
-setup_mediagrab.py  # kurulum aracı (Release'deki MediaGrabSetup.exe'nin kaynağı, Docker moduyla birlikte)
+packaging/          # Windows kurulum programı: build_windows.py (gömülü Python + paketler + ffmpeg), mediagrab.iss ve yardımcı .iss'ler (Inno Setup), exe_branding.py, mediagrab.ico
 Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)
 docker-compose.yml  # örnek compose dosyası (elle Docker kurulumu için)
 .dockerignore

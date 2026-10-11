@@ -120,10 +120,8 @@ def default_download_dir() -> str:
     return os.path.join(app_dir(), "indirilenler")
 
 
-# NOTE: the same list setup_mediagrab.py warns about (a deliberate small
-# duplicate - the installer can't import this package, see AGENTS.md;
-# tests/test_version.py checks they still match). A synced folder would
-# upload every downloaded video.
+# NOTE: cloud-synced folders (Settings warns when the downloads folder is in
+# one) - a synced folder would upload every downloaded video.
 CLOUD_MARKERS = ("onedrive", "dropbox", "google drive", "googledrive", "icloud", "yandex.disk")
 
 
@@ -157,10 +155,10 @@ def use_bundled_ffmpeg() -> None:
         os.environ["PATH"] = folder + os.pathsep + os.environ.get("PATH", "")
 
 
-# NOTE: the launcher setup_mediagrab.py writes into every folder it installs
-# to (see its _launcher_name) - a deliberate small duplicate, since the
-# installer runs before this package exists and can't share code with it
-# (AGENTS.md). tests/test_version.py checks the two lists still match.
+# NOTE: the launcher the old Tk installer (setup_mediagrab.py, removed in
+# v2.4.0) wrote into every folder it installed to. Installs made with it still
+# run and update from source - this is how they're recognised (Settings then
+# points them to the new installer, which can bring their data over).
 INSTALLER_LAUNCHERS = ("MediaGrab Baslat.bat", "mediagrab-baslat.sh")
 
 
@@ -172,7 +170,8 @@ def install_type() -> str:
                         MEDIAGRAB_INSTALLED_BY=windows-installer in the
                         compose file, packaging/docker_mode.iss);
     "docker"          - any other Docker setup (the repo's compose file);
-    "installer"       - the old Tk installer (setup_mediagrab.py, before v2.4.0);
+    "installer"       - the old Tk installer (setup_mediagrab.py, removed in
+                        v2.4.0 - installs made with it still run);
     "source"          - a git checkout.
 
     Decides which update instructions Settings -> Version Checks shows: both

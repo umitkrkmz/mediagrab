@@ -1,30 +1,29 @@
-# Builds MediaGrabSetup.exe and publishes it whenever a version tag is pushed.
+# Builds the Windows installer (MediaGrabSetup.exe) and publishes it whenever a
+# version tag is pushed.
 #
-# NOTE: PyInstaller output is not byte-reproducible (build time and paths are
-# embedded), so the SHA256 changes on every build and CANNOT be hard-coded in
-# the README ahead of time. That's why this workflow computes the hash and
-# writes it into the release notes instead - the README points readers at the
-# release page for it.
+# Since v2.4.0 the installer is self-contained: packaging/build_windows.py
+# stages an embedded Python with every requirement, MediaGrab itself and FFmpeg
+# (each download pinned and SHA256-checked), and Inno Setup turns that into one
+# exe (packaging/mediagrab.iss). The old Tk installer is gone.
+#
+# NOTE: the exe isn't byte-reproducible (timestamps), so its SHA256 is computed
+# here and written into the release notes - the README points there.
 name: Release
 
 on:
   push:
     tags: ["v*"]
-  # NOTE: lets the build be exercised from the Actions tab without cutting a
-  # release, so a broken workflow is found before tag day.
+  # NOTE: lets the build (and its smoke test) be exercised from the Actions
+  # tab without cutting a release, so a broken workflow is found before tag day.
   workflow_dispatch:
 
 permissions:
-  contents: write # required to create the release and upload the exe
+  contents: write # required to create the release and upload the files
 
 jobs:
   build:
-    # NOTE: a Windows .exe can only be produced on a Windows runner -
-    # PyInstaller bundles the host platform's interpreter, it doesn't
-    # cross-compile.
-    #
-    # Pinned rather than windows-latest for the same reason docker.yml pins
-    # its runner: the exe should only change when this file says so.
+    # NOTE: pinned rather than windows-latest for the same reason docker.yml
+    # pins its runner: the exe should only change when this file says so.
     runs-on: windows-2025
 
     steps:
@@ -32,31 +31,57 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          # NOTE: unrelated to MIN_PYTHON in setup_mediagrab.py. That floor is
-          # about the user's own Python, which runs MediaGrab itself; this exe
-          # bundles its own interpreter, so the build version constrains
-          # nothing for end users. A current release is the better choice here.
-          python-version: "3.12"
+          # NOTE: must match the embedded Python's minor version (cp314 wheels
+          # are staged for it) - build_windows.py refuses anything else.
+          python-version: "3.14"
 
       - name: Install dependencies
-        # NOTE: PyInstaller (and its hooks package, which decides what gets
-        # bundled) are pinned to the versions that built v2.1.0. An unpinned
-        # build changes the exe's bootloader/layout between releases for no
-        # reason of ours - and every such brand-new binary starts from zero
-        # reputation with Windows Defender/SmartScreen, which is exactly what
-        # flagged a fresh MediaGrabSetup.exe as a false positive before.
-        # Bump deliberately, and test the exe by hand when you do.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt pyinstaller==6.22.3 pyinstaller-hooks-contrib==2026.7
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: .github/scripts/install-inno.ps1
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          # NOTE: a tag must match mediagrab/__init__.py exactly (test_version
+          # also checks CHANGELOG.md); a manual run builds whatever is there.
+          $code = (Select-String -Path mediagrab/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if ("${{ github.ref }}" -like "refs/tags/v*") {
+            $tag = "${{ github.ref_name }}".Substring(1)
+            if ($tag -ne $code) { throw "tag v$tag doesn't match __version__ $code" }
+          }
+          "version=$code" >> $env:GITHUB_OUTPUT
+          Write-Host "version $code"
 
       - name: Run tests
-        # NOTE: no release goes out on a red suite. The tests need no network,
-        # so this is fast and can't fail for connectivity reasons.
+        # NOTE: no release goes out on a red suite. Inno Setup is installed by
+        # now, so the installer-script tests (real ISCC) run here too.
         run: pytest
 
+      - name: Stage the package
+        run: python packaging/build_windows.py
+
       - name: Build the installer
-        run: pyinstaller --noconfirm setup_mediagrab.spec
+        shell: pwsh
+        run: |
+          ISCC.exe /Q "/DAppVersion=${{ steps.version.outputs.version }}" /DOutputName=MediaGrabSetup packaging/mediagrab.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
+      - name: Smoke-test the installer
+        # NOTE: silent install -> start MediaGrab -> it answers, uses its own
+        # FFmpeg, knows it's a Windows install -> silent uninstall.
+        shell: pwsh
+        run: .github/scripts/smoke-windows.ps1 dist/MediaGrabSetup.exe ${{ steps.version.outputs.version }}
+
+      - name: Fetch FFmpeg's source for the release
+        # NOTE: FFmpeg is GPL and the installer distributes it - its exact
+        # source (and the scripts that built it) go up next to the exe.
+        run: python packaging/build_windows.py --sources dist/sources
 
       - name: Compute SHA256
         id: hash
@@ -66,26 +91,13 @@ jobs:
           "sha=$sha" >> $env:GITHUB_OUTPUT
           Write-Host "SHA256: $sha"
 
-      - name: Smoke-test the exe
-        # NOTE: PyInstaller can produce a binary that fails at startup (a
-        # missing hidden import surfaces only at runtime). Launching it and
-        # checking it's still alive a few seconds later catches that here
-        # rather than in a user's download.
-        shell: pwsh
-        run: |
-          $p = Start-Process -FilePath dist/MediaGrabSetup.exe -PassThru
-          Start-Sleep -Seconds 8
-          if ($p.HasExited) { throw "installer exited immediately (code $($p.ExitCode))" }
-          Stop-Process -Id $p.Id -Force
-          Write-Host "installer started and stayed running"
-
       - name: Upload the installer as a workflow artifact
         # NOTE: makes a manual (workflow_dispatch) build downloadable from the
         # run page, so the exe can be tried by hand BEFORE a tag turns it into
         # a public release. Kept on tag builds too - it's the same file.
         uses: actions/upload-artifact@v7
         with:
-          name: MediaGrabSetup-${{ github.sha }}
+          name: MediaGrabSetup-${{ steps.version.outputs.version }}-${{ github.sha }}
           path: dist/MediaGrabSetup.exe
           if-no-files-found: error
 
@@ -95,22 +107,21 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/MediaGrabSetup.exe
+          files: |
+            dist/MediaGrabSetup.exe
+            dist/sources/*
           generate_release_notes: true
           body: |
-            ## MediaGrabSetup.exe
+            ## Windows: MediaGrabSetup.exe
 
-            Download the installer below, put it in a folder dedicated to MediaGrab and run it.
-            Full instructions: [README](https://github.com/umitkrkmz/mediagrab#installation)
+            Download **MediaGrabSetup.exe** below and run it — no Python, Git or ffmpeg needed. If Windows says "Windows protected your PC", click **More info → Run anyway** (the installer isn't code-signed yet). Full instructions: [README](https://github.com/umitkrkmz/mediagrab#readme)
 
             **SHA256**
             ```
             ${{ steps.hash.outputs.sha }}  MediaGrabSetup.exe
             ```
+            Verify in PowerShell: `Get-FileHash .\MediaGrabSetup.exe`
 
-            Verify on Windows with:
-            ```
-            certutil -hashfile MediaGrabSetup.exe SHA256
-            ```
+            **VirusTotal:** _added after the scan_
 
-            See the [changelog](https://github.com/umitkrkmz/mediagrab/blob/master/CHANGELOG.md) for what changed.
+            The `ffmpeg-source-*` and `ffmpeg-builds-scripts-*` files are the source of the FFmpeg build shipped inside the installer (GPL). See the [changelog](https://github.com/umitkrkmz/mediagrab/blob/master/CHANGELOG.md) for what changed.

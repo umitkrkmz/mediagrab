@@ -11,6 +11,8 @@ user-data path for every test, so a test can only ever opt IN to a path
 real one.
 """
 
+import os
+
 import pytest
 
 from mediagrab import app as app_module
@@ -43,3 +45,18 @@ def _isolate_user_data(tmp_path_factory, monkeypatch):
     # isn't enough. Tests that exercise it call _check_channel directly, or
     # patch this again with their own recorder (test_home_server_mode).
     monkeypatch.setattr(app_module, "_check_all_channels", lambda: None)
+
+
+def start_tray_icon(icon) -> None:
+    """Start a tray icon in a test; on a CI runner without a notification area, skip.
+
+    NOTE: GitHub's Windows runners may have no Explorer taskbar to put an icon
+    in - that's the machine, not the code. Anywhere else (a developer's
+    Windows) a failure to add the icon still fails the test.
+    """
+    if icon.start():
+        return
+    icon.stop()
+    if os.environ.get("CI"):
+        pytest.skip("no notification area on this CI runner")
+    pytest.fail("the icon must make it into the notification area")

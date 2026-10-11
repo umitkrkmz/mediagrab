@@ -46,6 +46,18 @@ FFMPEG_TAG = "autobuild-2026-10-10-18-21"
 FFMPEG_ASSET = "ffmpeg-N-127276-g8e9db1f152-win64-gpl-shared.zip"
 FFMPEG_URL = f"https://github.com/yt-dlp/FFmpeg-Builds/releases/download/{FFMPEG_TAG}/{FFMPEG_ASSET}"
 FFMPEG_SHA256 = "974866fd96bd439398398d9fd7e2bdb1d639f3d00a2a83f504b388416ab1e2c2"
+FFMPEG_COMMIT = FFMPEG_ASSET.split("-g", 1)[1].split("-", 1)[0]
+# NOTE: FFmpeg is GPL, and we distribute it - so every release carries the
+# source of exactly this build next to the installer (release.yml attaches
+# what --sources downloads): FFmpeg at its commit, and the FFmpeg-Builds
+# scripts at the build's tag, which pin every other library's source.
+SOURCE_ARCHIVES = (
+    (f"https://github.com/FFmpeg/FFmpeg/archive/{FFMPEG_COMMIT}.tar.gz", f"ffmpeg-source-{FFMPEG_COMMIT}.tar.gz"),
+    (
+        f"https://github.com/yt-dlp/FFmpeg-Builds/archive/refs/tags/{FFMPEG_TAG}.tar.gz",
+        f"ffmpeg-builds-scripts-{FFMPEG_TAG}.tar.gz",
+    ),
+)
 
 APP_FILES = ("run.py", "requirements.txt", "LICENSE", "LICENSE-MIT", "README.md")
 
@@ -190,7 +202,7 @@ def notices_text(stage: str, version: str) -> str:
     """
     import email
 
-    ffmpeg_commit = FFMPEG_ASSET.split("-g", 1)[1].split("-", 1)[0]
+    ffmpeg_commit = FFMPEG_COMMIT
     site = os.path.join(stage, "python", "Lib", "site-packages")
     lines = [
         f"MediaGrab {version} - third-party software in this package",
@@ -208,6 +220,9 @@ def notices_text(stage: str, version: str) -> str:
         f"         https://github.com/yt-dlp/FFmpeg-Builds/releases/tag/{FFMPEG_TAG}",
         f"  FFmpeg source (commit {ffmpeg_commit}): https://github.com/FFmpeg/FFmpeg/tree/{ffmpeg_commit}",
         "  Build scripts (they pin each library's source): https://github.com/yt-dlp/FFmpeg-Builds",
+        "  Both are also attached to this MediaGrab release on GitHub, as",
+        *[f"    {name}" for _url, name in SOURCE_ARCHIVES],
+        f"  (https://github.com/umitkrkmz/mediagrab/releases/tag/v{version}).",
         "",
         "Python packages (python\\Lib\\site-packages) - each one's license text is in",
         "its *.dist-info folder:",
@@ -243,7 +258,23 @@ def folder_size(path: str) -> int:
     return sum(os.path.getsize(os.path.join(r, f)) for r, _d, files in os.walk(path) for f in files)
 
 
+def fetch_sources(target: str) -> list[str]:
+    """Download SOURCE_ARCHIVES into target (for the release's attachments)."""
+    os.makedirs(target, exist_ok=True)
+    paths = []
+    for url, name in SOURCE_ARCHIVES:
+        path = os.path.join(target, name)
+        print(f"download {url}")
+        urllib.request.urlretrieve(url, path + ".part")
+        os.replace(path + ".part", path)
+        paths.append(path)
+    return paths
+
+
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "--sources":
+        fetch_sources(sys.argv[2])
+        return
     if sys.version_info[:2] != (3, int(PYTHON_TAG[1:])):
         raise SystemExit(f"run this with Python 3.{PYTHON_TAG[1:]} (the embedded version), not {sys.version.split()[0]}")
     if os.path.isdir(STAGE):

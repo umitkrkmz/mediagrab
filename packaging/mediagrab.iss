@@ -23,6 +23,12 @@
   #define DockerImageTag AppVersion
 #endif
 #define DockerImage "ghcr.io/umitkrkmz/mediagrab:" + DockerImageTag
+; NOTE: releases publish a version-less MediaGrabSetup.exe (the README links
+; /releases/latest/download/MediaGrabSetup.exe); release.yml passes
+; /DOutputName=MediaGrabSetup. Local test builds keep the version in the name.
+#ifndef OutputName
+  #define OutputName "MediaGrabSetup-" + AppVersion
+#endif
 ; NOTE: the size of the normal install's files, written by build_windows.py.
 ; They're installed with a Check (not for Docker), and Inno leaves such files
 ; out of the "at least ... MB of free disk space" it shows - it said 4.3 MB.
@@ -69,7 +75,7 @@ ShowLanguageDialog=auto
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=..\dist
-OutputBaseFilename=MediaGrabSetup-{#AppVersion}
+OutputBaseFilename={#OutputName}
 UninstallDisplayName=MediaGrab
 UninstallDisplayIcon={app}\mediagrab.ico
 ; NOTE: a running MediaGrab holds python314.dll and friends open - let the

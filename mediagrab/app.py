@@ -321,7 +321,7 @@ def lan_ip() -> Optional[str]:
     # resolves to the container's OWN internal bridge IP (e.g. 172.19.0.2) -
     # unreachable from any other device, and even from the host's own
     # browser (Docker Desktop's VM sits in between). MEDIAGRAB_HOST_LAN_IP is
-    # set by setup_mediagrab.py's Docker install flow (computed on the HOST,
+    # set by the Windows installer's Docker install (computed on the HOST,
     # before the container even exists, where this same socket call is
     # correct) to work around exactly that; a manual docker-compose install
     # can set the same variable by hand - see that file's own comment.
@@ -1493,8 +1493,9 @@ INSTALLER_MIGRATE_FILE = "install-migrate-from.txt"
 
 
 def _migrated_targets() -> dict:
-    # NOTE: setup_mediagrab.py's USER_DATA_ENTRIES minus "indirilenler" -
-    # videos aren't copied, they stay where they are (see below).
+    # NOTE: what the old Tk installer kept as user data (its
+    # USER_DATA_ENTRIES) minus "indirilenler" - videos aren't copied, they
+    # stay where they are (see below).
     return {
         "settings.json": store.SETTINGS_PATH,
         "channels.json": store.STORE_PATH,

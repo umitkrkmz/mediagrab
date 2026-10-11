@@ -258,7 +258,7 @@ def test_lan_ip_uses_the_host_override_when_set(monkeypatch):
     # container (Docker Desktop on Windows/Mac), the plain socket call below
     # resolves to the container's OWN internal bridge IP (e.g. 172.19.0.2),
     # not the host's real LAN IP - unreachable from any other device, or even
-    # the host's own browser. setup_mediagrab.py's Docker install flow sets
+    # the host's own browser. The Windows installer's Docker install sets
     # this env var (computed on the host, before the container exists) to
     # work around it.
     monkeypatch.setenv("MEDIAGRAB_HOST_LAN_IP", "192.168.1.50")

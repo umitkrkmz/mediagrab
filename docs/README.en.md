@@ -451,7 +451,11 @@ mediagrab/
     deps.py         # ffmpeg/ffprobe and Python package version checks
     store.py        # reads/writes channels.json / settings.json / stats.json, not a DB
     stats.py        # download statistics: classifying, first-start import, day/week/month summary
-    paths.py         # resolves the right folders whether running from source or as the exe
+    paths.py        # resolves the program/data/download folders for each install type
+    mover.py        # moving earlier downloads when the download folder changes
+    tray.py         # the Windows notification-area icon (Windows installer only)
+    folder_picker.py  # Windows' folder picker dialog
+    uninstall.py    # the Windows uninstaller's "also delete my videos" helper
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
     static/icons/   # supported-site logos (from Simple Icons, kept locally)
@@ -464,7 +468,7 @@ settings.json       # cookie source and default audio-language settings (not in 
 cookies.txt         # the file uploaded in Settings → Cookies (not in git; ./data/cookies/ on Docker)
 stats.json          # download statistics, numbers only (not in git; ./data/stats/ on Docker)
 run.py              # entry point for `python run.py`
-setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases, with its Docker mode)
+packaging/          # the Windows installer: build_windows.py (embedded Python + packages + ffmpeg), mediagrab.iss and helper .iss files (Inno Setup), exe_branding.py, mediagrab.ico
 Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
 docker-compose.yml  # example compose file (for a manual Docker install)
 .dockerignore

@@ -51,6 +51,16 @@ def test_ffmpeg_points_at_its_exact_source(tmp_path):
     assert f"https://github.com/FFmpeg/FFmpeg/tree/{commit}" in text
     assert build_windows.FFMPEG_TAG in text
     assert build_windows.FFMPEG_ASSET in text
+    # NOTE: and where the copies attached to the release are.
+    for _url, name in build_windows.SOURCE_ARCHIVES:
+        assert name in text
+    assert "https://github.com/umitkrkmz/mediagrab/releases/tag/v2.4.0" in text
+
+
+def test_the_source_archives_are_this_builds():
+    urls = [url for url, _name in build_windows.SOURCE_ARCHIVES]
+    assert any(build_windows.FFMPEG_COMMIT in u and "FFmpeg/FFmpeg" in u for u in urls)
+    assert any(build_windows.FFMPEG_TAG in u and "FFmpeg-Builds" in u for u in urls)
 
 
 def test_mediagrab_and_python_with_their_sources(tmp_path):

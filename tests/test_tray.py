@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import start_tray_icon
 
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows tray icon")
 
@@ -50,7 +51,7 @@ def tray():
         calls["quit"] += 1
 
     icon = tray_module.TrayIcon("MediaGrab - test", "Open", "Quit", on_open, on_quit, ICON)
-    assert icon.start(), "the icon must make it into the notification area"
+    start_tray_icon(icon)
     icon.calls = calls
     yield icon
     icon.stop()
@@ -111,7 +112,7 @@ def test_a_missing_icon_file_still_shows_an_icon():
 
     icon = tray_module.TrayIcon("t", "o", "q", lambda: None, lambda: None, "C:/nope/missing.ico")
     try:
-        assert icon.start()
+        start_tray_icon(icon)
     finally:
         icon.stop()
 
@@ -123,7 +124,7 @@ def test_two_icons_one_after_another_each_get_their_own_messages():
     for _ in range(2):
         hits = []
         icon = tray_module.TrayIcon("t", "o", "q", lambda: hits.append(1), lambda: None, ICON)
-        assert icon.start()
+        start_tray_icon(icon)
         _post(icon, tray_module.WM_COMMAND, tray_module.ID_OPEN)
         assert _wait(lambda: hits == [1])
         icon.stop()

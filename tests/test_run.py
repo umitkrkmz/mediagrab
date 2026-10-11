@@ -276,6 +276,10 @@ def test_quitting_from_the_tray_stops_mediagrab(monkeypatch, clean_port_env):
             break
         run.time.sleep(0.05)
     else:
+        if run._is_mediagrab_running(port) and tray._running is None and os.environ.get("CI"):
+            # NOTE: run.py carries on without an icon when there's no
+            # notification area (a CI runner) - nothing to send WM_CLOSE to.
+            pytest.skip("no notification area on this CI runner")
         pytest.fail("MediaGrab and its tray icon never came up")
 
     # NOTE: an open MediaGrab tab keeps this live event stream connected - a

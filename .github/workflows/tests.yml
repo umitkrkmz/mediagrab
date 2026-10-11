@@ -2,9 +2,10 @@
 # broken commit is caught when it lands - not weeks later on release day,
 # which used to be the first time CI ran the tests (release.yml).
 #
-# NOTE: Linux on purpose. release.yml already runs the same suite on Windows
-# for every release, and the Windows-only bits (Tk wizard pages, the PATH
-# registry) skip themselves here. The repo is public, so standard
+# NOTE: two jobs. Linux is where Docker/the Pi run; Windows is where the
+# Windows installer's pieces only run (the tray icon on the real Win32 API,
+# MediaGrab.exe's branding, the Inno Setup Pascal compiled with real ISCC) -
+# on Linux those skip themselves. The repo is public, so standard
 # GitHub-hosted runners cost no Actions minutes.
 name: Tests
 
@@ -44,4 +45,29 @@ jobs:
       - name: Run tests
         # NOTE: no network needed; Node.js (preinstalled on the runner) runs
         # the app.js tests.
+        run: pytest
+
+  test-windows:
+    runs-on: windows-2025
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          # NOTE: the embedded Python's version (packaging/build_windows.py).
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Install Inno Setup
+        # NOTE: pinned + SHA256-checked; the installer-script tests compile
+        # small harness setups with it.
+        shell: pwsh
+        run: .github/scripts/install-inno.ps1
+
+      - name: Run tests
         run: pytest

@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import start_tray_icon
 
 ROOT = Path(__file__).parent.parent
 
@@ -193,7 +194,7 @@ def test_closes_a_running_mediagrab_through_its_tray_window(close_harness):
 
     asked = []
     icon = tray.TrayIcon("t", "o", "q", lambda: None, lambda: (asked.append(1), threading.Thread(target=icon.stop).start()))
-    assert icon.start()
+    start_tray_icon(icon)
     try:
         assert close_harness() == "closed"
         assert asked == [1]

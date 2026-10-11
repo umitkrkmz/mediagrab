@@ -74,17 +74,6 @@ def test_the_real_downloads_folder_is_found():
     assert folder and os.path.isabs(folder)
 
 
-def test_cloud_markers_match_the_installers_list():
-    # NOTE: a deliberate duplicate (setup_mediagrab.py can't import this
-    # package) - they must not drift apart.
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("setup_mediagrab", Path(__file__).parent.parent / "setup_mediagrab.py")
-    setup_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(setup_mod)
-    assert paths.CLOUD_MARKERS == setup_mod.CLOUD_MARKERS
-
-
 # --- downloader: the setting is what counts --------------------------------------
 
 

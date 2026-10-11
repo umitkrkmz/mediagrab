@@ -36,14 +36,16 @@
 
 **TR**
 
-- **Tek resmî kaynak bu GitHub sayfasıdır.** Arama sonuçlarında "MediaGrab indir" diyen başka siteler bizim değil.
+- **Kendi cihazınızda çalışır (self-hosted).** MediaGrab bir web sitesi ya da bulut hizmeti değil; kendi bilgisayarınızda ya da ev sunucunuzda (Raspberry Pi, mini PC) çalışan açık kaynak bir araç. İndirdikleriniz, ayarlarınız ve geçmişiniz o cihazda kalır.
+- **Kurulum dosyasını bu sayfanın [Releases](https://github.com/umitkrkmz/mediagrab/releases) bölümünden alın.** Her sürüm burada, açık kaynak koddan otomatik olarak derlenir.
 - **Reklam yok, ücret yok, hesap yok, telemetri yok.** MediaGrab hiçbir yere veri göndermez; yalnızca sizin istediğiniz videoyu indirir; yeni sürüm var mı diye de yalnızca Ayarlar açıldığında GitHub'a (MediaGrab) ve PyPI'ye (yt-dlp ve bağımlılıklar) bakar. Kaynak kodun tamamı burada, açık.
 - **"Windows bilgisayarınızı korudu" uyarısı:** Kurulum programı ücretli bir kod imzası taşımadığı için Windows ilk çalıştırmada bunu gösterebilir. **Ek bilgi → Yine de çalıştır** ile devam edin. Uyarı, dosyanın zararlı olduğunu değil, Windows'un yayıncıyı henüz tanımadığını söyler.
 - **Doğrulamak isterseniz:** her yayının notlarında kurulum dosyasının SHA256 değeri ve VirusTotal tarama bağlantısı vardır. PowerShell'de `Get-FileHash .\MediaGrabSetup.exe` ile çıkan değeri karşılaştırın.
 
 **EN**
 
-- **This GitHub page is the only official source.** Other sites offering a "MediaGrab download" in search results aren't ours.
+- **It runs on your own device (self-hosted).** MediaGrab isn't a website or a cloud service; it's an open-source tool that runs on your own computer or home server (Raspberry Pi, mini PC). Your downloads, settings and history stay on that device.
+- **Get the installer from this page's [Releases](https://github.com/umitkrkmz/mediagrab/releases).** Every version is built here, automatically, from the open-source code.
 - **No ads, no payment, no account, no telemetry.** MediaGrab sends nothing anywhere; it only downloads the videos you ask for, and checks for new versions on GitHub (MediaGrab) and PyPI (yt-dlp and dependencies) only when Settings is opened. All of its source code is right here.
 - **"Windows protected your PC":** the installer isn't signed with a paid code-signing certificate, so Windows may show this on first run. Click **More info → Run anyway**. The warning means Windows doesn't know the publisher yet, not that the file is harmful.
 - **To verify it:** every release's notes list the installer's SHA256 and a VirusTotal scan link. In PowerShell, compare the output of `Get-FileHash .\MediaGrabSetup.exe`.
