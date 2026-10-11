@@ -13,8 +13,9 @@ import webbrowser
 
 import uvicorn
 
-from mediagrab.app import app, lan_ip as _app_lan_ip
-from mediagrab.paths import data_dir, is_docker, use_bundled_ffmpeg
+from mediagrab.app import _detect_system_lang, app, lan_ip as _app_lan_ip
+from mediagrab.i18n import ui_text
+from mediagrab.paths import data_dir, is_docker, use_bundled_ffmpeg, windows_install_dir
 from mediagrab.store import get_settings, remote_access_active
 
 # NOTE: HOST is what THIS process uses to reach the server itself (probing
@@ -138,6 +139,60 @@ def _report_fatal(log_path: "str | None") -> None:
         )
 
 
+ICON_NAME = "mediagrab.ico"
+
+
+def _tray_wanted() -> bool:
+    # NOTE: only the Windows installer runs without a console (pythonw), so
+    # only there is a tray icon the way to see and stop MediaGrab; a source
+    # checkout keeps its console window (Ctrl+C), Docker has no desktop.
+    # MEDIAGRAB_TRAY=1/0 forces it either way (trying it from source).
+    if os.name != "nt" or is_docker():
+        return False
+    forced = os.environ.get("MEDIAGRAB_TRAY")
+    if forced is not None:
+        return forced == "1"
+    return windows_install_dir() is not None
+
+
+def _icon_path() -> "str | None":
+    # NOTE: next to python\ and app\ in the installed copy; packaging/ in a
+    # source checkout.
+    install = windows_install_dir()
+    candidates = [os.path.join(install, ICON_NAME)] if install else []
+    candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "packaging", ICON_NAME))
+    return next((c for c in candidates if os.path.isfile(c)), None)
+
+
+def _start_tray(server: "uvicorn.Server", port: int):
+    """Put MediaGrab in the notification area; None if that didn't work."""
+    from mediagrab.tray import TrayIcon  # NOTE: Windows-only module
+
+    text = ui_text(_detect_system_lang())
+    url = f"http://{HOST}:{port}"
+
+    def quit_mediagrab() -> None:
+        # NOTE: the same graceful stop as Ctrl+C - uvicorn finishes the
+        # requests in flight and runs app.py's shutdown, then main() returns.
+        server.should_exit = True
+
+    icon = TrayIcon(
+        f"{text['tray_tooltip']} - {url}",
+        text["tray_open"],
+        text["tray_quit"],
+        on_open=lambda: webbrowser.open(url),
+        on_quit=quit_mediagrab,
+        icon_path=_icon_path(),
+    )
+    if icon.start():
+        return icon
+    # NOTE: no tray (e.g. Explorer not running) - MediaGrab still works, it
+    # just can't be stopped from there; never a reason not to start.
+    print("Tepsi simgesi eklenemedi / Couldn't add the tray icon.")
+    icon.stop()
+    return None
+
+
 def main() -> None:
     log_path = _ensure_output_streams(data_dir())
     if log_path:
@@ -196,11 +251,25 @@ def main() -> None:
     # in that case - an accepted limitation for a non-default launch method.
     os.environ["MEDIAGRAB_PORT"] = str(port)
 
+    # NOTE: a Server object rather than uvicorn.run(), so the tray icon's
+    # "Quit" (and the installer, through it) can ask it to stop.
+    # timeout_graceful_shutdown: an open MediaGrab tab keeps /api/events
+    # streaming forever, and uvicorn's graceful stop otherwise waits for every
+    # connection to close - Quit hung for as long as a tab stayed open
+    # (caught by test_quitting_from_the_tray_stops_mediagrab).
+    server = uvicorn.Server(uvicorn.Config(app, host=bind_host, port=port, timeout_graceful_shutdown=3))
+    tray = _start_tray(server, port) if _tray_wanted() else None
     try:
-        uvicorn.run(app, host=bind_host, port=port)
+        server.run()
     except Exception:
         _report_fatal(log_path)
         sys.exit(1)
+    finally:
+        if tray:
+            tray.stop()
+    if not server.started:
+        # NOTE: what uvicorn.run() did too - e.g. the port couldn't be bound.
+        sys.exit(3)
 
 
 if __name__ == "__main__":

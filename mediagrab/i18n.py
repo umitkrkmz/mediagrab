@@ -54,6 +54,10 @@ UI = {
         "settings_download_dir_docker": (
             "Docker'da indirme klasörünü docker-compose.yml'deki ./data/indirilenler bağlantısı belirler."
         ),
+        # NOTE: the Windows tray icon's menu and tooltip (mediagrab/tray.py, run.py).
+        "tray_open": "MediaGrab'ı aç",
+        "tray_quit": "MediaGrab'ı kapat",
+        "tray_tooltip": "MediaGrab çalışıyor",
         "settings_speed_limit_title": "Hız Sınırlama",
         "settings_speed_limit_hint": "İndirmelerin ev ağınızın tüm bant genişliğini kullanmasını önlemek için bir üst sınır koyun.",
         "settings_speed_limit_unlimited": "Sınırsız",
@@ -299,6 +303,9 @@ UI = {
         "settings_download_dir_docker": (
             "In Docker, the download folder is set by the ./data/indirilenler mount in docker-compose.yml."
         ),
+        "tray_open": "Open MediaGrab",
+        "tray_quit": "Quit MediaGrab",
+        "tray_tooltip": "MediaGrab is running",
         "settings_speed_limit_title": "Speed Limit",
         "settings_speed_limit_hint": "Cap download speed so it doesn't use your whole home network's bandwidth.",
         "settings_speed_limit_unlimited": "Unlimited",

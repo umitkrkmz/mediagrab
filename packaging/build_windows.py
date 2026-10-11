@@ -131,6 +131,9 @@ def stage_app() -> None:
     )
     for name in APP_FILES:
         shutil.copy2(os.path.join(ROOT, name), target)
+    # NOTE: next to python\ and app\ - the shortcuts, "Installed apps" and
+    # the tray icon (run.py _icon_path) all use it from there.
+    shutil.copy2(os.path.join(ROOT, "packaging", "mediagrab.ico"), STAGE)
 
 
 def stage_ffmpeg() -> None:

@@ -41,13 +41,14 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
+SetupIconFile=mediagrab.ico
 ShowLanguageDialog=auto
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=..\dist
 OutputBaseFilename=MediaGrabSetup-{#AppVersion}
 UninstallDisplayName=MediaGrab
-UninstallDisplayIcon={app}\python\pythonw.exe
+UninstallDisplayIcon={app}\mediagrab.ico
 ; NOTE: a running MediaGrab holds python314.dll and friends open - let the
 ; Windows Restart Manager close it before files are replaced or removed.
 CloseApplications=yes
@@ -74,8 +75,8 @@ Source: "..\build\windows\MediaGrab\*"; DestDir: "{app}"; Flags: recursesubdirs 
 [Icons]
 ; NOTE: pythonw.exe = no console window; run.py opens the browser itself and,
 ; if MediaGrab is already running, only opens the browser again.
-Name: "{autoprograms}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"
-Name: "{autodesktop}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; Tasks: desktopicon
+Name: "{autoprograms}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"
+Name: "{autodesktop}\MediaGrab"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\mediagrab.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; WorkingDir: "{app}\app"; Description: "{cm:LaunchProgram,MediaGrab}"; Flags: nowait postinstall skipifsilent
@@ -103,9 +104,27 @@ turkish.DownloadDirPrevious=Aşağıda önceki MediaGrab kurulumunuzda kullandı
 turkish.DownloadDirFromPrevious=önceki kurulumunuzdan
 english.DownloadDirDefault=Default: %1
 turkish.DownloadDirDefault=Varsayılan: %1
+english.MediaGrabRunning=MediaGrab is running. It will be closed to continue; downloads in progress will stop.
+turkish.MediaGrabRunning=MediaGrab çalışıyor. Devam etmek için kapatılacak; süren indirmeler durur.
+english.MediaGrabStillRunning=MediaGrab could not be closed. Quit it from its icon in the notification area (next to the clock), then try again.
+turkish.MediaGrabStillRunning=MediaGrab kapatılamadı. Saatin yanındaki simgesinden kapatıp yeniden deneyin.
 
 [Code]
 #include "settings_json.iss"
+
+#include "close_mediagrab.iss"
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not CloseMediaGrab(WizardSilent) then
+    Result := CustomMessage('MediaGrabStillRunning');
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := CloseMediaGrab(UninstallSilent);
+end;
 
 var
   DownloadDirPage: TInputDirWizardPage;

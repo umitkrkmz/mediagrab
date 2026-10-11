@@ -1652,6 +1652,10 @@ def _delayed_restart() -> None:
     # 'Formatter'"). sys.orig_argv preserves the exact original invocation,
     # "-m" and all.
     time.sleep(1.0)
+    if os.name == "nt":
+        from . import tray  # NOTE: Windows-only module (Win32 API)
+
+        tray.remove_running_icon()
     argv = getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv
     os.execv(sys.executable, argv)
 

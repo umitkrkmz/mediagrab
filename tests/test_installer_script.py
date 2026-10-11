@@ -7,6 +7,7 @@ nothing is installed. Set MEDIAGRAB_ISCC to point at another ISCC.exe.
 """
 
 import json
+import threading
 import os
 import subprocess
 from pathlib import Path
@@ -120,3 +121,75 @@ def test_anything_else_means_no_previous_folder(tmp_path, harness, content):
         path.write_text(content, encoding="utf-8")
     assert harness(path) == ""
 
+
+
+# --- closing a running MediaGrab (packaging/close_mediagrab.iss) -------------------
+
+CLOSE_HARNESS = r"""
+[Setup]
+AppName=MediaGrab close harness
+AppVersion=1
+CreateAppDir=no
+Uninstallable=no
+PrivilegesRequired=lowest
+OutputDir={out}
+OutputBaseFilename=close-harness
+
+[CustomMessages]
+MediaGrabRunning=running
+
+[Code]
+#include "{include}"
+
+function InitializeSetup(): Boolean;
+var
+  Lines: TArrayOfString;
+begin
+  SetArrayLength(Lines, 1);
+  if CloseMediaGrab(True) then
+    Lines[0] := 'closed'
+  else
+    Lines[0] := 'still running';
+  SaveStringsToUTF8File(ExpandConstant('{param:out}'), Lines, False);
+  Result := False;
+end;
+"""
+
+
+@pytest.fixture(scope="module")
+def close_harness(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("iss-close")
+    script = folder / "close.iss"
+    script.write_text(
+        CLOSE_HARNESS.replace("{out}", str(folder)).replace("{include}", str(ROOT / "packaging" / "close_mediagrab.iss")),
+        encoding="utf-8-sig",
+    )
+    subprocess.run([_iscc(), "-Q", str(script)], check=True, capture_output=True)
+
+    def run():
+        out = folder / "result.txt"
+        if out.exists():
+            out.unlink()
+        subprocess.run([str(folder / "close-harness.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", f"/out={out}"], timeout=60)
+        return out.read_text(encoding="utf-8-sig").strip()
+
+    return run
+
+
+def test_closes_a_running_mediagrab_through_its_tray_window(close_harness):
+    # NOTE: a real tray icon; its on_quit does what run.py does once the
+    # server has stopped - removes the icon (and with it the window).
+    from mediagrab import tray
+
+    asked = []
+    icon = tray.TrayIcon("t", "o", "q", lambda: None, lambda: (asked.append(1), threading.Thread(target=icon.stop).start()))
+    assert icon.start()
+    try:
+        assert close_harness() == "closed"
+        assert asked == [1]
+    finally:
+        icon.stop()
+
+
+def test_nothing_running_is_nothing_to_close(close_harness):
+    assert close_harness() == "closed"

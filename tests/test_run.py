@@ -23,11 +23,32 @@ def clean_port_env(monkeypatch):
     monkeypatch.delenv("MEDIAGRAB_PORT", raising=False)
 
 
+class FakeServer:
+    """Stands in for uvicorn.Server: records what it was asked to serve."""
+
+    calls: list = []
+    crash: "Exception | None" = None
+
+    def __init__(self, config):
+        self.config = config
+        self.started = False
+        self.should_exit = False
+
+    def run(self):
+        if FakeServer.crash:
+            raise FakeServer.crash
+        FakeServer.calls.append({"host": self.config.host, "port": self.config.port})
+        self.started = True
+
+
 @pytest.fixture
 def uvicorn_calls(monkeypatch):
-    calls = []
-    monkeypatch.setattr(run.uvicorn, "run", lambda app, host, port: calls.append({"host": host, "port": port}))
-    return calls
+    FakeServer.calls = []
+    FakeServer.crash = None
+    monkeypatch.setattr(run.uvicorn, "Server", FakeServer)
+    # NOTE: never the real tray icon in these tests (test_tray.py has those).
+    monkeypatch.setattr(run, "_tray_wanted", lambda: False)
+    return FakeServer.calls
 
 
 @pytest.fixture
@@ -166,10 +187,7 @@ def test_a_startup_crash_without_a_console_shows_a_message_box(base_env, monkeyp
     monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("input() needs a console"))
     monkeypatch.setattr(run.sys, "stdin", None)
 
-    def crash(app, host, port):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(run.uvicorn, "run", crash)
+    FakeServer.crash = RuntimeError("boom")
     with pytest.raises(SystemExit) as exit_info:
         run.main()
     assert exit_info.value.code == 1
@@ -206,3 +224,69 @@ def test_with_a_console_child_programs_are_left_alone(base_env, monkeypatch):
     original = subprocess.Popen.__init__
     run.main()
     assert subprocess.Popen.__init__ is original
+
+
+# --- the Windows tray icon (v2.4.0) ------------------------------------------------
+
+
+def test_no_tray_from_source_or_in_docker(monkeypatch):
+    monkeypatch.delenv("MEDIAGRAB_TRAY", raising=False)
+    monkeypatch.setattr(run, "windows_install_dir", lambda: None)
+    assert run._tray_wanted() is False
+    monkeypatch.setattr(run, "windows_install_dir", lambda: "C:/Programs/MediaGrab")
+    monkeypatch.setattr(run, "is_docker", lambda: True)
+    assert run._tray_wanted() is False
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the tray icon is Windows-only")
+def test_the_windows_installer_gets_a_tray_icon(monkeypatch):
+    monkeypatch.delenv("MEDIAGRAB_TRAY", raising=False)
+    monkeypatch.setattr(run, "is_docker", lambda: False)
+    monkeypatch.setattr(run, "windows_install_dir", lambda: "C:/Programs/MediaGrab")
+    assert run._tray_wanted() is True
+    monkeypatch.setenv("MEDIAGRAB_TRAY", "0")
+    assert run._tray_wanted() is False
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the tray icon is Windows-only")
+def test_quitting_from_the_tray_stops_mediagrab(monkeypatch, clean_port_env):
+    # NOTE: end to end - a real server and a real icon; WM_CLOSE to the
+    # icon's window is exactly what the installer/uninstaller sends.
+    import ctypes
+    import threading
+
+    from mediagrab import tray
+
+    port = run._find_free_port()
+    monkeypatch.setattr(run, "PORT", port)
+    monkeypatch.setattr(run, "_open_browser", lambda port: None)
+    monkeypatch.setattr(run, "_tray_wanted", lambda: True)
+    monkeypatch.setattr(run, "remote_access_active", lambda settings: False)
+    finished = threading.Event()
+
+    def serve():
+        run.main()
+        finished.set()
+
+    threading.Thread(target=serve, daemon=True).start()
+    find = ctypes.windll.user32.FindWindowW
+    find.restype = ctypes.c_void_p
+    for _ in range(300):
+        if run._is_mediagrab_running(port) and find(tray.TRAY_WINDOW_CLASS, None):
+            break
+        run.time.sleep(0.05)
+    else:
+        pytest.fail("MediaGrab and its tray icon never came up")
+
+    # NOTE: an open MediaGrab tab keeps this live event stream connected - a
+    # graceful shutdown must not wait on it forever.
+    import http.client
+
+    stream = http.client.HTTPConnection(run.HOST, port, timeout=30)
+    stream.request("GET", "/api/events")
+    assert stream.getresponse().status == 200
+
+    ctypes.windll.user32.PostMessageW(ctypes.c_void_p(find(tray.TRAY_WINDOW_CLASS, None)), tray.WM_CLOSE, 0, 0)
+    assert finished.wait(20), "main() must return once the tray asks it to quit"
+    assert not run._port_in_use(port)
+    assert not find(tray.TRAY_WINDOW_CLASS, None), "the icon is gone too"
