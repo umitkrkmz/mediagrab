@@ -14,7 +14,7 @@ import webbrowser
 import uvicorn
 
 from mediagrab.app import app, lan_ip as _app_lan_ip
-from mediagrab.paths import app_dir, is_docker, use_bundled_ffmpeg
+from mediagrab.paths import data_dir, is_docker, use_bundled_ffmpeg
 from mediagrab.store import get_settings, remote_access_active
 
 # NOTE: HOST is what THIS process uses to reach the server itself (probing
@@ -81,6 +81,7 @@ def _ensure_output_streams(folder: str) -> "str | None":
     """
     if sys.stdout is not None and sys.stderr is not None:
         return None
+    os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, LOG_NAME)
     try:
         if os.path.getsize(path) > LOG_MAX_BYTES:
@@ -138,7 +139,7 @@ def _report_fatal(log_path: "str | None") -> None:
 
 
 def main() -> None:
-    log_path = _ensure_output_streams(app_dir())
+    log_path = _ensure_output_streams(data_dir())
     if log_path:
         # NOTE: no console of our own (pythonw) - see the function.
         _hide_child_console_windows()

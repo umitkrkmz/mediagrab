@@ -41,6 +41,19 @@ UI = {
         "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.tr.md",
         "settings_audio_lang_codes_link": "Dil kodlarını görüntüle →",
         "settings_downloads_title": "İndirme Ayarları",
+        "settings_download_dir_title": "İndirme Klasörü",
+        "settings_download_dir_hint": (
+            "İndirdiğiniz videolar ve sesler bu klasöre kaydedilir. Değiştirirseniz yalnızca yeni indirmeler "
+            "yeni klasöre gider; önceki dosyalar eski yerinde kalır, silinmez."
+        ),
+        "settings_download_dir_browse": "Klasör Seç…",
+        "settings_download_dir_reset": "Varsayılana Dön",
+        "settings_download_dir_input_label": "Ya da klasör yolunu yazın:",
+        "settings_download_dir_picker_title": "MediaGrab: İndirilen videolar nereye kaydedilsin?",
+        "settings_download_dir_readonly": "Bu klasör yalnızca MediaGrab'ın kurulu olduğu bilgisayardan değiştirilebilir.",
+        "settings_download_dir_docker": (
+            "Docker'da indirme klasörünü docker-compose.yml'deki ./data/indirilenler bağlantısı belirler."
+        ),
         "settings_speed_limit_title": "Hız Sınırlama",
         "settings_speed_limit_hint": "İndirmelerin ev ağınızın tüm bant genişliğini kullanmasını önlemek için bir üst sınır koyun.",
         "settings_speed_limit_unlimited": "Sınırsız",
@@ -273,6 +286,19 @@ UI = {
         "settings_audio_lang_codes_url": "https://github.com/umitkrkmz/mediagrab/blob/master/docs/language-codes.en.md",
         "settings_audio_lang_codes_link": "View language codes →",
         "settings_downloads_title": "Download Settings",
+        "settings_download_dir_title": "Download Folder",
+        "settings_download_dir_hint": (
+            "Your downloaded videos and audio are saved here. If you change it, only new downloads go to the "
+            "new folder; earlier files stay where they are and are not deleted."
+        ),
+        "settings_download_dir_browse": "Choose Folder…",
+        "settings_download_dir_reset": "Back to Default",
+        "settings_download_dir_input_label": "Or type the folder path:",
+        "settings_download_dir_picker_title": "MediaGrab: Where should downloaded videos be saved?",
+        "settings_download_dir_readonly": "This folder can only be changed on the computer MediaGrab is installed on.",
+        "settings_download_dir_docker": (
+            "In Docker, the download folder is set by the ./data/indirilenler mount in docker-compose.yml."
+        ),
         "settings_speed_limit_title": "Speed Limit",
         "settings_speed_limit_hint": "Cap download speed so it doesn't use your whole home network's bandwidth.",
         "settings_speed_limit_unlimited": "Unlimited",

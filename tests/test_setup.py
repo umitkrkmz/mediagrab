@@ -603,9 +603,12 @@ def test_every_file_the_app_persists_is_kept(setup_mod):
     # v1.6.0 - the file was added to the app and nobody thought to update the
     # installer. Every module, not just store.py: an uploaded cookies.txt
     # (downloader.py) slipped through for the same reason in v2.2.0.
+    # data_dir() as well as app_dir(): for the git-based installer this tool
+    # sets up, data_dir() IS app_dir() (only the v2.4.0 Windows installer
+    # moves data to %LOCALAPPDATA%), so both kinds of file land in its folder.
     persisted = set()
     for module in (SETUP_PY.parent / "mediagrab").glob("*.py"):
-        persisted |= set(re.findall(r'app_dir\(\),\s*"([^"]+)"', module.read_text(encoding="utf-8")))
+        persisted |= set(re.findall(r'(?:app_dir|data_dir)\(\),\s*"([^"]+)"', module.read_text(encoding="utf-8")))
     assert {"channels.json", "settings.json", "indirilenler"} <= persisted, "has the package been restructured?"
     missing = persisted - set(setup_mod.USER_DATA_ENTRIES)
     assert not missing, f"the installer would delete: {sorted(missing)}"

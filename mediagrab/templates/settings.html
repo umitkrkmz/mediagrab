@@ -49,6 +49,30 @@
     <div class="settings-section" data-panel="downloads">
       <div class="section-title">{{ ui.settings_downloads_title }}</div>
 
+      <div class="settings-subsection" id="download-dir-section">
+        <div class="section-subtitle">{{ ui.settings_download_dir_title }}</div>
+        <p class="settings-hint">{{ ui.settings_download_dir_hint }}</p>
+        <div class="download-dir-current">
+          <code id="download-dir-path">…</code>
+          <span id="download-dir-default-tag" class="download-dir-tag hidden"></span>
+        </div>
+        <div id="download-dir-cloud" class="cookie-status bad hidden" role="status"></div>
+        <div id="download-dir-edit" class="hidden">
+          <div class="cookie-actions">
+            <button type="button" id="download-dir-browse-btn" class="hidden">{{ ui.settings_download_dir_browse }}</button>
+            <button type="button" id="download-dir-reset-btn" class="btn-secondary">{{ ui.settings_download_dir_reset }}</button>
+          </div>
+          <label class="cookie-label" for="download-dir-input">{{ ui.settings_download_dir_input_label }}</label>
+          <div class="download-dir-input-row">
+            <input type="text" id="download-dir-input" autocomplete="off" spellcheck="false">
+            <button type="button" id="download-dir-save-btn">{{ ui.cookie_save }}</button>
+          </div>
+        </div>
+        <p id="download-dir-readonly" class="settings-hint hidden">{{ ui.settings_download_dir_readonly }}</p>
+        <p id="download-dir-docker" class="settings-hint hidden">{{ ui.settings_download_dir_docker }}</p>
+        <div id="download-dir-status" class="cookie-status hidden" role="status"></div>
+      </div>
+
       <div class="settings-subsection">
         <div class="section-subtitle">{{ ui.settings_speed_limit_title }}</div>
         <p class="settings-hint">{{ ui.settings_speed_limit_hint }}</p>

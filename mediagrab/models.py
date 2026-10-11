@@ -189,6 +189,11 @@ class CookieUploadRequest(BaseModel):
     sites: list[str]
 
 
+class DownloadDirRequest(BaseModel):
+    # NOTE: empty = back to the default folder.
+    path: str = Field(default="", max_length=1024)
+
+
 class YtdlpVersionResponse(BaseModel):
     installed: str
     latest: Optional[str] = None

@@ -16,7 +16,7 @@ from yt_dlp import YoutubeDL as _YtDlpYoutubeDL
 from yt_dlp.cookies import YoutubeDLCookieJar
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
-from .paths import app_dir, is_docker
+from .paths import data_dir, default_download_dir, is_docker
 
 # NOTE: guards every write to a cookies.txt - a yt-dlp run writing refreshed
 # cookies back (YoutubeDL.save_cookies below) and an upload replacing the file
@@ -81,8 +81,34 @@ def strip_ansi_codes(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
-DOWNLOAD_DIR = os.path.join(app_dir(), "indirilenler")
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# NOTE: the DEFAULT downloads folder; Settings -> Download folder can point
+# elsewhere, so everything that reads or writes downloads asks
+# download_dir() instead of using this directly.
+DOWNLOAD_DIR = default_download_dir()
+try:
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+except OSError:
+    pass
+
+
+def download_dir() -> str:
+    """The downloads folder in effect right now (the setting, else DOWNLOAD_DIR)."""
+    # NOTE: imported here, not at the top - see cookie_opts() for why
+    # store.py and this module only depend one way.
+    from . import store
+
+    folder = DOWNLOAD_DIR
+    if not is_docker():
+        # NOTE: in Docker the compose file's volume decides; a path that
+        # arrived some other way (an old settings file) can't apply there.
+        folder = store.get_settings().get("download_dir") or DOWNLOAD_DIR
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except OSError:
+        # NOTE: e.g. an unplugged USB drive - the download itself then fails
+        # with a clear "path not found" instead of this crashing every page.
+        pass
+    return folder
 
 # NOTE: where an UPLOADED cookies.txt lives (Settings -> Cookies). Never
 # inside DOWNLOAD_DIR - that folder is listed by History and served to
@@ -90,7 +116,7 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 # docker-compose.yml) so it survives the container being recreated; from
 # source it sits next to settings.json (and is gitignored, like it).
 COOKIES_PATH = (
-    "/data/cookies/cookies.txt" if is_docker() else os.path.join(app_dir(), "cookies.txt")
+    "/data/cookies/cookies.txt" if is_docker() else os.path.join(data_dir(), "cookies.txt")
 )
 
 # NOTE: the video ID is deliberately left out of the filename - removed at the
@@ -103,7 +129,13 @@ COOKIES_PATH = (
 # get a stable folder name (extractor is always present) instead of "NA".
 # yt-dlp sanitizes each templated field for the filesystem automatically, the
 # same way it already does for %(title)s.
-OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
+OUTTMPL_TAIL = os.path.join("%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
+
+
+def outtmpl() -> str:
+    # NOTE: built per download, not once at import - the folder can change in
+    # Settings while the app runs.
+    return os.path.join(download_dir(), OUTTMPL_TAIL)
 
 
 # NOTE: the browsers yt-dlp can read cookies from at all. Firefox is listed
@@ -1056,7 +1088,7 @@ def download(
 
     opts.update(
         {
-            "outtmpl": OUTTMPL,
+            "outtmpl": outtmpl(),
             "quiet": True,
             "no_warnings": True,
             "retries": 10,

@@ -515,6 +515,17 @@ const I18N = {
     ffmpegRestartNote: "Kurulumdan sonra MediaGrab'ı kapatıp yeniden açın (PATH güncellemesi için).",
     ffmpegDockerNote: "Docker imajıyla birlikte gelir; imaj güncellendiğinde o da güncellenir.",
     ffmpegBundledNote: "MediaGrab ile birlikte gelir; MediaGrab güncellendiğinde o da güncellenir.",
+    downloadDirDefaultTag: "(varsayılan)",
+    downloadDirSaved: "Kaydedildi. Yeni indirmeler bu klasöre gidecek; öncekiler eski yerinde kaldı.",
+    downloadDirResetDone: "Varsayılan klasöre dönüldü. Yeni indirmeler oraya gidecek.",
+    downloadDirPickerOpen: "Klasör seçme penceresi açıldı (tarayıcının arkasında kalmış olabilir)…",
+    downloadDirCloud: "Uyarı: bu klasör {service} ile eşitleniyor gibi görünüyor. İndirdiğiniz her video internete yüklenir ve indirme sırasında dosya kilitlenmeleri olabilir.",
+    downloadDirErrRelative: "Tam bir klasör yolu girin (ör. D:\\Videolar).",
+    downloadDirErrInsideApp: "Bu klasör MediaGrab'ın kendi program klasörünün içinde; güncellemede ya da kaldırmada silinebilir. Başka bir klasör seçin.",
+    downloadDirErrNotFolder: "Bu yol bir dosyayı gösteriyor, klasörü değil.",
+    downloadDirErrNotWritable: "Bu klasöre yazılamıyor (izin yok, disk dolu ya da sürücü çıkarılmış olabilir).",
+    downloadDirErrNotAllowed: "Bu klasör yalnızca MediaGrab'ın kurulu olduğu bilgisayardan değiştirilebilir.",
+    downloadDirErrPicker: "Klasör seçme penceresi açılamadı. Yolu elle yazabilirsiniz.",
     depsUpdatesAvailable: "paket güncellenebilir",
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
@@ -942,6 +953,17 @@ const I18N = {
     ffmpegRestartNote: "Restart MediaGrab after installing, so it picks up the updated PATH.",
     ffmpegDockerNote: "Bundled with the Docker image; it's updated whenever the image is.",
     ffmpegBundledNote: "Comes with MediaGrab; it's updated whenever MediaGrab is.",
+    downloadDirDefaultTag: "(default)",
+    downloadDirSaved: "Saved. New downloads will go to this folder; earlier ones stay where they were.",
+    downloadDirResetDone: "Back to the default folder. New downloads will go there.",
+    downloadDirPickerOpen: "The folder picker is open (it may be behind your browser)…",
+    downloadDirCloud: "Warning: this folder seems to be synced by {service}. Every video you download gets uploaded, and files can get locked mid-download.",
+    downloadDirErrRelative: "Enter a full folder path (e.g. D:\\Videos).",
+    downloadDirErrInsideApp: "This folder is inside MediaGrab's own program folder; an update or uninstall could delete it. Choose another folder.",
+    downloadDirErrNotFolder: "This path points to a file, not a folder.",
+    downloadDirErrNotWritable: "Can't write to this folder (no permission, disk full, or the drive was removed).",
+    downloadDirErrNotAllowed: "This folder can only be changed on the computer MediaGrab is installed on.",
+    downloadDirErrPicker: "Couldn't open the folder picker. You can type the path instead.",
     depsUpdatesAvailable: "packages can be updated",
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
@@ -3021,6 +3043,122 @@ function saveCustomSpeedLimit() {
   saveSpeedLimit(value);
 }
 
+// --- Settings -> Downloads -> Download folder ----------------------------------
+// NOTE: the folder lives on the computer MediaGrab runs on, so only that
+// computer can change it (the server says so in "editable"); a phone sees
+// it read-only, and Docker hides the controls entirely - the compose file's
+// volume decides there.
+
+const downloadDirSection = document.getElementById("download-dir-section");
+const downloadDirPath = document.getElementById("download-dir-path");
+const downloadDirDefaultTag = document.getElementById("download-dir-default-tag");
+const downloadDirCloud = document.getElementById("download-dir-cloud");
+const downloadDirEdit = document.getElementById("download-dir-edit");
+const downloadDirBrowseBtn = document.getElementById("download-dir-browse-btn");
+const downloadDirResetBtn = document.getElementById("download-dir-reset-btn");
+const downloadDirInput = document.getElementById("download-dir-input");
+const downloadDirSaveBtn = document.getElementById("download-dir-save-btn");
+const downloadDirReadonly = document.getElementById("download-dir-readonly");
+const downloadDirDocker = document.getElementById("download-dir-docker");
+const downloadDirStatus = document.getElementById("download-dir-status");
+
+// NOTE: the server answers a rejected folder with a short code in "detail"
+// (see app.py's _check_download_dir); this turns it into a sentence.
+function downloadDirErrorText(code) {
+  const messages = {
+    relative: t().downloadDirErrRelative,
+    inside_app: t().downloadDirErrInsideApp,
+    not_a_folder: t().downloadDirErrNotFolder,
+    not_writable: t().downloadDirErrNotWritable,
+    not_allowed: t().downloadDirErrNotAllowed,
+    picker_failed: t().downloadDirErrPicker,
+  };
+  return messages[code] || code || t().errUnknown;
+}
+
+function showDownloadDirStatus(text, kind) {
+  if (!downloadDirStatus) return;
+  downloadDirStatus.textContent = text;
+  downloadDirStatus.classList.remove("hidden", "ok", "bad");
+  downloadDirStatus.classList.add(kind);
+}
+
+function renderDownloadDir(info) {
+  downloadDirPath.textContent = info.path;
+  downloadDirDefaultTag.textContent = t().downloadDirDefaultTag;
+  downloadDirDefaultTag.classList.toggle("hidden", !info.is_default);
+  downloadDirCloud.textContent = info.cloud ? t().downloadDirCloud.replace("{service}", info.cloud) : "";
+  downloadDirCloud.classList.toggle("hidden", !info.cloud);
+  downloadDirEdit.classList.toggle("hidden", !info.editable);
+  downloadDirBrowseBtn.classList.toggle("hidden", !info.can_browse);
+  downloadDirResetBtn.classList.toggle("hidden", info.is_default);
+  downloadDirDocker.classList.toggle("hidden", !info.is_docker);
+  downloadDirReadonly.classList.toggle("hidden", info.editable || info.is_docker);
+  if (info.editable && document.activeElement !== downloadDirInput) downloadDirInput.value = info.path;
+}
+
+async function loadDownloadDir() {
+  if (!downloadDirSection) return;
+  try {
+    const res = await fetch("/api/download-dir");
+    if (!res.ok) throw new Error(String(res.status));
+    renderDownloadDir(await res.json());
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+async function saveDownloadDir(path) {
+  try {
+    const res = await fetch("/api/download-dir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirErrorText(data.detail), "bad");
+      return;
+    }
+    renderDownloadDir(data);
+    showDownloadDirStatus(path ? t().downloadDirSaved : t().downloadDirResetDone, "ok");
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+downloadDirSaveBtn?.addEventListener("click", () => {
+  const value = downloadDirInput.value.trim();
+  if (value) saveDownloadDir(value);
+});
+downloadDirInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && downloadDirInput.value.trim()) saveDownloadDir(downloadDirInput.value.trim());
+});
+downloadDirResetBtn?.addEventListener("click", () => saveDownloadDir(""));
+downloadDirBrowseBtn?.addEventListener("click", async () => {
+  // NOTE: the picker opens on this computer's screen, possibly behind the
+  // browser - say so, so a "nothing happened" doesn't look like a bug.
+  downloadDirBrowseBtn.disabled = true;
+  showDownloadDirStatus(t().downloadDirPickerOpen, "ok");
+  try {
+    const res = await fetch(`/api/download-dir/browse?lang=${lang}`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirErrorText(data.detail), "bad");
+      return;
+    }
+    if (data.path) {
+      await saveDownloadDir(data.path);
+    } else {
+      downloadDirStatus?.classList.add("hidden");
+    }
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    downloadDirBrowseBtn.disabled = false;
+  }
+});
+
 function showSpeedLimitStatus(text, kind) {
   if (!speedLimitStatus) return;
   speedLimitStatus.textContent = text;
@@ -4739,6 +4877,7 @@ updateChannelChoiceVisibility();
   loadDependencies();
   wireDepsUpdateBtn();
   loadSettings();
+  loadDownloadDir();
   loadRemoteAccessStatus();
   resumeTrackedDockJobs();
 })();

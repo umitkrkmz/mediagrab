@@ -82,3 +82,84 @@ Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\app\run.py"""; Workin
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\app\mediagrab"
+
+[CustomMessages]
+english.DownloadDirCaption=Download folder
+english.DownloadDirDescription=Where should downloaded videos and music be saved?
+english.DownloadDirSubCaption=MediaGrab saves everything you download in this folder. You can change it later in Settings.
+english.DownloadDirInsideApp=Please choose a folder outside MediaGrab's own program folder - an update or uninstall could delete files inside it.
+turkish.DownloadDirCaption=İndirme klasörü
+turkish.DownloadDirDescription=İndirilen videolar ve müzikler nereye kaydedilsin?
+turkish.DownloadDirSubCaption=MediaGrab indirdiğiniz her şeyi bu klasöre kaydeder. Daha sonra Ayarlar'dan değiştirebilirsiniz.
+turkish.DownloadDirInsideApp=Lütfen MediaGrab'ın kendi program klasörünün dışında bir klasör seçin; güncelleme ya da kaldırma sırasında oradaki dosyalar silinebilir.
+
+[Code]
+var
+  DownloadDirPage: TInputDirWizardPage;
+
+// NOTE: Windows' own "Downloads" location (people move it to other drives),
+// read from the per-user Shell Folders key; ~\Downloads if it isn't there.
+function UserDownloadsFolder(): String;
+begin
+  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders',
+    '{374DE290-123F-4565-9164-39C4925E467B}', Result) then
+    Result := ExpandConstant('{%USERPROFILE}') + '\Downloads';
+end;
+
+// NOTE: an update keeps whatever folder is already in use - the page is
+// for a first install only (PrevAppDir is empty then).
+function IsFirstInstall(): Boolean;
+begin
+  Result := WizardForm.PrevAppDir = '';
+end;
+
+procedure InitializeWizard;
+begin
+  DownloadDirPage := CreateInputDirPage(wpSelectDir,
+    CustomMessage('DownloadDirCaption'), CustomMessage('DownloadDirDescription'),
+    CustomMessage('DownloadDirSubCaption'), False, 'MediaGrab');
+  DownloadDirPage.Add('');
+  DownloadDirPage.Values[0] := AddBackslash(UserDownloadsFolder()) + 'MediaGrab';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = DownloadDirPage.ID) and not IsFirstInstall();
+end;
+
+// NOTE: the same rule the app enforces (app.py _check_download_dir): never
+// inside MediaGrab's own program folder.
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  AppDir, Chosen: String;
+begin
+  Result := True;
+  if CurPageID = DownloadDirPage.ID then
+  begin
+    AppDir := Lowercase(AddBackslash(WizardDirValue));
+    Chosen := Lowercase(AddBackslash(DownloadDirPage.Values[0]));
+    if Pos(AppDir, Chosen) = 1 then
+    begin
+      MsgBox(CustomMessage('DownloadDirInsideApp'), mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
+
+// NOTE: handed to the app rather than written into settings.json from here:
+// MediaGrab reads this file on its first start, checks the folder with its
+// own rules and deletes the file (app.py _apply_installer_download_dir).
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Lines: TArrayOfString;
+  DataDir: String;
+begin
+  if (CurStep = ssPostInstall) and IsFirstInstall() then
+  begin
+    DataDir := ExpandConstant('{localappdata}\MediaGrab');
+    ForceDirectories(DataDir);
+    SetArrayLength(Lines, 1);
+    Lines[0] := DownloadDirPage.Values[0];
+    SaveStringsToUTF8File(DataDir + '\install-download-dir.txt', Lines, False);
+  end;
+end;
