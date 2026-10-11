@@ -20,6 +20,9 @@ var
   DownloadsFolder: String;
   DownloadsCount: Integer;
   DownloadsMB: Integer;
+  // NOTE: set for a Docker install, so the window says what was removed and
+  // where its data is; empty = the normal install's wording.
+  UninstallIntro: String;
   KeepRadio, RemoveRadio: TNewRadioButton;
   VideosBox: TNewCheckBox;
 
@@ -83,7 +86,10 @@ begin
     Intro.Top := Top;
     Intro.Width := Form.ClientWidth - ScaleX(24);
     Intro.WordWrap := True;
-    Intro.Caption := CustomMessage('UninstallOptionsIntro');
+    if UninstallIntro <> '' then
+      Intro.Caption := UninstallIntro
+    else
+      Intro.Caption := CustomMessage('UninstallOptionsIntro');
     Top := Top + Intro.Height + ScaleY(12);
 
     KeepRadio := TNewRadioButton.Create(Form);
