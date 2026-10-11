@@ -1385,14 +1385,15 @@ def _apply_installer_download_dir() -> None:
     try:
         with open(handoff, "r", encoding="utf-8-sig") as f:
             chosen = f.read().strip()
-        # NOTE: only a fresh choice - a folder already set in Settings wins,
-        # and the default needs no setting at all.
-        if chosen and not store.get_settings().get("download_dir"):
+        # NOTE: the installer's choice wins over an existing setting (a
+        # reinstall with data kept): its page started from that setting, so
+        # whatever it hands over is what the user last saw and confirmed.
+        # The default needs no setting at all.
+        if chosen:
             same_as_default = os.path.normcase(os.path.abspath(chosen)) == os.path.normcase(
                 os.path.abspath(downloader.DOWNLOAD_DIR)
             )
-            if not same_as_default:
-                store.save_settings(download_dir=_check_download_dir(chosen))
+            store.save_settings(download_dir="" if same_as_default else _check_download_dir(chosen))
     except (OSError, HTTPException):
         # NOTE: an unusable choice (a drive that's gone, say) just leaves the
         # default in place; Settings can change it any time.
@@ -1420,20 +1421,9 @@ def set_download_dir(req: DownloadDirRequest, request: Request) -> dict:
     return _download_dir_info(request)
 
 
-_FOLDER_PICKER_PS = r"""
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Windows.Forms
-$owner = New-Object System.Windows.Forms.Form
-$owner.TopMost = $true
-$owner.ShowInTaskbar = $false
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.ShowNewFolderButton = $true
-$dialog.Description = $env:MEDIAGRAB_PICKER_TITLE
-$dialog.SelectedPath = $env:MEDIAGRAB_PICKER_START
-if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
-    [Console]::Out.Write($dialog.SelectedPath)
-}
-"""
+# NOTE: Windows' modern Explorer-style folder dialog, in its own process
+# (see folder_picker.py for why it isn't run inside the server).
+FOLDER_PICKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "folder_picker.py")
 
 
 @app.post("/api/download-dir/browse")
@@ -1448,10 +1438,10 @@ def download_dir_browse(request: Request, lang: Optional[str] = None) -> dict:
     title = ui_text(_resolve_lang(lang, request))["settings_download_dir_picker_title"]
     env = {**os.environ, "MEDIAGRAB_PICKER_TITLE": title, "MEDIAGRAB_PICKER_START": downloader.download_dir()}
     try:
-        # NOTE: the strings travel in environment variables, never pasted
-        # into the script - a folder name with quotes can't break out of it.
+        # NOTE: the strings travel in environment variables, not on the
+        # command line - nothing in a folder name can be read as an option.
         result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-STA", "-Command", _FOLDER_PICKER_PS],
+            [sys.executable, "-I", FOLDER_PICKER_SCRIPT],
             capture_output=True,
             encoding="utf-8",
             errors="replace",

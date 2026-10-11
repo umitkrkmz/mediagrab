@@ -7,6 +7,7 @@ pointing paths.app_dir at a temp <install>\\app next to <install>\\python.
 
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -234,6 +235,7 @@ def test_the_folder_picker_returns_the_chosen_folder(monkeypatch):
     seen = {}
 
     def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
         seen["env"] = kwargs["env"]
         return Result()
 
@@ -242,6 +244,21 @@ def test_the_folder_picker_returns_the_chosen_folder(monkeypatch):
         res = c.post("/api/download-dir/browse?lang=tr")
     assert res.json() == {"path": "D:\\Videolar\\Müzik"}
     assert "nereye" in seen["env"]["MEDIAGRAB_PICKER_TITLE"]
+    # NOTE: the modern dialog, run by MediaGrab's own Python - not
+    # PowerShell's old tree-view FolderBrowserDialog.
+    assert seen["cmd"] == [sys.executable, "-I", app_module.FOLDER_PICKER_SCRIPT]
+    assert os.path.isfile(app_module.FOLDER_PICKER_SCRIPT)
+
+
+def test_the_folder_picker_stands_alone():
+    # NOTE: it runs as `python -I folder_picker.py`, where the mediagrab
+    # package isn't importable.
+    import ast
+
+    tree = ast.parse(Path(app_module.FOLDER_PICKER_SCRIPT).read_text(encoding="utf-8"))
+    modules = {alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
+    modules |= {node.module.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert modules <= {"ctypes", "os", "sys"}
 
 
 # --- the installer's "where should videos be saved?" page --------------------------
@@ -264,20 +281,31 @@ def test_the_installers_choice_is_applied_once_on_start(tmp_path):
     assert not handoff.exists()
 
 
-def test_a_folder_already_set_in_settings_wins(tmp_path):
-    store.save_settings(download_dir=str(tmp_path / "chosen-in-settings"))
-    handoff = _handoff(str(tmp_path / "from-installer"))
+def test_a_reinstall_applies_what_the_installer_page_showed(tmp_path):
+    # NOTE: uninstalled with data kept, installed again: the page started
+    # from the old setting, the user picked something else - that counts.
+    store.save_settings(download_dir=str(tmp_path / "old-setting"))
+    handoff = _handoff(str(tmp_path / "picked-on-reinstall"))
     with TestClient(app_module.app):
         pass
-    assert store.get_settings()["download_dir"] == str(tmp_path / "chosen-in-settings")
+    assert store.get_settings()["download_dir"] == str(tmp_path / "picked-on-reinstall")
     assert not handoff.exists()
 
 
-def test_an_unusable_installer_choice_keeps_the_default(tmp_path):
-    handoff = _handoff("relative/path")
+def test_picking_the_default_on_a_reinstall_clears_the_old_setting(tmp_path):
+    store.save_settings(download_dir=str(tmp_path / "old-setting"))
+    _handoff(downloader.DOWNLOAD_DIR)
     with TestClient(app_module.app):
         pass
     assert store.get_settings()["download_dir"] == ""
+
+
+def test_an_unusable_installer_choice_keeps_the_current_folder(tmp_path):
+    store.save_settings(download_dir=str(tmp_path / "old-setting"))
+    handoff = _handoff("relative/path")
+    with TestClient(app_module.app):
+        pass
+    assert store.get_settings()["download_dir"] == str(tmp_path / "old-setting")
     assert not handoff.exists()
 
 
@@ -287,3 +315,13 @@ def test_the_installer_writes_the_file_the_app_reads():
     iss = (Path(__file__).parent.parent / "packaging" / "mediagrab.iss").read_text(encoding="utf-8-sig")
     assert "\\" + app_module.INSTALLER_DOWNLOAD_DIR_FILE + "'" in iss
     assert r"{localappdata}\MediaGrab" in iss
+
+
+def test_the_installer_reads_the_settings_the_app_writes():
+    # NOTE: a reinstall (data kept) pre-fills the installer page from this
+    # file (packaging/settings_json.iss) - renamed on either side, the page
+    # would quietly offer the default instead.
+    iss = (Path(__file__).parent.parent / "packaging" / "mediagrab.iss").read_text(encoding="utf-8-sig")
+    assert '#include "settings_json.iss"' in iss
+    assert "{localappdata}\\MediaGrab\\" + os.path.basename(store.SETTINGS_PATH) in iss
+    assert "download_dir" in store.DEFAULT_SETTINGS

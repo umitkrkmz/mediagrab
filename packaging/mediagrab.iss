@@ -32,6 +32,11 @@ VersionInfoProductName=MediaGrab
 VersionInfoCopyright=GPL-3.0-or-later - github.com/umitkrkmz/mediagrab
 DefaultDirName={autopf}\MediaGrab
 DisableProgramGroupPage=yes
+; NOTE: no "folder already exists, install anyway?" question - in this layout
+; the folder only ever holds MediaGrab's own program files (user data lives in
+; %LOCALAPPDATA%\MediaGrab and the downloads folder), and the question makes
+; people fear their videos are about to be overwritten.
+DirExistsWarning=no
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -92,10 +97,21 @@ turkish.DownloadDirCaption=İndirme klasörü
 turkish.DownloadDirDescription=İndirilen videolar ve müzikler nereye kaydedilsin?
 turkish.DownloadDirSubCaption=MediaGrab indirdiğiniz her şeyi bu klasöre kaydeder. Daha sonra Ayarlar'dan değiştirebilirsiniz.
 turkish.DownloadDirInsideApp=Lütfen MediaGrab'ın kendi program klasörünün dışında bir klasör seçin; güncelleme ya da kaldırma sırasında oradaki dosyalar silinebilir.
+english.DownloadDirPrevious=The folder from your previous MediaGrab installation is filled in below.
+english.DownloadDirFromPrevious=from your previous installation
+turkish.DownloadDirPrevious=Aşağıda önceki MediaGrab kurulumunuzda kullandığınız klasör seçili.
+turkish.DownloadDirFromPrevious=önceki kurulumunuzdan
+english.DownloadDirDefault=Default: %1
+turkish.DownloadDirDefault=Varsayılan: %1
 
 [Code]
+#include "settings_json.iss"
+
 var
   DownloadDirPage: TInputDirWizardPage;
+  // NOTE: set when MediaGrab was uninstalled with its data kept and is now
+  // installed again - the page then starts from that folder, not the default.
+  PreviousDownloadDir: String;
 
 // NOTE: Windows' own "Downloads" location (people move it to other drives),
 // read from the per-user Shell Folders key; ~\Downloads if it isn't there.
@@ -114,12 +130,28 @@ begin
 end;
 
 procedure InitializeWizard;
+var
+  SubCaption, DefaultDir: String;
 begin
+  DefaultDir := AddBackslash(UserDownloadsFolder()) + 'MediaGrab';
+  PreviousDownloadDir := ReadDownloadDirSetting(ExpandConstant('{localappdata}\MediaGrab\settings.json'));
+  // NOTE: the old folder is pre-filled (someone just clicking Next keeps
+  // finding their videos), with the default spelled out next to it so going
+  // back to it is a matter of typing what's on screen.
+  if CompareText(RemoveBackslash(PreviousDownloadDir), DefaultDir) = 0 then
+    PreviousDownloadDir := '';
+  SubCaption := CustomMessage('DownloadDirSubCaption');
+  if PreviousDownloadDir <> '' then
+    SubCaption := SubCaption + #13#10#13#10 + CustomMessage('DownloadDirPrevious')
+      + #13#10 + FmtMessage(CustomMessage('DownloadDirDefault'), [DefaultDir]);
   DownloadDirPage := CreateInputDirPage(wpSelectDir,
     CustomMessage('DownloadDirCaption'), CustomMessage('DownloadDirDescription'),
-    CustomMessage('DownloadDirSubCaption'), False, 'MediaGrab');
+    SubCaption, False, 'MediaGrab');
   DownloadDirPage.Add('');
-  DownloadDirPage.Values[0] := AddBackslash(UserDownloadsFolder()) + 'MediaGrab';
+  if PreviousDownloadDir <> '' then
+    DownloadDirPage.Values[0] := PreviousDownloadDir
+  else
+    DownloadDirPage.Values[0] := DefaultDir;
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
@@ -146,9 +178,30 @@ begin
   end;
 end;
 
+// NOTE: the "Ready to install" summary - Inno's own lines plus the downloads
+// folder chosen on our page (first install only, like the page itself).
+function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo,
+  MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
+var
+  Caption: String;
+begin
+  Result := MemoDirInfo + NewLine + NewLine;
+  if IsFirstInstall() then
+  begin
+    Caption := CustomMessage('DownloadDirCaption');
+    if (PreviousDownloadDir <> '') and (CompareText(RemoveBackslash(PreviousDownloadDir), RemoveBackslash(DownloadDirPage.Values[0])) = 0) then
+      Caption := Caption + ' (' + CustomMessage('DownloadDirFromPrevious') + ')';
+    Result := Result + Caption + ':' + NewLine + Space + DownloadDirPage.Values[0] + NewLine + NewLine;
+  end;
+  if MemoTasksInfo <> '' then
+    Result := Result + MemoTasksInfo + NewLine + NewLine;
+end;
+
 // NOTE: handed to the app rather than written into settings.json from here:
 // MediaGrab reads this file on its first start, checks the folder with its
 // own rules and deletes the file (app.py _apply_installer_download_dir).
+// What the page showed is what counts - it started from the existing setting,
+// if there was one.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Lines: TArrayOfString;
