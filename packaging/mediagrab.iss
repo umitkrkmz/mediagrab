@@ -90,6 +90,10 @@ Filename: "{app}\python\MediaGrab.exe"; Parameters: """{app}\app\run.py"""; Work
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\app\mediagrab"
+; NOTE: an empty app\ (and the install folder) was left behind in the dev12
+; test; "dirifempty" can't delete anything that's still in them.
+Type: dirifempty; Name: "{app}\app"
+Type: dirifempty; Name: "{app}"
 
 [CustomMessages]
 english.DownloadDirCaption=Download folder
@@ -110,11 +114,29 @@ english.MediaGrabRunning=MediaGrab is running. It will be closed to continue; do
 turkish.MediaGrabRunning=MediaGrab çalışıyor. Devam etmek için kapatılacak; süren indirmeler durur.
 english.MediaGrabStillRunning=MediaGrab could not be closed. Quit it from its icon in the notification area (next to the clock), then try again.
 turkish.MediaGrabStillRunning=MediaGrab kapatılamadı. Saatin yanındaki simgesinden kapatıp yeniden deneyin.
+english.UninstallOptionsCaption=Uninstall MediaGrab
+english.UninstallOptionsIntro=MediaGrab is being removed. What should happen to your settings and the videos you downloaded?
+english.UninstallKeepData=Remove only MediaGrab - keep settings and videos (recommended)
+english.UninstallRemoveData=Also delete MediaGrab's settings (channels, cookies, statistics)
+english.UninstallDeleteVideos=Also delete the videos I downloaded (%1 files, %2)
+english.UninstallNoVideos=No downloaded videos found to delete
+english.UninstallContinue=Continue
+english.UninstallConfirmVideos=%1 files (%2) will be permanently deleted from:%n%3%n%nThis can't be undone. Are you sure?
+turkish.UninstallOptionsCaption=MediaGrab'ı kaldır
+turkish.UninstallOptionsIntro=MediaGrab kaldırılıyor. Ayarlarınız ve indirdiğiniz videolar ne olsun?
+turkish.UninstallKeepData=Yalnızca MediaGrab'ı kaldır; ayarlar ve videolar kalsın (önerilen)
+turkish.UninstallRemoveData=MediaGrab'ın ayarlarını da sil (kanallar, çerezler, istatistikler)
+turkish.UninstallDeleteVideos=İndirdiğim videoları da sil (%1 dosya, %2)
+turkish.UninstallNoVideos=Silinecek indirilmiş video bulunamadı
+turkish.UninstallContinue=Devam
+turkish.UninstallConfirmVideos=%1 dosya (%2) kalıcı olarak silinecek:%n%3%n%nBu geri alınamaz. Emin misiniz?
 
 [Code]
 #include "settings_json.iss"
 
 #include "close_mediagrab.iss"
+
+#include "uninstall_options.iss"
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
@@ -123,9 +145,33 @@ begin
     Result := CustomMessage('MediaGrabStillRunning');
 end;
 
-function InitializeUninstall(): Boolean;
+// NOTE: usUninstall comes after Inno's own "really uninstall?" question and
+// before any file is removed. MediaGrab is closed only here - closing it
+// before that question (InitializeUninstall) stopped it even when the user
+// then answered "No" (seen in the dev12 test); and having said "Yes", nobody
+// needs to be asked a second time. MediaGrab's Python is still there to
+// count/delete the videos. A silent uninstall keeps all data.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  PythonExe, AppDir, OutFile: String;
 begin
-  Result := CloseMediaGrab(UninstallSilent);
+  PythonExe := ExpandConstant('{app}\python\python.exe');
+  AppDir := ExpandConstant('{app}\app');
+  OutFile := AddBackslash(GetTempDir()) + 'mediagrab-uninstall.txt';
+  if CurUninstallStep = usUninstall then
+    if not CloseMediaGrab(True) and not UninstallSilent then
+      // NOTE: rare (stuck for 20 s); the files it holds stay behind and
+      // Inno lists them - better than a half-asked uninstall.
+      MsgBox(CustomMessage('MediaGrabStillRunning'), mbError, MB_OK);
+  if (CurUninstallStep = usUninstall) and not UninstallSilent then
+  begin
+    AskUninstallOptions(ReadDownloadsSummary(PythonExe, AppDir, OutFile));
+    if DeleteDownloads then
+      RunUninstallHelper(PythonExe, AppDir, 'delete-downloads', OutFile);
+    DeleteFile(OutFile);
+  end;
+  if (CurUninstallStep = usPostUninstall) and DeleteMediaGrabData then
+    DelTree(ExpandConstant('{localappdata}\MediaGrab'), True, True, True);
 end;
 
 var

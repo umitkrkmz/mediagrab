@@ -263,8 +263,8 @@ executor = ThreadPoolExecutor(max_workers=3)
 
 # NOTE: we don't keep a separate DB for download history; the indirilenler/
 # folder already holds the actual files, so the history list is built by
-# reading that folder.
-HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "mkv", "srt", "txt"}
+# reading that folder. (The list itself lives in mover.py.)
+HISTORY_EXTS = mover.HISTORY_EXTS
 
 
 def _detect_system_lang() -> str:

@@ -10,6 +10,7 @@ import json
 import threading
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -200,3 +201,104 @@ def test_closes_a_running_mediagrab_through_its_tray_window(close_harness):
 
 def test_nothing_running_is_nothing_to_close(close_harness):
     assert close_harness() == "closed"
+
+
+# --- the uninstaller's video clean-up (packaging/uninstall_options.iss) --------------
+
+UNINSTALL_HARNESS = r"""
+[Setup]
+AppName=MediaGrab uninstall harness
+AppVersion=1
+CreateAppDir=no
+Uninstallable=no
+PrivilegesRequired=lowest
+OutputDir={out}
+OutputBaseFilename=uninstall-harness
+
+[Code]
+#include "{include}"
+
+function InitializeSetup(): Boolean;
+var
+  Lines: TArrayOfString;
+  Helper: String;
+begin
+  SetArrayLength(Lines, 1);
+  Helper := ExpandConstant('{param:helperout}');
+  if ExpandConstant('{param:cmd}') = 'delete' then
+  begin
+    if RunUninstallHelper(ExpandConstant('{param:python}'), ExpandConstant('{param:appdir}'), 'delete-downloads', Helper) then
+      Lines[0] := 'deleted'
+    else
+      Lines[0] := 'failed';
+  end
+  else if ReadDownloadsSummary(ExpandConstant('{param:python}'), ExpandConstant('{param:appdir}'), Helper) then
+    Lines[0] := DownloadsFolder + '|' + IntToStr(DownloadsCount) + '|' + SizeText(DownloadsMB)
+  else
+    Lines[0] := 'no summary';
+  SaveStringsToUTF8File(ExpandConstant('{param:out}'), Lines, False);
+  Result := False;
+end;
+"""
+
+
+@pytest.fixture(scope="module")
+def uninstall_harness(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("iss-uninstall")
+    script = folder / "uninstall.iss"
+    script.write_text(
+        UNINSTALL_HARNESS.replace("{out}", str(folder)).replace(
+            "{include}", str(ROOT / "packaging" / "uninstall_options.iss")
+        ),
+        encoding="utf-8-sig",
+    )
+    subprocess.run([_iscc(), "-Q", str(script)], check=True, capture_output=True)
+
+    def run(cmd, data_dir, python=sys.executable):
+        out = folder / "result.txt"
+        if out.exists():
+            out.unlink()
+        # NOTE: the real helper (python -m mediagrab.uninstall) run by the
+        # Pascal code, against an isolated data folder.
+        env = {**os.environ, "MEDIAGRAB_DATA_DIR": str(data_dir)}
+        subprocess.run(
+            [
+                str(folder / "uninstall-harness.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES",
+                f"/cmd={cmd}", f"/python={python}", f"/appdir={ROOT}",
+                f"/helperout={folder / 'helper.txt'}", f"/out={out}",
+            ],
+            timeout=120,
+            env=env,
+        )
+        return out.read_text(encoding="utf-8-sig").strip()
+
+    return run
+
+
+def _videos(tmp_path):
+    videos = tmp_path / "Videolarım Ş"
+    (videos / "Kanal").mkdir(parents=True)
+    (videos / "Kanal" / "Bir.mp4").write_bytes(b"x" * (3 * 1024 * 1024 + 1))
+    (videos / "Kanal" / "Bir.json").write_bytes(b"{}")
+    (videos / "kendi-dosyam.docx").write_bytes(b"d")
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "settings.json").write_text(json.dumps({"download_dir": str(videos)}, ensure_ascii=False), encoding="utf-8")
+    return videos, data
+
+
+def test_the_uninstaller_reads_the_helpers_summary(tmp_path, uninstall_harness):
+    videos, data = _videos(tmp_path)
+    assert uninstall_harness("summary", data) == f"{videos}|2|4 MB"
+
+
+def test_the_uninstaller_has_the_helper_delete_only_mediagrabs_files(tmp_path, uninstall_harness):
+    videos, data = _videos(tmp_path)
+    assert uninstall_harness("delete", data) == "deleted"
+    assert not (videos / "Kanal").exists()
+    assert (videos / "kendi-dosyam.docx").exists()
+
+
+def test_no_python_means_no_offer_to_delete_videos(tmp_path, uninstall_harness):
+    _videos_dir, data = _videos(tmp_path)
+    assert uninstall_harness("summary", data, python=str(tmp_path / "missing" / "python.exe")) == "no summary"

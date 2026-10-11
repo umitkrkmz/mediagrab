@@ -23,6 +23,10 @@ import os
 import shutil
 from typing import Callable, Optional
 
+# NOTE: the file types History lists - what MediaGrab itself downloads. Kept
+# here (app.py uses it as HISTORY_EXTS) so the uninstaller's clean-up
+# (uninstall.py) can use it without loading the whole web app.
+HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "mkv", "srt", "txt"}
 # NOTE: a copy in progress, so a half-written file never sits at the final
 # name (History would show it, and a rerun would take it for a finished one).
 TEMP_SUFFIX = ".mediagrab-move"
