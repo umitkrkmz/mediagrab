@@ -154,11 +154,17 @@ If you like, verify the file — every release's notes list that version's SHA25
 Get-FileHash .\MediaGrabSetup.exe
 ```
 
-**2. Run it.** The first time, Windows may say "Windows protected your PC": the installer isn't signed by a recognized publisher and hasn't built up a download "reputation" yet. The warning alone isn't proof that a file is harmful, and it doesn't prove that it's safe either. If you got the file from this project's GitHub Releases page (and, if you like, checked its SHA256), click **More info → Run anyway**.
+**2. Run it.** The first time, Windows may say "Windows protected your PC": the installer isn't signed by a recognized publisher and hasn't built up a download "reputation" yet. The warning alone isn't proof that a file is harmful, and it doesn't prove that it's safe either. If you got the file from this project's GitHub Releases page (and, if you like, checked its SHA256), click **More info → Run anyway**. The first window only has a **Don't run** button; **Run anyway** appears after clicking **More info** (shown here on Turkish Windows - the layout is the same):
+
+<p align="center">
+  <img src="images/smartscreen-1-tr.png" width="360" alt="Windows protected your PC: the More info link">
+  &nbsp;
+  <img src="images/smartscreen-2-tr.png" width="360" alt="After More info: Publisher Unknown publisher, the Run anyway button">
+</p>
 
 Setup opens in Turkish or English to match Windows, and asks, in order:
 
-- **Installation type** — *Normal installation* (recommended) or *Install with Docker* (advanced, needs Docker Desktop — see [Method C](#method-c-docker-any-platform)).
+- **Installation type** — *Normal installation* (recommended) or *Install with Docker* (advanced, needs Docker Desktop — see [Method C](#method-c-docker-any-platform)). If MediaGrab is already installed this isn't asked: the existing install is updated as the same type; to switch types, uninstall MediaGrab first (your data stays by default).
 - **Your earlier MediaGrab** — only shown if it finds a MediaGrab installed with the pre-v2.4.0 installer. Your settings, channels, cookies and statistics are brought over; your videos stay where they are, and once MediaGrab is open, History and Settings offer to move them into the new folder. The earlier installation isn't deleted.
 - **Install location** — `%LOCALAPPDATA%\Programs\MediaGrab` by default (program files only).
 - **Download folder** — `Downloads\MediaGrab` by default. A folder inside MediaGrab's own program folder can't be picked (an update or uninstall could delete files there).

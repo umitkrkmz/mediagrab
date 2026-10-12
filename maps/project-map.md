@@ -130,7 +130,7 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `README.md` | Short landing page: what it is, install links, licence split, legal |
 | `docs/README.tr.md`, `docs/README.en.md` | Full guides: features, install (installer + from source), running, channels, troubleshooting, structure, licences |
 | `docs/language-codes.tr.md`, `docs/language-codes.en.md` | ISO 639-1 code ↔ name tables (linked from Settings → Default Audio Track) |
-| `docs/images/` | Screenshots used by the guides and the main README (`<name>-tr.png` / `<name>-en.png` per language, plus `hero.png`). Taken from an isolated instance with sample data (Blender's open-licensed films), dark theme; the phone shots are taken over the LAN address so they show what a real remote phone sees |
+| `docs/images/` | Screenshots used by the guides and the main README (`<name>-tr.png` / `<name>-en.png` per language, plus `hero.png`). Taken from an isolated instance with sample data (Blender's open-licensed films), dark theme; the phone shots are taken over the LAN address so they show what a real remote phone sees. `smartscreen-1-tr.png`/`smartscreen-2-tr.png` are Windows' SmartScreen prompt for the real v2.4.0 release on Turkish Windows - Turkish only, the English guide uses them too |
 | `maps/project-map.md`, `maps/site-map.md` | This file and the route map |
 | `CHANGELOG.md` | Per-release notes, TR then EN |
 | `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md` | Contributor guide, vulnerability reporting, rules for AI tools |

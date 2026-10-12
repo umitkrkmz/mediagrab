@@ -154,11 +154,17 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 Get-FileHash .\MediaGrabSetup.exe
 ```
 
-**2. Çalıştırın.** Windows ilk seferde "Windows bilgisayarınızı korudu" diyebilir: kurulum programı tanınmış bir yayıncı imzası taşımıyor ve henüz yeterince indirilip "itibar" kazanmadı. Bu uyarı tek başına dosyanın zararlı olduğunu göstermez; güvenli olduğunu da kanıtlamaz. Dosyayı bu projenin GitHub Releases sayfasından aldıysanız (ve isterseniz SHA256 değerini doğruladıysanız) **Ek bilgi → Yine de çalıştır** ile devam edin.
+**2. Çalıştırın.** Windows ilk seferde "Windows bilgisayarınızı korudu" diyebilir: kurulum programı tanınmış bir yayıncı imzası taşımıyor ve henüz yeterince indirilip "itibar" kazanmadı. Bu uyarı tek başına dosyanın zararlı olduğunu göstermez; güvenli olduğunu da kanıtlamaz. Dosyayı bu projenin GitHub Releases sayfasından aldıysanız (ve isterseniz SHA256 değerini doğruladıysanız) **Ek bilgi → Yine de çalıştır** ile devam edin. İlk pencerede yalnızca **Çalıştırma** düğmesi vardır; **Yine de çalıştır**, **Ek bilgi**'ye tıklayınca çıkar:
+
+<p align="center">
+  <img src="images/smartscreen-1-tr.png" width="360" alt="Windows kişisel bilgisayarınızı korudu: Ek bilgi bağlantısı">
+  &nbsp;
+  <img src="images/smartscreen-2-tr.png" width="360" alt="Ek bilgi'den sonra: Yayıncı Bilinmeyen yayıncı, Yine de çalıştır düğmesi">
+</p>
 
 Kurulum Windows'un diline göre Türkçe ya da İngilizce açılır ve sırayla şunları sorar:
 
-- **Kurulum türü** — *Normal kurulum* (önerilen) ya da *Docker ile kurulum* (ileri düzey, Docker Desktop gerekir — bkz. [Yöntem C](#yöntem-c-docker-her-platform)).
+- **Kurulum türü** — *Normal kurulum* (önerilen) ya da *Docker ile kurulum* (ileri düzey, Docker Desktop gerekir — bkz. [Yöntem C](#yöntem-c-docker-her-platform)). MediaGrab zaten kuruluysa bu soru gelmez, var olan kurulum aynı türle güncellenir; türü değiştirmek için önce MediaGrab'ı kaldırın (verileriniz varsayılan olarak kalır).
 - **Önceki MediaGrab** — yalnızca v2.4.0'dan önceki kurulum aracıyla kurulmuş bir MediaGrab bulunursa çıkar. Ayarlarınız, kanallarınız, çerezleriniz ve istatistikleriniz yeni MediaGrab'a aktarılır; videolarınız yerinde kalır ve MediaGrab açılınca Geçmiş ile Ayarlar'da onları yeni klasöre taşımayı teklif eder. Eski kurulum silinmez.
 - **Kurulum konumu** — varsayılan `%LOCALAPPDATA%\Programs\MediaGrab` (yalnızca program dosyaları).
 - **İndirme klasörü** — varsayılan `İndirilenler\MediaGrab`. MediaGrab'ın kendi program klasörünün içi seçilemez (güncelleme ya da kaldırma oradaki dosyaları silebilir).
