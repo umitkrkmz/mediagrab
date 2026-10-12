@@ -61,11 +61,23 @@ def test_a_directory_in_a_heading_does_not_count_as_coverage():
     assert _directory_rows(text) == {"mediagrab/static/icons/", "docs/images/"}, _directory_rows(text)
 
 
+# NOTE: what the Windows build writes (packaging/build_windows.py) - the map
+# describes those outputs, but they're git-ignored and only exist after a build.
+GENERATED_DIRS = ("build/", "dist/")
+
+
 def test_the_project_map_lists_no_file_that_does_not_exist():
     text = PROJECT_MAP.read_text(encoding="utf-8")
     listed = set(re.findall(r"`([A-Za-z0-9_./-]+\.[a-z]+)`", text))
-    # NOTE: entries starting with "/" are URLs (`/sw.js`), not files.
-    stale = sorted(p for p in listed if "/" in p and not p.startswith("/") and not (ROOT / p).exists())
+    files = set(_repo_files())
+    # NOTE: entries starting with "/" are URLs (`/sw.js`), not files. Checked
+    # against the repo, not the disk: a leftover build output on the
+    # developer's machine made this pass locally and fail on a clean CI runner.
+    stale = sorted(
+        p
+        for p in listed
+        if "/" in p and not p.startswith("/") and not p.startswith(GENERATED_DIRS) and p not in files
+    )
     assert not stale, f"listed in maps/project-map.md but gone: {stale}"
 
 
