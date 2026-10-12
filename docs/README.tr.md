@@ -100,7 +100,7 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 - **Playlist & YouTube Music** — playlist linki yapıştırınca video listesi kapak/başlık/süre ile gelir; tek tek ya da aralık seçip tümünü tek tıkla kuyruğa atabilirsiniz
 - **Çoklu platform** — YouTube'a özel değil; yt-dlp'nin desteklediği 1700'den fazla site (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org vb.) aynı arayüzden çalışır. `/supported-sites` sayfasında popüler sitelerin kısa bir listesi var (her biri kendi marka rengiyle, tıklayınca sitenin ana sayfasına gider)
 - **Meta veri (JSON) dışa aktarma** — her indirmeyle birlikte aynı dosya adıyla (`video.mp4` + `video.json`) başlık, kanal, yükleme tarihi, açıklama, etiketler ve kaynak linki gibi bilgileri içeren bir JSON dosyası kaydedilir
-- **Otomatik klasörleme** — her indirme, kanal/yükleyici adına göre kendi alt klasörüne (`indirilenler/Kanal Adı/`) kaydedilir
+- **Otomatik klasörleme** — her indirme, indirme klasörünün içinde kanal/yükleyici adına göre kendi alt klasörüne (`Kanal Adı/`) kaydedilir
 - **İndirmeyi iptal etme ve var olan dosyayı koruma** — süren bir indirmeyi panelden durdurun (yarım dosyalar temizlenir); aynı videoyu tekrar indirirken iptal, hata veya çökme olursa eski dosyanız aynen geri gelir
 - **İndirme hızı sınırlama ve disk alanı kalkanı** (`/settings`) — isteğe bağlı bir üst hız sınırı belirleyebilir; disk alanı bir indirmeyi bitirmeye yetmeyecek kadar azaldığında indirme baştan reddedilir
 - **Çerez desteği** (`/settings`) — yaş sınırlı, üyelere özel veya giriş gerektiren içerik için hesabınızın çerezlerini kullanın: `cookies.txt` dosyasını Ayarlar'dan yükleyin (Docker dahil her kurulumda çalışır; yalnızca seçtiğiniz sitelerin çerezleri saklanır) ya da yerel kurulumda doğrudan tarayıcıdan okutun. Ayrıntılar: [Çerezler](#çerezler-yaş-sınırlı-ve-giriş-gerektiren-videolar)
@@ -138,7 +138,7 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 - **yt-dlp sürüm kontrolü ve tek tıkla güncelleme** (`/settings`) — kurulu yt-dlp sürümünü PyPI'daki güncel sürümle karşılaştırır; güncelleme varsa tek tıkla kurar ve uygulamayı otomatik olarak yeniden başlatır
 - **Ortam kontrolü** (`/settings`) — ffmpeg/ffprobe sürümü ve Python bağımlılıkları güncel mi diye kontrol edilir; paketler tek tıkla güncellenebilir
 - **Geri bildirim ve Hakkında** — hata bildirmek veya özellik önermek için GitHub'daki hazır şablonlara tek tıkla gidin (`/settings`); "Tanılama bilgisini kopyala" düğmesi hata bildirimine yapıştırmanız için sürümleri, işletim sistemini, kurulum türünü ve çerez modunu tek metinde toplar (dosya yolu, IP adresi, bilgisayar adı veya çerez içeriği içermez); `/about` sayfasında proje, GPL-3.0 lisansı ve kaynak kod linkleri
-- Veritabanı, hesap sistemi veya bulut bağlantısı **yok** — yalnızca bu bilgisayarda çalışır. Tek dış bağlantılar, Ayarlar → Sürüm Kontrolleri açıldığında yapılan sürüm sorgularıdır (GitHub ve PyPI); arka planda hiçbir şey gönderilmez
+- Veritabanı, hesap sistemi, bulut bağlantısı ve telemetri **yok** — yalnızca bu bilgisayarda çalışır. Kullanımınız, indirme geçmişiniz ya da istatistikleriniz hiçbir yere gönderilmez. MediaGrab dışarıyla yalnızca işi için konuşur: indirdiğiniz içeriğin sitesiyle, takip ettiğiniz kanallar denetlenirken YouTube'la ve Ayarlar → Sürüm Kontrolleri açıldığında GitHub (MediaGrab) ve PyPI (yt-dlp ve bağımlılıklar) ile
 
 ## Kurulum
 
@@ -154,7 +154,7 @@ Playlist linkini yapıştırın; videolar kapak/başlık/süre ile listelenir. B
 Get-FileHash .\MediaGrabSetup.exe
 ```
 
-**2. Çalıştırın.** Windows ilk seferde "Windows bilgisayarınızı korudu" diyebilir: kurulum programı ücretli bir kod imzası taşımıyor, Windows yayıncıyı henüz tanımıyor. **Ek bilgi → Yine de çalıştır** ile devam edin.
+**2. Çalıştırın.** Windows ilk seferde "Windows bilgisayarınızı korudu" diyebilir: kurulum programı tanınmış bir yayıncı imzası taşımıyor ve henüz yeterince indirilip "itibar" kazanmadı. Bu uyarı tek başına dosyanın zararlı olduğunu göstermez; güvenli olduğunu da kanıtlamaz. Dosyayı bu projenin GitHub Releases sayfasından aldıysanız (ve isterseniz SHA256 değerini doğruladıysanız) **Ek bilgi → Yine de çalıştır** ile devam edin.
 
 Kurulum Windows'un diline göre Türkçe ya da İngilizce açılır ve sırayla şunları sorar:
 
@@ -302,7 +302,7 @@ Bu durumda tarayıcıda `http://127.0.0.1:8420` adresini elle açmanız gerekir.
 
 ## Kanal Takibi Nasıl Çalışır
 
-MediaGrab sürekli arka planda çalışan bir servis **değil** — sadece siz açtığınızda çalışır. Bu yüzden kanal takibi de "her açılışta bir kez kontrol et" mantığıyla çalışır: uygulamayı başlattığınızda (`python run.py` veya `uvicorn` komutunu çalıştırdığınızda), takip listenizdeki tüm kanallar arka planda kontrol edilir. Uygulama kapalıyken yeni yüklenen videolar, siz tekrar açana kadar tespit edilmez — kişisel/lokal bir araç için beklenen davranış budur; 7/24 arka planda çalışan bir Windows servisi haline getirmek istemiyoruz.
+MediaGrab sürekli arka planda çalışan bir servis **değil** — sadece siz açtığınızda çalışır. Bu yüzden kanal takibi de "her açılışta bir kez kontrol et" mantığıyla çalışır: uygulamayı başlattığınızda (Başlat menüsünden açtığınızda ya da `python run.py` veya `uvicorn` komutunu çalıştırdığınızda), takip listenizdeki tüm kanallar arka planda kontrol edilir. Uygulama kapalıyken yeni yüklenen videolar, siz tekrar açana kadar tespit edilmez — kişisel/lokal bir araç için beklenen davranış budur; 7/24 arka planda çalışan bir Windows servisi haline getirmek istemiyoruz.
 
 Takip listesi ve son görülen video bilgisi, veritabanı yerine `channels.json` dosyasında (git'e dahil değil) tutulur — projenin geri kalanıyla aynı "gerçek veri diskte, ayrı bir DB yok" felsefesi.
 
@@ -313,8 +313,8 @@ MediaGrab'ı bir bilgisayarda çalıştırıp aynı Wi-Fi/ağdaki telefonunuzdan
 **Nasıl açılır:** `/settings` → **Uzaktan Erişim** sekmesi → önce bir şifre belirleyin, sonra "Yerel ağdan erişime izin ver" seçeneğini açın. Ayar uygulanırken sunucu kendini bir kez yeniden başlatır; işlem bitince aynı panelde bağlantı adresi (`http://192.168.x.x:8420` gibi) görünür — bu adresi diğer cihazın tarayıcısına yazmanız yeterli. İlk açılışta o cihaz da şifreyle giriş yapar.
 
 - **Bağlı cihazlar** — aynı panelde o an oturum açmış her cihazı (tarayıcı + işletim sistemi tahmini, ör. "Chrome · Windows") ve bağlantı zamanını görürsünüz; istediğiniz birini tek başına çıkışa zorlayabilirsiniz, kendi cihazınız etkilenmez.
-- **Şifre değiştirme** — mevcut şifre / yeni şifre / yeni şifre (tekrar) ile değiştirilir. Şifreyi unutursanız: bu bilgisayardaki `settings.json` dosyasından `remote_access_password_salt` ve `remote_access_password_hash` alanlarını silip MediaGrab'ı yeniden başlatın, ayarlar sayfasından yeni bir şifre belirleyebilirsiniz. Şifre her değiştiğinde (veya bu kurtarma yoluyla sıfırlandığında), değiştiren dahil oturum açmış her cihaz otomatik çıkışa zorlanır.
-- **Depolama modu** — **Bende Kalsın** (varsayılan): indirilen dosyalar her zamanki gibi bu bilgisayarda `indirilenler/` klasöründe kalıcı olarak durur; kişisel bilgisayar için önerilen mod. **Cihaza Aktar**: depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız, telefon gibi başka bir cihaz bir dosyayı tamamen indirdikten sonra bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan (host'un kendi tarayıcısından) yaptığınız indirmeler bu ayardan etkilenmez ve hiçbir zaman kendiliğinden silinmez. Docker'ı kendi bilgisayarınızda `localhost` ile açtıysanız **Klasöre Kaydet** çıkar; bu durumda kopya yalnızca dosya seçtiğiniz klasöre gerçekten kaydedildikten sonra silinir, pencereyi iptal ederseniz dosyaya dokunulmaz. Bilinen sınır: başka bir bilgisayarın tarayıcısı "her dosyanın nereye kaydedileceğini sor" ayarıyla açıksa, tarayıcı dosyayı pencere açıkken indirdiği için iptal algılanamaz.
+- **Şifre değiştirme** — mevcut şifre / yeni şifre / yeni şifre (tekrar) ile değiştirilir. Şifreyi unutursanız: bu bilgisayardaki `settings.json` dosyasından (Windows kurulum programında `%LOCALAPPDATA%\MediaGrab`, Docker'da `./data/`, kaynak koddan kurulumda proje klasörü) `remote_access_password_salt` ve `remote_access_password_hash` alanlarını silip MediaGrab'ı yeniden başlatın, ayarlar sayfasından yeni bir şifre belirleyebilirsiniz. Şifre her değiştiğinde (veya bu kurtarma yoluyla sıfırlandığında), değiştiren dahil oturum açmış her cihaz otomatik çıkışa zorlanır.
+- **Depolama modu** — **Bende Kalsın** (varsayılan): indirilen dosyalar her zamanki gibi bu bilgisayarda, indirme klasöründe kalıcı olarak durur; kişisel bilgisayar için önerilen mod. **Cihaza Aktar**: depolaması sınırlı bir cihazda (ör. Raspberry Pi) çalıştırıyorsanız, telefon gibi başka bir cihaz bir dosyayı tamamen indirdikten sonra bu bilgisayardaki kopyası silinir. Kendi bilgisayarınızdan (host'un kendi tarayıcısından) yaptığınız indirmeler bu ayardan etkilenmez ve hiçbir zaman kendiliğinden silinmez. Docker'ı kendi bilgisayarınızda `localhost` ile açtıysanız **Klasöre Kaydet** çıkar; bu durumda kopya yalnızca dosya seçtiğiniz klasöre gerçekten kaydedildikten sonra silinir, pencereyi iptal ederseniz dosyaya dokunulmaz. Bilinen sınır: başka bir bilgisayarın tarayıcısı "her dosyanın nereye kaydedileceğini sor" ayarıyla açıksa, tarayıcı dosyayı pencere açıkken indirdiği için iptal algılanamaz.
 
 > **Güvenlik notu:** Bu bağlantı düz HTTP üzerinden çalışır (HTTPS değildir) — yalnızca güvendiğiniz bir ev/ofis ağında kullanın, yönlendirici (router) ayarlarından doğrudan internete açmayın. Oturumlar bellekte tutulur; sunucu yeniden başladığında (güncelleme, bilgisayarın kapanması vb.) herkes tekrar şifreyle giriş yapmalıdır — bu bilinçli bir sadeleştirme, kişisel/lokal bir araç için diskte kalıcı oturum tutmaya gerek görülmedi.
 
@@ -384,16 +384,16 @@ MediaGrab'ı telefondan ya da tabletten, [Uzaktan Erişim](#uzaktan-erişim-yere
 
 ## Testler
 
-Ağ erişimi gerektirmeyen, birkaç saniyede biten bir test paketi var (yol güvenliği, VTT/transkript ayrıştırma, sürüm karşılaştırma, yedekle-geri-yükle, çeviri bütünlüğü, arayüzdeki HTML kaçışı).
+Ağ erişimi gerektirmeyen bir test paketi var (yol güvenliği, VTT/transkript ayrıştırma, sürüm karşılaştırma, yedekle-geri-yükle, çeviri bütünlüğü, arayüzdeki HTML kaçışı, indirme klasörü ve taşıma, Windows kurulum programının mantığı).
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-JavaScript testleri için Node.js kurulu olmalı; değilse o testler otomatik atlanır.
+JavaScript testleri için Node.js kurulu olmalı; değilse o testler otomatik atlanır. Windows'a özgü testler (bildirim alanı simgesi, `MediaGrab.exe`) yalnızca Windows'ta çalışır; kurulum programının Pascal kodunu deneyen testler için ayrıca [Inno Setup 6](https://jrsoftware.org/isinfo.php) kurulu olmalı (başka bir yerdeyse `MEDIAGRAB_ISCC` ile `ISCC.exe`'yi gösterin).
 
-Testler GitHub'da `master`'a her push'ta otomatik olarak da çalışır (Actions → "Tests"). Docker imajı için ayrı bir duman testi var — imajı başlatıp giriş, ffmpeg/ffprobe/Deno, Geçmiş ve istatistikleri dener:
+Testler GitHub'da `master`'a her push'ta ve her PR'da Linux'ta ve Windows'ta otomatik olarak da çalışır (Actions → "Tests"). Docker imajı için ayrı bir duman testi var — imajı başlatıp giriş, ffmpeg/ffprobe/Deno, Geçmiş ve istatistikleri dener:
 
 ```bash
 docker build -t mediagrab:dev .
@@ -459,12 +459,14 @@ mediagrab/
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
     static/icons/   # desteklenen site logoları (Simple Icons'tan, yerelde tutulur)
-indirilenler/       # indirilen dosyalar, kanal adına göre alt klasörlenir (git'e dahil değil)
+                    # aşağıdaki veri dosyaları kaynak koddan kurulumda proje klasöründe durur
+                    # (Windows kurulum programında %LOCALAPPDATA%\MediaGrab, Docker'da ./data/)
+indirilenler/       # varsayılan indirme klasörü, kanal adına göre alt klasörlenir (git'e dahil değil)
     Kanal Adı/
         Video.mp4
         Video.json  # meta veri sidecar dosyası
 channels.json       # takip edilen kanallar (git'e dahil değil)
-settings.json       # çerez ve varsayılan ses dili ayarları (git'e dahil değil)
+settings.json       # tüm ayarlar (git'e dahil değil)
 cookies.txt         # Ayarlar → Çerezler'den yüklenen dosya (git'e dahil değil; Docker'da ./data/cookies/)
 stats.json          # indirme istatistikleri, yalnızca sayılar (git'e dahil değil; Docker'da ./data/stats/)
 run.py              # `python run.py` ile çalıştırmak için giriş noktası
@@ -473,6 +475,7 @@ Dockerfile          # Docker imajı (python:3.12-slim + ffmpeg)
 docker-compose.yml  # örnek compose dosyası (elle Docker kurulumu için)
 .dockerignore
 tests/              # pytest paketi (ağ gerektirmez)
+.github/            # CI: testler, Windows kurulum programı ve Docker imajının derlenip denenmesi, issue şablonları
 docs/               # bu dosya, İngilizce karşılığı, dil kodu sözlüğü (language-codes.*.md) ve ekran görüntüleri (images/)
 maps/               # ayrıntılı proje haritası ve rota haritası (test-korumalı, AI araçları ve katkıcılar için)
 requirements.txt

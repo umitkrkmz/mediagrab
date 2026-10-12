@@ -26,7 +26,7 @@ Bunlar tercih değil, projenin şu anki tasarımının dayandığı temeller —
 
 Yeni bir davranış eklerken bir test de ekleyin. "Çalıştığını gördüm" yeterli değil — testin gerçekten o hatayı yakaladığını görmek için, düzeltmeyi geçici olarak geri alıp testin kırmızıya döndüğünü doğrulamanızı öneririz (mutasyon testi). Bu depodaki testlerin çoğu bu yöntemle yazıldı.
 
-Testler `master`'a her push'ta ve her PR'da Linux'ta otomatik çalışır (Actions → "Tests"), yayında da Windows'ta. Docker imajının duman testi (`.github/scripts/smoke-docker.sh`) elle de çalıştırılabilir: `docker build -t mediagrab:dev .` sonra `bash .github/scripts/smoke-docker.sh mediagrab:dev 8422`.
+Testler `master`'a her push'ta ve her PR'da Linux'ta ve Windows'ta otomatik çalışır (Actions → "Tests"); Windows işi Inno Setup'ı da kurar, böylece kurulum programının Pascal kodu gerçek derleyiciyle denenir. Docker imajının duman testi (`.github/scripts/smoke-docker.sh`) elle de çalıştırılabilir: `docker build -t mediagrab:dev .` sonra `bash .github/scripts/smoke-docker.sh mediagrab:dev 8422`.
 
 ### Commit mesajları
 
@@ -38,14 +38,19 @@ Proje düzenli yayın almıyor; adımlar uzun bir aradan sonra hatırlanmak zoru
 
 1. **Sürümü artırın.** `mediagrab/__init__.py` içindeki `__version__` ile `CHANGELOG.md`'nin en üstteki girdisi (TR ve EN) aynı olmalı; uyuşmazsa `tests/test_version.py` kırmızıya döner. CHANGELOG'daki tarihi yayın gününe çekin.
 2. **README rozetini güncelleyin.** `README.md`'nin en üstündeki "Latest Release" bağlantısı.
-3. **Etiketlemeden önce iki iş akışını elle çalıştırın.** GitHub → Actions → "Release" ve "Docker" → *Run workflow*, `master` dalı seçili. Bu deneme yayın yapmaz: Release testleri koşup exe'yi derler (çalıştırmanın sayfasından indirip elle deneyebilirsiniz), Docker imajı derleyip container'ı ayağa kaldırır.
-4. **Gerçek bir indirmeyle elle deneyin.** Otomatik testler bilerek internete çıkmaz; YouTube'un değişip değişmediğini yalnızca gerçek bir deneme gösterir. Yerel derlemeyle (kaynaktan ya da `mediagrab:dev` imajıyla):
+3. **Etiketlemeden önce iki iş akışını elle çalıştırın.** GitHub → Actions → "Release" ve "Docker" → *Run workflow*, `master` dalı seçili. Bu deneme yayın yapmaz: Release testleri koşup kurulum programını derler, Windows'ta sessizce kurup MediaGrab'ı başlatır ve kaldırır, exe'yi çalıştırmanın sayfasına bırakır (artifact); Docker imajı derleyip container'ı ayağa kaldırır.
+4. **Kurulum programını elle deneyin.** Duman testi sessiz kurulumu dener; sihirbazın sayfalarını yalnızca bir insan görür. 3. adımdaki exe ile (Docker kurulumu, sürümün imajı ghcr'da henüz olmadığı için etiketten sonra denenir):
+   - Temiz bir normal kurulum: indirme klasörü sayfası, ilk açılış, bildirim alanındaki simge ve **MediaGrab'ı kapat**.
+   - Bir önceki sürümün üzerine güncelleme: MediaGrab açıkken kurulum onu kapatmayı sorar, ayarlar ve indirme klasörü yerinde kalır.
+   - Kaldırma: varsayılan seçenekle veriler kalır.
+5. **Gerçek bir indirmeyle elle deneyin.** Otomatik testler bilerek internete çıkmaz; YouTube'un değişip değişmediğini yalnızca gerçek bir deneme gösterir. 4. adımdaki kurulumla ya da `mediagrab:dev` imajıyla:
    - YouTube'dan bir ses (Opus) ve bir 1080p video indirin; Geçmiş'te detay sayfasındaki Çözünürlük satırına bakın ve oynatın.
    - YouTube dışında bir siteden (ör. SoundCloud) bir indirme yapın.
    - Telefondan yerel ağ üzerinden açıp bir dosyayı cihaza indirin.
-   - Ayarlar → yt-dlp bölümünde JS çalışma ortamının (Deno) hazır göründüğünü kontrol edin.
-5. **Çalıştırmaların uyarılarına bakın.** Özet sayfasındaki sarı uyarılar (kullanımdan kalkan bir Node sürümü, değişecek bir runner görüntüsü vb.) bir sonraki yayında hataya dönüşebilir; şimdi düzeltin. Runner'lar (`ubuntu-24.04`, `windows-2025`) ve PyInstaller sürümü bilerek sabitli. Yükseltmek gerekirse bilinçli yapın, PyInstaller'ı yükselttiyseniz exe'yi elle deneyin.
-6. **Etiketleyin.** `git tag vX.Y.Z` ve `git push origin vX.Y.Z`. Release exe'yi GitHub Release'e, Docker imajı `ghcr.io/umitkrkmz/mediagrab`'a (`latest` ve sürüm etiketiyle) yayımlar.
+   - Ayarlar → Sürüm Kontrolleri'nde JS çalışma ortamının (Deno) ve ffmpeg'in hazır göründüğünü kontrol edin.
+6. **Çalıştırmaların uyarılarına bakın.** Özet sayfasındaki sarı uyarılar (kullanımdan kalkan bir Node sürümü, değişecek bir runner görüntüsü vb.) bir sonraki yayında hataya dönüşebilir; şimdi düzeltin. Runner'lar (`ubuntu-24.04`, `windows-2025`), Windows paketindeki Python ve FFmpeg (`packaging/build_windows.py`) ve Inno Setup (`.github/scripts/install-inno.ps1`) bilerek sabitli, her biri SHA256 ile doğrulanır. Yükseltmek gerekirse bilinçli yapın, sürümle birlikte hash'i de değiştirin ve exe'yi elle deneyin.
+7. **Etiketleyin.** `git tag vX.Y.Z` ve `git push origin vX.Y.Z`. Release kurulum programını, SHA256 değerini ve FFmpeg'in kaynak arşivlerini GitHub Release'e; Docker imajı `ghcr.io/umitkrkmz/mediagrab`'a (`latest` ve sürüm etiketiyle) yayımlar.
+8. **Yayından sonra.** Release'teki `MediaGrabSetup.exe`'yi ve kurulumdaki `python\MediaGrab.exe`'yi [VirusTotal](https://www.virustotal.com/)'da taratın; sonuç bağlantısını yayın notlarındaki "VirusTotal: _added after the scan_" satırına elle yazın (README bu bağlantıyı vaat ediyor). Windows kurulum programının "Docker ile kurulum"unu yeni imajla bir kez deneyin.
 
 **Docker taban imajı:** Her yayın `python:3.12-slim`'in o günkü güncel hâliyle derlenir, ayrıca bir şey yapmak gerekmez. Yayınlar arası uzun süre geçer ve taban imajda ciddi bir güvenlik açığı duyulursa: Actions → "Docker" → *Run workflow* → "Use workflow from" kısmında son sürüm etiketini (`vX.Y.Z`) seçin. İmaj taze tabanla yeniden derlenip aynı etiketlerle yeniden yayımlanır. Bu bilerek otomatikleştirilmedi: kimsenin izlemediği otomatik bir derleme bozuk bir `latest` yayımlayabilir.
 
@@ -73,7 +78,7 @@ These aren't preferences — they're what the current design rests on. A PR that
 
 Add a test with any new behavior. "I saw it work" isn't enough — we recommend temporarily reverting your fix and confirming the test goes red, to actually prove it catches the bug (mutation testing). Most tests in this repo were written this way.
 
-The tests run automatically on Linux on every push to `master` and on every PR (Actions → "Tests"), and on Windows at release time. The Docker image smoke test (`.github/scripts/smoke-docker.sh`) can be run by hand too: `docker build -t mediagrab:dev .` then `bash .github/scripts/smoke-docker.sh mediagrab:dev 8422`.
+The tests run automatically on Linux and on Windows on every push to `master` and on every PR (Actions → "Tests"); the Windows job also installs Inno Setup, so the installer's Pascal code is tried with the real compiler. The Docker image smoke test (`.github/scripts/smoke-docker.sh`) can be run by hand too: `docker build -t mediagrab:dev .` then `bash .github/scripts/smoke-docker.sh mediagrab:dev 8422`.
 
 ### Commit messages
 
@@ -85,13 +90,18 @@ The project doesn't release on a schedule, so the steps live here rather than in
 
 1. **Bump the version.** `__version__` in `mediagrab/__init__.py` must match the newest `CHANGELOG.md` entry (both TR and EN); `tests/test_version.py` goes red if they disagree. Set the CHANGELOG date to release day.
 2. **Update the README badge.** The "Latest Release" link at the top of `README.md`.
-3. **Run both workflows by hand before tagging.** GitHub → Actions → "Release" and "Docker" → *Run workflow*, with the `master` branch selected. This dry run publishes nothing: Release runs the tests and builds the exe (downloadable from the run page to try by hand), Docker builds the image and starts a container.
-4. **Try a real download by hand.** The automated tests stay offline on purpose; only a real attempt shows whether YouTube has changed something. With a local build (from source or the `mediagrab:dev` image):
+3. **Run both workflows by hand before tagging.** GitHub → Actions → "Release" and "Docker" → *Run workflow*, with the `master` branch selected. This dry run publishes nothing: Release runs the tests, builds the installer, silently installs it on Windows, starts MediaGrab and uninstalls it, and leaves the exe on the run page (an artifact); Docker builds the image and starts a container.
+4. **Try the installer by hand.** The smoke test covers a silent install; only a person sees the wizard's pages. With the exe from step 3 (the Docker install is tried after tagging, since the version's image isn't on ghcr yet):
+   - A clean normal install: the downloads-folder page, first start, the notification-area icon and **Quit MediaGrab**.
+   - An update over the previous release: with MediaGrab running, setup asks to close it; settings and the downloads folder stay as they were.
+   - Uninstall: with the default choice the data stays.
+5. **Try a real download by hand.** The automated tests stay offline on purpose; only a real attempt shows whether YouTube has changed something. With the install from step 4 or the `mediagrab:dev` image:
    - Download one audio (Opus) and one 1080p video from YouTube; check the Resolution row on the History detail page and play it.
    - Download once from a site other than YouTube (e.g. SoundCloud).
    - Open it from a phone over the local network and download a file to the device.
-   - Check that Settings → yt-dlp shows the JS runtime (Deno) as ready.
-5. **Read the runs' warnings.** Yellow annotations on the summary page (a Node version being retired, a runner image about to change, etc.) can become failures by the next release; fix them now. The runners (`ubuntu-24.04`, `windows-2025`) and the PyInstaller version are pinned on purpose. Bump them deliberately, and try the exe by hand after a PyInstaller bump.
-6. **Tag it.** `git tag vX.Y.Z` and `git push origin vX.Y.Z`. Release publishes the exe to a GitHub Release, Docker publishes the image to `ghcr.io/umitkrkmz/mediagrab` (as `latest` and the version tag).
+   - Check that Settings → Version Checks shows the JS runtime (Deno) and ffmpeg as ready.
+6. **Read the runs' warnings.** Yellow annotations on the summary page (a Node version being retired, a runner image about to change, etc.) can become failures by the next release; fix them now. The runners (`ubuntu-24.04`, `windows-2025`), the Windows package's Python and FFmpeg (`packaging/build_windows.py`) and Inno Setup (`.github/scripts/install-inno.ps1`) are pinned on purpose, each checked by SHA256. Bump them deliberately, change the hash with the version, and try the exe by hand.
+7. **Tag it.** `git tag vX.Y.Z` and `git push origin vX.Y.Z`. Release publishes the installer, its SHA256 and FFmpeg's source archives to a GitHub Release; Docker publishes the image to `ghcr.io/umitkrkmz/mediagrab` (as `latest` and the version tag).
+8. **After the release.** Scan the release's `MediaGrabSetup.exe` and an install's `python\MediaGrab.exe` on [VirusTotal](https://www.virustotal.com/); put the result link into the release notes' "VirusTotal: _added after the scan_" line by hand (the README promises it). Try the Windows installer's "Install with Docker" once with the new image.
 
 **Docker base image:** every release is built on that day's `python:3.12-slim`, so nothing else is needed. If a long time passes between releases and a serious base-image vulnerability comes up: Actions → "Docker" → *Run workflow* → pick the latest version tag (`vX.Y.Z`) under "Use workflow from". The image is rebuilt on a fresh base and re-published under the same tags. Deliberately not automated: an unattended automatic build can publish a broken `latest` with nobody watching.

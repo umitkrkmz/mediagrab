@@ -100,7 +100,7 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 - **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; download one individually, or pick a range and queue them all with one click
 - **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more). The `/supported-sites` page has a short list of popular ones (each with its brand color, linking to the site's homepage)
 - **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL
-- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`)
+- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`Channel Name/`) inside the downloads folder
 - **Cancel a download, and existing files are protected** — stop a running download from the panel (partial files are cleaned up); if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
 - **Download speed limiting and a disk-space shield** (`/settings`) — set an optional overall speed cap; a download is refused up front when there isn't enough free disk space left to finish it
 - **Cookie support** (`/settings`) — use your account's cookies for age-restricted, members-only or sign-in-required content: upload a `cookies.txt` in Settings (works on every install, Docker included; only the sites you pick are kept) or, on a local install, read them straight from the browser. Details: [Cookies](#cookies-age-restricted-and-sign-in-only-videos)
@@ -138,7 +138,7 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 - **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
 - **Feedback and About** — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature (`/settings`); a "Copy diagnostic info" button gathers versions, OS, install type and cookie mode into one text to paste into a bug report (no file paths, IP addresses, computer name or cookie contents); the `/about` page covers the project, its GPL-3.0 license, and source links
-- **No** database, account system, or cloud connection — runs only on this machine. The only outside requests are the version lookups made when you open Settings → Version Checks (GitHub and PyPI); nothing is sent in the background
+- **No** database, account system, cloud connection or telemetry — runs only on this machine. Your usage, download history and statistics are never sent anywhere. MediaGrab only talks to the outside world to do its job: to the site of whatever you download, to YouTube when the channels you follow are checked, and to GitHub (MediaGrab) and PyPI (yt-dlp and dependencies) when you open Settings → Version Checks
 
 ## Installation
 
@@ -154,7 +154,7 @@ If you like, verify the file — every release's notes list that version's SHA25
 Get-FileHash .\MediaGrabSetup.exe
 ```
 
-**2. Run it.** The first time, Windows may say "Windows protected your PC": the installer isn't signed with a paid code-signing certificate, so Windows doesn't know the publisher yet. Click **More info → Run anyway**.
+**2. Run it.** The first time, Windows may say "Windows protected your PC": the installer isn't signed by a recognized publisher and hasn't built up a download "reputation" yet. The warning alone isn't proof that a file is harmful, and it doesn't prove that it's safe either. If you got the file from this project's GitHub Releases page (and, if you like, checked its SHA256), click **More info → Run anyway**.
 
 Setup opens in Turkish or English to match Windows, and asks, in order:
 
@@ -173,7 +173,7 @@ Setup opens in Turkish or English to match Windows, and asks, in order:
 | Settings, channels, cookies, statistics, log (`mediagrab.log`) | `%LOCALAPPDATA%\MediaGrab` |
 | Your downloads | the folder you chose (`Downloads\MediaGrab` by default) |
 
-You can change the download folder later in **Settings → Download Settings → Download Folder** (**Choose folder…** opens Windows' folder picker). New downloads go to the new folder; for the downloads in the old one you're asked **Move here / Leave them there**. Moving takes only what MediaGrab downloaded (and their `.json` info files) along with their channel folders, never overwrites anything, and when moving to another drive copies and checks the size before deleting the original.
+You can change the download folder later in **Settings → Download Settings → Download Folder** (**Choose Folder…** opens Windows' folder picker). New downloads go to the new folder; for the downloads in the old one you're asked **Move here / Leave them there**. Moving takes only what MediaGrab downloaded (and their `.json` info files) along with their channel folders, never overwrites anything, and when moving to another drive copies and checks the size before deleting the original.
 
 **Updating:** **Settings → Version Checks** tells you when a new version is out. Download and run the new `MediaGrabSetup.exe` — it closes a running MediaGrab itself (asking first); your settings and videos are kept. In between, yt-dlp can be updated with one click in **Settings → Version Checks**.
 
@@ -302,7 +302,7 @@ In that case you'll need to open `http://127.0.0.1:8420` in your browser yoursel
 
 ## How Channel Following Works
 
-MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (running `python run.py` or the `uvicorn` command), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
+MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (opening it from the Start menu, or running `python run.py` or the `uvicorn` command), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
 
 The followed-channel list and each channel's "last seen video" state live in a `channels.json` file (not committed to git) instead of a database - same "real data lives on disk, no separate DB" philosophy as the rest of the project.
 
@@ -313,8 +313,8 @@ You can run MediaGrab on one computer and open it from your phone or another dev
 **How to turn it on:** `/settings` → **Remote Access** tab → set a password first, then enable "Allow access from the local network". The server restarts itself once while the setting is applied; once it's back, the same panel shows the connection address (something like `http://192.168.x.x:8420`) - type that into the other device's browser. That device logs in with the password the first time it connects.
 
 - **Connected devices** — the same panel shows every device currently logged in (browser + OS guess, e.g. "Chrome · Windows") and when it connected; you can sign any one of them out individually without affecting your own device.
-- **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
-- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once another device such as a phone has fully downloaded a file, this computer's copy is deleted. Downloads you make from this computer itself (the host's own browser) aren't affected and are never deleted automatically. If you run Docker on your own computer and open it via `localhost`, you get **Save to Folder**: the copy is only deleted after the file has actually been saved to the folder you picked, and cancelling the dialog leaves it untouched. Known limit: if another computer's browser is set to ask where to save each file, a cancel can't be detected, because the browser downloads the file while that dialog is still open.
+- **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` (in `%LOCALAPPDATA%\MediaGrab` with the Windows installer, `./data/` on Docker, the project folder for a source install) and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
+- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's downloads folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once another device such as a phone has fully downloaded a file, this computer's copy is deleted. Downloads you make from this computer itself (the host's own browser) aren't affected and are never deleted automatically. If you run Docker on your own computer and open it via `localhost`, you get **Save to Folder**: the copy is only deleted after the file has actually been saved to the folder you picked, and cancelling the dialog leaves it untouched. Known limit: if another computer's browser is set to ask where to save each file, a cancel can't be detected, because the browser downloads the file while that dialog is still open.
 
 > **Security note:** this connection runs over plain HTTP, not HTTPS - only use it on a home/office network you trust, and never forward the port to expose it directly to the internet. Sessions are kept in memory only; whenever the server restarts (an update, the computer shutting down, etc.) everyone has to log back in with the password - a deliberate simplification, since a personal/local tool doesn't need sessions to survive on disk.
 
@@ -384,16 +384,16 @@ When you open MediaGrab from a phone or tablet through [Remote Access](#remote-a
 
 ## Tests
 
-There's a small suite that needs no network access and finishes in a couple of seconds (path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, front-end HTML escaping).
+There's a test suite that needs no network access (path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, front-end HTML escaping, the downloads folder and moving it, the Windows installer's logic).
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-The JavaScript tests need Node.js installed; they're skipped automatically if it isn't.
+The JavaScript tests need Node.js installed; they're skipped automatically if it isn't. The Windows-only tests (the notification-area icon, `MediaGrab.exe`) run only on Windows; the ones that try the installer's Pascal code also need [Inno Setup 6](https://jrsoftware.org/isinfo.php) (point `MEDIAGRAB_ISCC` at `ISCC.exe` if it's somewhere else).
 
-On GitHub the tests also run automatically on every push to `master` (Actions → "Tests"). There's a separate smoke test for the Docker image - it starts the image and tries logging in, ffmpeg/ffprobe/Deno, History and statistics:
+On GitHub the tests also run automatically on every push to `master` and on every PR, on Linux and on Windows (Actions → "Tests"). There's a separate smoke test for the Docker image - it starts the image and tries logging in, ffmpeg/ffprobe/Deno, History and statistics:
 
 ```bash
 docker build -t mediagrab:dev .
@@ -459,12 +459,14 @@ mediagrab/
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
     static/icons/   # supported-site logos (from Simple Icons, kept locally)
-indirilenler/       # downloaded files, auto-organized into per-channel subfolders (not in git)
+                    # the data files below sit in the project folder for a source install
+                    # (%LOCALAPPDATA%\MediaGrab with the Windows installer, ./data/ on Docker)
+indirilenler/       # the default downloads folder, auto-organized into per-channel subfolders (not in git)
     Channel Name/
         Video.mp4
         Video.json  # metadata sidecar
 channels.json       # followed channels (not in git)
-settings.json       # cookie source and default audio-language settings (not in git)
+settings.json       # all settings (not in git)
 cookies.txt         # the file uploaded in Settings → Cookies (not in git; ./data/cookies/ on Docker)
 stats.json          # download statistics, numbers only (not in git; ./data/stats/ on Docker)
 run.py              # entry point for `python run.py`
@@ -473,6 +475,7 @@ Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
 docker-compose.yml  # example compose file (for a manual Docker install)
 .dockerignore
 tests/              # pytest suite (no network required)
+.github/            # CI: tests, building and smoke-testing the Windows installer and the Docker image, issue templates
 docs/               # this file, its Turkish counterpart, the language code reference (language-codes.*.md) and screenshots (images/)
 maps/               # detailed project map and route map (test-guarded, for AI tools and contributors)
 requirements.txt

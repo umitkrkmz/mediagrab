@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Önce kontrol edin / Check first:** Ayarlar → yt-dlp Sürümü'nden güncelleme var mı bakın. Bu projedeki sorunların büyük kısmı eski yt-dlp'den kaynaklanır (siteler sık değişir).
-        Please check Settings → yt-dlp Version for an update first — most issues here come from an outdated yt-dlp (sites change often).
+        **Önce kontrol edin / Check first:** Ayarlar → Sürüm Kontrolleri'nden yt-dlp güncellemesi var mı bakın. Bu projedeki sorunların büyük kısmı eski yt-dlp'den kaynaklanır (siteler sık değişir).
+        Please check Settings → Version Checks for a yt-dlp update first — most issues here come from an outdated yt-dlp (sites change often).
 
   - type: checkboxes
     id: checked-update
@@ -33,7 +33,9 @@ body:
     id: error-text
     attributes:
       label: Tam hata mesajı / Full error message
-      description: Arayüzde görünen kırmızı hata metnini olduğu gibi yapıştırın. / Paste the red error text shown in the UI, verbatim.
+      description: |
+        Arayüzde görünen kırmızı hata metnini olduğu gibi yapıştırın. MediaGrab hiç açılmıyorsa Windows kurulum programında günlük dosyası `%LOCALAPPDATA%\MediaGrab\mediagrab.log`'dur.
+        Paste the red error text shown in the UI, verbatim. If MediaGrab doesn't start at all, the Windows installer's log file is `%LOCALAPPDATA%\MediaGrab\mediagrab.log`.
       render: text
 
   - type: input
@@ -48,9 +50,18 @@ body:
     id: install-method
     attributes:
       label: Kurulum yöntemi / Install method
-      placeholder: "MediaGrabSetup.exe veya git clone + pip / MediaGrabSetup.exe or git clone + pip"
+      placeholder: "MediaGrabSetup.exe (normal / Docker), docker compose, git clone + pip"
     validations:
       required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Tanılama bilgisi / Diagnostic info
+      description: |
+        Ayarlar → Geri Bildirim → "Tanılama bilgisini kopyala" ile kopyalayıp yapıştırın (sürümler, işletim sistemi, kurulum türü; dosya yolu, IP adresi veya çerez içermez).
+        Copy it with Settings → Feedback → "Copy diagnostic info" and paste it here (versions, OS, install type; no file paths, IP addresses or cookies).
+      render: text
 
   - type: input
     id: ytdlp-version
