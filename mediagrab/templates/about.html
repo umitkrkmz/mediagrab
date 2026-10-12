@@ -33,6 +33,17 @@
     v1.0.0–v1.8.0 sürümleri kalıcı olarak <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE-MIT" target="_blank" rel="noopener">MIT</a>. v1.9.0'dan itibaren MediaGrab <a href="https://github.com/umitkrkmz/mediagrab/blob/master/LICENSE" target="_blank" rel="noopener">GNU GPL-3.0-or-later</a> ile lisanslıdır — kullanmakta, incelemekte, değiştirmekte ve dağıtmakta özgürsünüz; tek şart, dağıttığınız sürümlerin de aynı lisansta kalması.
   </p>
   {% endif %}
+  {% if has_notices %}
+  <p class="settings-hint" id="about-notices">
+    {% if lang == "en" %}
+    This package also includes Python, FFmpeg and other open-source software:
+    <a href="/third-party-notices" target="_blank" rel="noopener">third-party software and licenses</a>.
+    {% else %}
+    Bu paket Python, FFmpeg ve başka açık kaynak yazılımlar da içerir:
+    <a href="/third-party-notices" target="_blank" rel="noopener">üçüncü taraf yazılımlar ve lisansları</a>.
+    {% endif %}
+  </p>
+  {% endif %}
 </div>
 
 <div class="settings-section">

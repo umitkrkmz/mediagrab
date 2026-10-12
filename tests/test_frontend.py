@@ -330,6 +330,15 @@ def test_the_installer_gets_repair_update_and_a_download_link(mediagrab_update_h
     assert "docker compose" not in html and "pip install" not in html
 
 
+@pytest.mark.parametrize("kind", ["windows", "docker-windows"])
+def test_the_windows_installer_gets_a_new_installer_link(mediagrab_update_html, kind):
+    # NOTE: a Docker install made by the Windows installer updates the same
+    # way - its image is pinned to the installer's version.
+    html = _run_js(mediagrab_update_html, f"mediagrabUpdateHtml({{install_type: '{kind}'}})")
+    assert "mgUpdateWindows" in html and "releases/latest" in html
+    assert "docker compose" not in html and "pip install" not in html and "mgUpdateInstaller" not in html
+
+
 def test_a_source_install_gets_git_pull_and_pip(mediagrab_update_html):
     html = _run_js(mediagrab_update_html, "mediagrabUpdateHtml({install_type: 'source'})")
     assert 'data-command="git pull"' in html

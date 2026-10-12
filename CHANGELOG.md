@@ -11,6 +11,45 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.4.0] — 2026-10-12
+
+Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyasıyla, başka hiçbir şey kurmadan çalışıyor.
+
+#### Eklenen
+
+- **Yeni Windows kurulum programı** — `MediaGrabSetup.exe` artık her şeyi içinde getiriyor: Python, FFmpeg ve Deno. Python, Git ya da ffmpeg kurmak, internetten paket indirmek gerekmiyor; yönetici izni istemiyor. Windows'un diline göre Türkçe ya da İngilizce açılıyor, "Yüklü uygulamalar"da görünüyor, Başlat menüsüne ve isteğe bağlı olarak masaüstüne kısayol koyuyor. Program `%LOCALAPPDATA%\Programs\MediaGrab`'a, ayarlar ve kanallar `%LOCALAPPDATA%\MediaGrab`'a, indirilenler varsayılan olarak `İndirilenler\MediaGrab`'a gidiyor. Güncellemek için yeni kurulum dosyasını çalıştırmak yeterli; MediaGrab açıksa kurulum önce sorup onu kapatıyor
+- **Bildirim alanı simgesi** — Windows kurulumunda MediaGrab konsol penceresi olmadan çalışıyor; saatin yanındaki **M** simgesine tıklayınca sayfa açılıyor, sağ tıklayıp **MediaGrab'ı kapat** ile kapanıyor. Görev Yöneticisi'nde "Python" yerine "MediaGrab" adıyla ve kendi simgesiyle görünüyor
+- **Ayarlanabilir indirme klasörü** (Ayarlar → İndirme Ayarları → İndirme Klasörü) — kurulumda ya da sonradan seçiliyor; **Klasör Seç…** Windows'un kendi klasör seçme penceresini açıyor. Yazılamayan, MediaGrab'ın program klasörünün içinde kalan ya da göreli yollar reddediliyor; OneDrive gibi eşitlenen bir klasör seçilirse uyarı çıkıyor. Kaynak koddan kurulumda da çalışıyor; yalnızca MediaGrab'ın çalıştığı bilgisayardan değiştirilebiliyor (telefondan değil). Docker'da klasörü `docker-compose.yml` belirliyor
+- **Eski indirmeleri taşıma** — indirme klasörü değişince Ayarlar'da eski klasör için bir kart çıkıyor: **Buraya taşı** ya da **Yerinde bırak**. Yalnızca MediaGrab'ın indirdiği dosyalar (ve `.json` bilgi dosyaları) kanal klasörleriyle birlikte taşınıyor, klasördeki başka dosyalara dokunulmuyor, hiçbir dosyanın üzerine yazılmıyor. Başka bir diske taşırken önce kopyalanıp boyut doğrulanıyor, sonra eskisi siliniyor; taşıma sürerken yeni indirmeler bekliyor
+- **Docker ile kurulum, aynı kurulum programında** — kurulumun başında "Normal kurulum" ya da "Docker ile kurulum" seçiliyor. Docker Desktop'ın kurulu ve çalışır olduğu denetleniyor; Docker'da zaten bir MediaGrab varsa (eski kurulum aracıyla kurulmuş olanlar dahil) bulunuyor, sürümü gösteriliyor ve parolası ile verileri korunarak yerinde güncelleniyor. Yoksa klasör ve ilk parola sorulup imaj indiriliyor, başlatılıyor ve MediaGrab cevap verene kadar bekleniyor. İmaj kurulum programının sürümüne sabit (ör. `ghcr.io/umitkrkmz/mediagrab:2.4.0`). Kaldırınca konteyner siliniyor, veriler varsayılan olarak klasörde kalıyor
+- **Eski kurulumdan geçiş** — v2.4.0'dan önceki kurulum aracıyla kurulmuş bir MediaGrab bulunursa ayarlar, kanallar, çerezler ve istatistikler yeni kuruluma aktarılıyor. Videolar yerinde kalıyor; Ayarlar'da **Buraya taşı** kartı ve Geçmiş'te bir not onları yeni klasöre taşımayı teklif ediyor. Eski kurulum silinmiyor
+- **Kaldırırken verileriniz ne olsun?** — kaldırıcı soruyor: yalnızca MediaGrab'ı kaldır (varsayılan; ayarlar ve videolar kalır), ayarları da sil, ya da ek bir onayla indirilen videoları da sil. Videolar silinirken yalnızca MediaGrab'ın indirdiği dosyalar gidiyor, klasördeki başka dosyalar kalıyor
+- **Üçüncü taraf lisans bildirimleri** — Windows paketindeki Python, FFmpeg ve Python paketlerinin sürümleri, lisansları ve kaynak bağlantıları kurulum klasöründeki `THIRD-PARTY-NOTICES.txt`'de ve Hakkında sayfasında. FFmpeg GPL lisanslı olduğu için her yayına o sürümdeki FFmpeg'in kaynak kodu ve derleme betikleri ek dosya olarak konuyor
+- **README: "Güvenli mi?" ve "Telefondan kullanın"** — kurulum dosyasının nereden alınacağı, SmartScreen uyarısı, SHA256 ve VirusTotal ile doğrulama, MediaGrab'ın dışarıyla neden ve ne zaman konuştuğu; iPhone'da indirme uygulaması yerine MediaGrab'ı telefonun tarayıcısından kullanma
+
+#### Değiştirilen
+
+- **Eski kurulum aracı kaldırıldı** — v2.4.0'dan önceki `MediaGrabSetup.exe` (Python, Git ve ffmpeg'i bilgisayara kuran araç) yerini yeni kurulum programına bıraktı. İndirme bağlantısı ve dosya adı aynı
+- **Ayarlar'daki güncelleme yönergesi** yeni kurulum türlerini tanıyor: Windows kurulum programıyla (normal ya da Docker) kurulanlara "yeni kurulum dosyasını çalıştırın", eski araçla kurulanlara "yeni kurulum programına geçin, verilerinizi aktarmayı teklif eder" diyor
+- **Günlük dosyası şişmiyor** — konsol penceresi olmadan çalışırken (Windows kurulumu, Docker) yt-dlp'nin indirme ilerleme satırları artık `mediagrab.log`'a ya da `docker logs`'a yazılmıyor (tek bir indirme yüzlerce KB'lık satır bırakabiliyordu); hata ve uyarı satırları yazılmaya devam ediyor
+
+#### Düzeltilen
+
+- **Türkçe Windows'ta detay sayfasında bozuk karakterler** — ffprobe/ffmpeg çıktısı Windows'un eski kod sayfasıyla okunuyordu; artık UTF-8 okunuyor
+- **Eski kurulum aracının Docker kurulumu `$` içeren bir parolayı bozuyordu** — Docker Compose `$`'ı değişken başlangıcı sayıyor; parola `docker-compose.yml`'e kaçışsız yazıldığı için ilk parola, girilenden farklı oluyordu. Yeni kurulum programı `$`'ı doğru kaçırıyor
+
+#### Güncellerken
+
+- **Eski Windows kurulum aracıyla kurduysanız:** yeni `MediaGrabSetup.exe`'yi indirip çalıştırın. Önceki kurulumu bulur ve verilerinizi aktarmayı teklif eder; videolarınızı sonra Ayarlar'dan yeni klasöre taşıyabilirsiniz. Her şeyin geldiğini gördükten sonra eski klasörü elle silebilirsiniz
+- **Eski araçla Docker kurduysanız:** yeni kurulum programında **Docker ile kurulum**'u seçin; var olan kurulumu bulup yerinde günceller. Bundan sonra imaj kurulum programının sürümüne sabit olduğu için güncellemeler yeni kurulum dosyasıyla yapılır (`docker compose pull` sabit sürümü yeniden indirir)
+- **Elle Docker / kaynak kod:** uygulamada yeni bağımlılık yok — `docker compose pull && docker compose up -d` ya da `git pull`
+
+#### Geliştirici notu
+
+- **Windows paketi** — `packaging/build_windows.py` gömülü Python'u, bütün paketleri ve FFmpeg'i (her indirme sabit sürüm + SHA256) hazırlıyor, `packaging/mediagrab.iss` (Inno Setup) tek bir kurulum dosyasına çeviriyor. PyInstaller ve Tkinter artık kullanılmıyor
+- **CI** — `tests.yml`'e her push'ta ve PR'da koşan bir Windows işi eklendi (gerçek Win32 bildirim alanı simgesi, `MediaGrab.exe`, kurulum programının Pascal kodu gerçek ISCC ile). `release.yml` kurulum programını derleyip Windows'ta sessizce kurup başlatıyor, paketin kendi Python ve FFmpeg'iyle çalıştığını denetliyor, kaldırıyor; FFmpeg kaynak arşivlerini ve SHA256 değerini yayına ekliyor
+- **Kurulum programı ile uygulama arasındaki devir adları** (`install-download-dir.txt`, `MediaGrabTrayWindow`, `MEDIAGRAB_INSTALLED_BY` vb.) iki tarafta da elle yazılı; testler eşleştiklerini denetliyor (bkz. `AGENTS.md`)
+
 ### [2.3.1] — 2026-10-10
 
 #### Düzeltilen
@@ -329,6 +368,45 @@ This file lists notable changes to MediaGrab, by release.
 ---
 
 ## English
+
+### [2.4.0] — 2026-10-12
+
+The install & trust release: on Windows, MediaGrab now runs from a single setup file, with nothing else to install.
+
+#### Added
+
+- **A new Windows installer** — `MediaGrabSetup.exe` now brings everything with it: Python, FFmpeg and Deno. No Python, Git or ffmpeg to install and no packages downloaded from the internet; no admin rights needed. It opens in Turkish or English following Windows' language, shows up in "Installed apps", and adds a Start-menu shortcut and, optionally, a desktop one. The program goes to `%LOCALAPPDATA%\Programs\MediaGrab`, settings and channels to `%LOCALAPPDATA%\MediaGrab`, downloads to `Downloads\MediaGrab` by default. To update, just run the new setup file; if MediaGrab is running, setup asks first and closes it
+- **A notification-area icon** — in the Windows install MediaGrab runs without a console window; click the **M** icon next to the clock to open the page, right-click → **Quit MediaGrab** to close it. Task Manager shows it as "MediaGrab", with its own icon, instead of "Python"
+- **A configurable downloads folder** (Settings → Download Settings → Download Folder) — chosen during setup or later; **Choose Folder…** opens Windows' own folder picker. Folders that can't be written to, folders inside MediaGrab's program folder and relative paths are refused; picking a synced folder such as OneDrive shows a warning. Works for source installs too; it can only be changed from the computer MediaGrab runs on (not from a phone). On Docker, `docker-compose.yml` decides the folder
+- **Moving earlier downloads** — when the downloads folder changes, Settings shows a card for the old one: **Move here** or **Leave them there**. Only the files MediaGrab downloaded (and their `.json` info files) move, along with their channel folders; other files in the folder aren't touched and nothing is overwritten. Moving to another drive copies first, checks the size, then deletes the original; new downloads wait while a move runs
+- **Install with Docker, in the same installer** — setup starts by asking "Normal install" or "Install with Docker". It checks that Docker Desktop is installed and running; if Docker already has a MediaGrab (including one set up by the old installer), it finds it, shows its version and updates it in place, keeping its password and data. Otherwise it asks for a folder and a first password, pulls the image, starts it and waits until MediaGrab answers. The image is pinned to the installer's version (e.g. `ghcr.io/umitkrkmz/mediagrab:2.4.0`). Uninstalling deletes the container; the data stays in its folder by default
+- **Moving over from an earlier install** — if a MediaGrab set up with the pre-2.4.0 installer is found, its settings, channels, cookies and statistics are carried over. The videos stay where they are; a **Move here** card in Settings and a note in History offer to move them into the new folder. The old install isn't deleted
+- **What should happen to your data on uninstall?** — the uninstaller asks: remove only MediaGrab (the default; settings and videos stay), also delete the settings, or, with an extra confirmation, also delete the downloaded videos. Deleting videos removes only the files MediaGrab downloaded; other files in the folder stay
+- **Third-party notices** — the versions, licenses and source links of the Python, FFmpeg and Python packages in the Windows package are in `THIRD-PARTY-NOTICES.txt` in the install folder and on the About page. Since FFmpeg is GPL, every release attaches the source of that release's FFmpeg and its build scripts
+- **README: "Is it safe?" and "Use it from your phone"** — where to get the setup file, the SmartScreen warning, checking it with SHA256 and VirusTotal, why and when MediaGrab talks to the outside world; on iPhone, using MediaGrab from the phone's browser instead of a downloader app
+
+#### Changed
+
+- **The old installer is gone** — the pre-2.4.0 `MediaGrabSetup.exe` (the tool that installed Python, Git and ffmpeg on the computer) has been replaced by the new installer. The download link and file name stay the same
+- **Settings' update instructions** know the new install types: installs made by the Windows installer (normal or Docker) are told to run the new setup file, installs made by the old tool to switch to the new installer, which offers to bring their data over
+- **The log no longer balloons** — running without a console window (the Windows install, Docker), yt-dlp's download progress lines are no longer written to `mediagrab.log` or `docker logs` (a single download could leave a line hundreds of KB long); error and warning lines still are
+
+#### Fixed
+
+- **Garbled characters on the detail page on Turkish Windows** — ffprobe/ffmpeg output was read with Windows' legacy code page; it's now read as UTF-8
+- **The old installer's Docker install broke passwords containing `$`** — Docker Compose reads `$` as the start of a variable, and the password was written into `docker-compose.yml` unescaped, so the first password ended up different from the one typed. The new installer escapes `$` correctly
+
+#### When updating
+
+- **If you installed with the old Windows installer:** download and run the new `MediaGrabSetup.exe`. It finds the earlier install and offers to bring your data over; you can then move your videos to the new folder from Settings. Once you've seen everything arrive, you can delete the old folder by hand
+- **If you set up Docker with the old installer:** choose **Install with Docker** in the new installer; it finds the existing install and updates it in place. From then on the image is pinned to the installer's version, so updates come with a new setup file (`docker compose pull` just fetches the same pinned version again)
+- **Manual Docker / source:** no new dependencies in the app — `docker compose pull && docker compose up -d` or `git pull`
+
+#### Developer notes
+
+- **The Windows package** — `packaging/build_windows.py` stages the embedded Python, every package and FFmpeg (each download pinned + SHA256-checked), and `packaging/mediagrab.iss` (Inno Setup) turns that into one setup file. PyInstaller and Tkinter are no longer used
+- **CI** — `tests.yml` gained a Windows job that runs on every push and PR (the real Win32 notification-area icon, `MediaGrab.exe`, the installer's Pascal code with real ISCC). `release.yml` builds the installer, silently installs and starts it on Windows, checks that it runs on the package's own Python and FFmpeg, uninstalls it, and attaches FFmpeg's source archives and the SHA256 to the release
+- **The handoff names between the installer and the app** (`install-download-dir.txt`, `MediaGrabTrayWindow`, `MEDIAGRAB_INSTALLED_BY`, etc.) are spelled out on both sides; tests check that they match (see `AGENTS.md`)
 
 ### [2.3.1] — 2026-10-10
 

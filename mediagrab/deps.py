@@ -21,7 +21,9 @@ from .paths import app_dir, install_type
 
 # NOTE: matches "ffmpeg version 7.1-full_build-www.gyan.dev ..." and the
 # distro variants ("ffmpeg version n7.1", "ffmpeg version 6.1.1-3ubuntu5").
-_FFMPEG_VERSION_RE = re.compile(r"^\w+ version n?([0-9][^\s,]*)")
+# NOTE: "N-<number>-g<hash>-<date>" is a git build (the Windows installer's
+# FFmpeg); "n7.1" a release tag; "7.1" / "6.1.1-3ubuntu5" distro builds.
+_FFMPEG_VERSION_RE = re.compile(r"^\w+ version (?:n(?=[0-9]))?(N-[^\s,]+|[0-9][^\s,]*)")
 
 _NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
@@ -40,7 +42,9 @@ def _tool_version(tool: str) -> Optional[str]:
         result = subprocess.run(
             [tool, "-version"],
             capture_output=True,
-            text=True,
+            # NOTE: ffmpeg/ffprobe print UTF-8; see downloader._ffprobe_json.
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             creationflags=_NO_WINDOW,
         )
@@ -156,6 +160,7 @@ def update_dependencies() -> dict:
             [sys.executable, "-m", "pip", "install", "--upgrade", "-r", f"{app_dir()}/requirements.txt"],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=300,
             creationflags=_NO_WINDOW,
         )

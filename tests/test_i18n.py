@@ -63,3 +63,45 @@ def test_no_key_collides_with_a_real_dict_method():
     reserved = set(dir({}))
     colliding = set(UI["tr"]) & reserved
     assert not colliding, f"these i18n keys are shadowed by dict methods and must be renamed: {sorted(colliding)}"
+
+
+# --- the Windows installer's own texts (packaging/*.iss) ----------------------
+
+PACKAGING_DIR = Path(__file__).resolve().parent.parent / "packaging"
+
+
+def _installer_messages():
+    # NOTE: Inno Setup's [CustomMessages], "english.Name=..." / "turkish.Name=...".
+    # A message defined for one language only compiles fine and then stops
+    # the wizard with "Unknown custom message name" in the other.
+    text = (PACKAGING_DIR / "mediagrab.iss").read_text(encoding="utf-8-sig")
+    section = text.split("\n[CustomMessages]", 1)[1].split("\n[Code]", 1)[0]
+    found = {}
+    for lang, name, value in re.findall(r"^(english|turkish)\.(\w+)=(.*)$", section, re.M):
+        found.setdefault(lang, {})[name] = value
+    return found
+
+
+def test_the_installer_has_every_message_in_both_languages():
+    messages = _installer_messages()
+    assert len(messages["english"]) > 50, "the [CustomMessages] section wasn't found"
+    assert set(messages["english"]) == set(messages["turkish"])
+    for lang, table in messages.items():
+        for name, value in table.items():
+            assert value.strip(), f"{lang}.{name} is empty"
+
+
+def test_the_installer_uses_only_messages_it_defines():
+    defined = set(_installer_messages()["english"])
+    # NOTE: Inno's own built-in custom messages.
+    defined |= {"LaunchProgram", "CreateDesktopIcon", "AdditionalIcons"}
+    code = "".join(p.read_text(encoding="utf-8-sig") for p in sorted(PACKAGING_DIR.glob("*.iss")))
+    used = set(re.findall(r"\{cm:(\w+)", code)) | set(re.findall(r"CustomMessage\('(\w+)'\)", code))
+    # NOTE: the Docker page builds 'DockerStatus_' + DockerStatus() at run
+    # time - every status that function can return needs its message.
+    wizard = (PACKAGING_DIR / "docker_wizard.iss").read_text(encoding="utf-8-sig")
+    status_fn = wizard.split("function DockerStatus", 1)[1].split("\nend;", 1)[0]
+    statuses = re.findall(r"Result := '(\w+)'", status_fn)
+    assert statuses, "DockerStatus() wasn't found"
+    used |= {f"DockerStatus_{status}" for status in statuses}
+    assert not used - defined, f"used but not defined: {sorted(used - defined)}"

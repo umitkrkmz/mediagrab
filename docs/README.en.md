@@ -11,7 +11,7 @@
 - [Example scenarios](#example-scenarios)
 - [Features](#features)
 - [Installation](#installation)
-  - [Method A: Easy install (Windows)](#method-a-easy-install-windows-mediagrabsetupexe)
+  - [Method A: The Windows installer (recommended)](#method-a-the-windows-installer-recommended)
   - [Method B: Manual install (any platform)](#method-b-manual-install-from-source-any-platform)
   - [Method C: Docker (any platform)](#method-c-docker-any-platform)
 - [Running](#running)
@@ -37,9 +37,9 @@ Paste a link, download it. A local, personal-use video/audio downloader.
 
 | Path | Best for | Needs |
 |---|---|---|
-| [Windows easy install](#method-a-easy-install-windows-mediagrabsetupexe) | Windows users who'd rather not type terminal commands | Git, Python, ffmpeg |
-| [Docker](#method-c-docker-any-platform) | An always-on machine (Raspberry Pi, mini PC), or anyone who'd rather not install Python | Docker |
-| [Manual install](#method-b-manual-install-from-source-any-platform) | Any platform, developers | Git, Python, ffmpeg |
+| [The Windows installer](#method-a-the-windows-installer-recommended) | Everyone on Windows | nothing |
+| [Docker](#method-c-docker-any-platform) | Linux, macOS, an always-on machine (Raspberry Pi, mini PC) | Docker |
+| [Manual install](#method-b-manual-install-from-source-any-platform) | Developers, any platform | Git, Python, ffmpeg |
 
 Once installed, open `http://localhost:8420` in your browser. Full steps are in [Installation](#installation) below.
 
@@ -100,7 +100,7 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 - **Playlists & YouTube Music** — paste a playlist link and get a list of videos with covers/titles/durations; download one individually, or pick a range and queue them all with one click
 - **Multi-platform** — not YouTube-only; works through the same UI with any of the 1700+ sites yt-dlp supports (Vimeo, SoundCloud, X/Twitter, Twitch, archive.org, and more). The `/supported-sites` page has a short list of popular ones (each with its brand color, linking to the site's homepage)
 - **Metadata (JSON) export** — every download also saves a JSON file with the same base name (`video.mp4` + `video.json`) containing title, uploader, upload date, description, tags, and the source URL
-- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`indirilenler/Channel Name/`)
+- **Automatic folder organization** — every download is saved into its own subfolder by channel/uploader (`Channel Name/`) inside the downloads folder
 - **Cancel a download, and existing files are protected** — stop a running download from the panel (partial files are cleaned up); if a re-download is cancelled, fails, or the app crashes, your previous file comes back untouched
 - **Download speed limiting and a disk-space shield** (`/settings`) — set an optional overall speed cap; a download is refused up front when there isn't enough free disk space left to finish it
 - **Cookie support** (`/settings`) — use your account's cookies for age-restricted, members-only or sign-in-required content: upload a `cookies.txt` in Settings (works on every install, Docker included; only the sites you pick are kept) or, on a local install, read them straight from the browser. Details: [Cookies](#cookies-age-restricted-and-sign-in-only-videos)
@@ -129,7 +129,7 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 
 - **Remote access** (`/settings`) — set a password and turn it on, and your phone or another computer on the same Wi-Fi/network can connect to MediaGrab from its own browser and download on its own; see [Remote Access](#remote-access-from-your-local-network)
 - **Home Server Mode** (`/settings`) — for anyone running MediaGrab on a machine that's on 24/7, like a Raspberry Pi: periodic (every 3 hours) automatic channel checking, and an easy-to-remember `mediagrab.local` address; see [Home Server Mode](#home-server-mode)
-- **Docker support** — run it in a container without installing Python or Git; one click from the Windows installer, or `docker compose up -d` by hand — see [Method C](#method-c-docker-any-platform)
+- **Docker support** — run it in a container without installing Python or Git; with the Windows installer's "Install with Docker" option, or `docker compose up -d` by hand — see [Method C](#method-c-docker-any-platform)
 - **Backup / restore settings** (`/settings`) — export all your settings and followed channels (minus your password) into one file and import them into another install
 
 ### Maintenance
@@ -138,81 +138,49 @@ Paste the playlist link; the videos are listed with covers, titles and durations
 - **yt-dlp version check with one-click update** (`/settings`) — compares your installed yt-dlp version against the latest on PyPI; if an update is available, installs it with one click and restarts the app automatically
 - **Environment checks** (`/settings`) — ffmpeg/ffprobe version plus a Python dependency check, with one-click package updates
 - **Feedback and About** — one click to GitHub's ready-made templates for reporting a bug or suggesting a feature (`/settings`); a "Copy diagnostic info" button gathers versions, OS, install type and cookie mode into one text to paste into a bug report (no file paths, IP addresses, computer name or cookie contents); the `/about` page covers the project, its GPL-3.0 license, and source links
-- **No** database, account system, or cloud connection — runs only on this machine. The only outside requests are the version lookups made when you open Settings → Version Checks (GitHub and PyPI); nothing is sent in the background
+- **No** database, account system, cloud connection or telemetry — runs only on this machine. Your usage, download history and statistics are never sent anywhere. MediaGrab only talks to the outside world to do its job: to the site of whatever you download, to YouTube when the channels you follow are checked, and to GitHub (MediaGrab) and PyPI (yt-dlp and dependencies) when you open Settings → Version Checks
 
 ## Installation
 
-There are three paths: **easy install** (Windows-only, a ready-made `.exe`, no typing commands), **manual install** (git clone + pip, works on every platform), or **Docker** (in a container, no Python/Git needed — works on every platform).
+There are three paths: **the Windows installer** (recommended; no Python, Git or ffmpeg needed), **manual install** (git clone + pip, works on every platform), or **Docker** (in a container — Linux, macOS, Raspberry Pi and Windows).
 
-### Method A: Easy install (Windows, `MediaGrabSetup.exe`)
+### Method A: The Windows installer (recommended)
 
-**1. Install Git and Python first**
+**1. Download:** [MediaGrabSetup.exe](https://github.com/umitkrkmz/mediagrab/releases/latest/download/MediaGrabSetup.exe) — always the latest version. **No** Python, Git or ffmpeg to install: Python, ffmpeg and Deno come inside the installer. No admin rights needed.
 
-- Git: [git-scm.com/downloads](https://git-scm.com/downloads)
-- Python 3.9+: [python.org/downloads](https://www.python.org/downloads/) — check **"Add python.exe to PATH"** during setup.
-
-**2. Download the installer**
-
-Grab `MediaGrabSetup.exe` from the [GitHub Releases page](https://github.com/umitkrkmz/mediagrab/releases/latest).
-
-Optionally verify it's intact — **that release's SHA256 is printed in its release notes** (it differs per release, since the exe is rebuilt each time). In PowerShell:
+If you like, verify the file — every release's notes list that version's SHA256 and a VirusTotal scan link. In PowerShell:
 
 ```powershell
-certutil -hashfile MediaGrabSetup.exe SHA256
+Get-FileHash .\MediaGrabSetup.exe
 ```
 
-Compare the output against the value on the release page.
+**2. Run it.** The first time, Windows may say "Windows protected your PC": the installer isn't signed by a recognized publisher and hasn't built up a download "reputation" yet. The warning alone isn't proof that a file is harmful, and it doesn't prove that it's safe either. If you got the file from this project's GitHub Releases page (and, if you like, checked its SHA256), click **More info → Run anyway**.
 
-**3. Choose the install folder**
+Setup opens in Turkish or English to match Windows, and asks, in order:
 
-By default MediaGrab installs into whichever folder `MediaGrabSetup.exe` sits in — but you can pick a different one with **"Browse…"** in the setup window. Use an **empty folder dedicated to MediaGrab** (e.g. `C:\MediaGrab\`).
+- **Installation type** — *Normal installation* (recommended) or *Install with Docker* (advanced, needs Docker Desktop — see [Method C](#method-c-docker-any-platform)).
+- **Your earlier MediaGrab** — only shown if it finds a MediaGrab installed with the pre-v2.4.0 installer. Your settings, channels, cookies and statistics are brought over; your videos stay where they are, and once MediaGrab is open, History and Settings offer to move them into the new folder. The earlier installation isn't deleted.
+- **Install location** — `%LOCALAPPDATA%\Programs\MediaGrab` by default (program files only).
+- **Download folder** — `Downloads\MediaGrab` by default. A folder inside MediaGrab's own program folder can't be picked (an update or uninstall could delete files there).
 
-> **Important:** don't use a folder that's **watched by a cloud sync service** like OneDrive, Dropbox, or Google Drive (note: on Windows, "Desktop" and "Documents" are often OneDrive-synced by default). Downloads write and delete a lot of small temp files in quick succession; if the sync client locks one of them at just the wrong moment, the download can fail mid-way with a "No such file or directory" error. A plain, non-synced folder like `C:\MediaGrab\` avoids this entirely.
->
-> The installer checks this for you too: it warns if you pick a cloud-synced folder, and refuses drive roots and your personal folders (Desktop, Documents, your user folder) outright — because **Remove** deletes the install folder's contents.
+**3. Use it.** When setup finishes, MediaGrab opens `http://localhost:8420` in your browser. A blue **M** icon in the notification area next to the clock shows it's running: click it to open the page, right-click → **Quit MediaGrab** to stop it (Windows 11 may tuck new icons under the `^` arrow). Later, open it from the Start menu or the desktop shortcut.
 
-**4. Run it**
+**What lives where:**
 
-Double-click `MediaGrabSetup.exe`. The welcome page opens in Turkish or English depending on your system language (switch with **TR / EN** in the top-right corner) and offers three choices: **Install**, **Repair / Update**, **Remove**. Pick **Install** and the wizard walks you through:
+| What | Where |
+|---|---|
+| The program | `%LOCALAPPDATA%\Programs\MediaGrab` |
+| Settings, channels, cookies, statistics, log (`mediagrab.log`) | `%LOCALAPPDATA%\MediaGrab` |
+| Your downloads | the folder you chose (`Downloads\MediaGrab` by default) |
 
-- **Requirements** — Git, Python (including its version) and ffmpeg are checked; anything missing gets a download button and a copyable command, and **Refresh** re-checks once you've installed it.
-- **Install folder** — pick the folder from step 3; the Desktop / Start Menu shortcut boxes live here too.
-- **Summary** — what's about to happen (folder, tools found, shortcuts, any existing files that will be overwritten) on one page; **Install** starts it.
-- **Progress** — a live log; when it's done, **"Start MediaGrab"** launches the app directly.
+You can change the download folder later in **Settings → Download Settings → Download Folder** (**Choose Folder…** opens Windows' folder picker). New downloads go to the new folder; for the downloads in the old one you're asked **Move here / Leave them there**. Moving takes only what MediaGrab downloaded (and their `.json` info files) along with their channel folders, never overwrites anything, and when moving to another drive copies and checks the size before deleting the original.
 
-The installer remembers the last install folder: choosing **Repair / Update** or **Remove** later pre-fills it (you can still change it).
+**Updating:** **Settings → Version Checks** tells you when a new version is out. Download and run the new `MediaGrabSetup.exe` — it closes a running MediaGrab itself (asking first); your settings and videos are kept. In between, yt-dlp can be updated with one click in **Settings → Version Checks**.
 
-> Since it's an unsigned `.exe`, Windows may show a "Windows protected your PC" warning the first time — click **More info → Run anyway** to continue. The source is `setup_mediagrab.py` in this repo if you'd like to inspect it first.
+**Uninstalling:** Windows Settings → Apps → Installed apps → MediaGrab → Uninstall. The uninstaller asks what should happen to your data:
 
-**5. Install ffmpeg (required — the installer does not do this)**
-
-MediaGrab needs `ffmpeg` and `ffprobe` to merge audio/video, convert formats, and read duration/cover art. They are not bundled with MediaGrab and `pip` does not install them; **you install them on your system separately.** Without them the app still starts, but downloads fail at the merge step.
-
-Run the command for your OS in a terminal:
-
-```powershell
-winget install --id Gyan.FFmpeg -e
-```
-
-```bash
-brew install ffmpeg
-```
-
-```bash
-sudo apt install ffmpeg
-```
-
-In order: Windows (PowerShell) · macOS (Homebrew) · Linux (Debian/Ubuntu).
-
-Afterwards **open a new terminal** (a PATH update doesn't reach an already-open one) and verify with `ffmpeg -version`.
-
-> You can also find these inside the app: **Settings → ffmpeg / ffprobe** shows the installed version and lists every platform's command with a copy button.
-
-**6. Launch it**
-
-Once install finishes, just double-click the **`MediaGrab Baslat.bat`** file it created — no terminal needed (or use the Desktop/Start Menu shortcut if you added one in step 3).
-
-To update or remove later: run `MediaGrabSetup.exe` again and click **Repair / Update** or **Remove** — your downloads and followed-channel list are preserved either way.
+- **Remove only MediaGrab** (default) — settings and videos stay; reinstall and everything is where it was.
+- **Also delete MediaGrab's settings** — channels, cookies and statistics go too. This also enables **Also delete the videos I downloaded**; ticking it asks once more and deletes only the files MediaGrab downloaded — never anything else of yours in that folder.
 
 ### Method B: Manual install (from source, any platform)
 
@@ -279,7 +247,7 @@ Verify with: `ffmpeg -version`
 
 Run it in a container without installing Python or Git. First [install Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + the Compose plugin on Linux).
 
-**Easy way on Windows:** run `MediaGrabSetup.exe` and click **"Install with Docker"** on the welcome page. The wizard checks that Docker is installed and running, asks for a folder and an initial admin password, writes the `docker-compose.yml` for you, and starts it with `docker compose up -d` — no terminal commands needed.
+**Easy way on Windows:** run `MediaGrabSetup.exe` and pick **Install with Docker**. Setup checks that Docker Desktop is installed and running, asks for a folder (`C:\MediaGrab` by default) and an initial password, writes the `docker-compose.yml` itself, pulls and starts the image, and waits until MediaGrab answers — no terminal commands needed. If MediaGrab is already in Docker (including one set up by the old installer), it finds it, shows its version, and updates it in place, keeping your password and data. A Docker install made this way uses the image pinned to the installer's version (e.g. `ghcr.io/umitkrkmz/mediagrab:2.4.0`); to update, just run a newer installer. Uninstalling removes the container; your data stays in the folder by default.
 
 **By hand (any platform):**
 
@@ -288,7 +256,7 @@ git clone https://github.com/umitkrkmz/mediagrab.git
 cd mediagrab
 ```
 
-Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` with a real password — it's only ever read the very first time the container starts with no password already set; after that it can safely stay in the file, it's simply never read again. On Linux, `network_mode: host` is on by default (needed so the app sees your real LAN IP and so `mediagrab.local` works); **on Windows/Mac**, Docker Desktop doesn't support that, so comment that line out and uncomment the `ports: ["8420:8420"]` lines below it instead — **and** uncomment the `MEDIAGRAB_HOST_LAN_IP` line right below that, filling in your real LAN IP (find it with `ipconfig` on Windows or `ip addr` / `hostname -I` on Mac/Linux); otherwise the connection address/QR code shown in Settings displays the container's own unreachable internal address instead (the Windows installer's "Install with Docker" option does this step for you automatically - it only matters for a manual install).
+Open the repo's `docker-compose.yml` and replace `MEDIAGRAB_INITIAL_PASSWORD` with a real password — it's only ever read the very first time the container starts with no password already set; after that it can safely stay in the file, it's simply never read again. On Linux, `network_mode: host` is on by default (needed so the app sees your real LAN IP and so `mediagrab.local` works); **on Windows/Mac**, Docker Desktop doesn't support that, so comment that line out and uncomment the `ports: ["8420:8420"]` lines below it instead — **and** uncomment the `MEDIAGRAB_HOST_LAN_IP` line right below that, filling in your real LAN IP (find it with `ipconfig` on Windows or `ip addr` / `hostname -I` on Mac/Linux); otherwise the connection address/QR code shown in Settings displays the container's own unreachable internal address instead (the Windows installer's "Install with Docker" option does this for you automatically - it only matters for a manual install).
 
 ```bash
 docker compose up -d
@@ -312,6 +280,8 @@ The "update dependencies" button in Settings is disabled in Docker and reminds y
 
 ## Running
 
+> **If you used the Windows installer,** this section isn't for you: open MediaGrab from the Start menu and quit it from the **M** icon in the notification area. What follows is for running from source ([Method B](#method-b-manual-install-from-source-any-platform)).
+
 With the virtual environment active, from the project root:
 
 ```bash
@@ -332,7 +302,7 @@ In that case you'll need to open `http://127.0.0.1:8420` in your browser yoursel
 
 ## How Channel Following Works
 
-MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (running `python run.py` or the `uvicorn` command), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
+MediaGrab is **not** a persistent background service - it only runs while you have it open. So channel following works on a "check once per launch" basis: every time you start the app (opening it from the Start menu, or running `python run.py` or the `uvicorn` command), every channel on your list is checked in the background. New uploads that happen while the app is closed aren't detected until you open it again - that's the expected behavior for a personal/local tool; we deliberately didn't turn this into a 24/7 Windows service.
 
 The followed-channel list and each channel's "last seen video" state live in a `channels.json` file (not committed to git) instead of a database - same "real data lives on disk, no separate DB" philosophy as the rest of the project.
 
@@ -343,8 +313,8 @@ You can run MediaGrab on one computer and open it from your phone or another dev
 **How to turn it on:** `/settings` → **Remote Access** tab → set a password first, then enable "Allow access from the local network". The server restarts itself once while the setting is applied; once it's back, the same panel shows the connection address (something like `http://192.168.x.x:8420`) - type that into the other device's browser. That device logs in with the password the first time it connects.
 
 - **Connected devices** — the same panel shows every device currently logged in (browser + OS guess, e.g. "Chrome · Windows") and when it connected; you can sign any one of them out individually without affecting your own device.
-- **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
-- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's `indirilenler/` folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once another device such as a phone has fully downloaded a file, this computer's copy is deleted. Downloads you make from this computer itself (the host's own browser) aren't affected and are never deleted automatically. If you run Docker on your own computer and open it via `localhost`, you get **Save to Folder**: the copy is only deleted after the file has actually been saved to the folder you picked, and cancelling the dialog leaves it untouched. Known limit: if another computer's browser is set to ask where to save each file, a cancel can't be detected, because the browser downloads the file while that dialog is still open.
+- **Changing the password** — done with current password / new password / new password (again). If you forget it: on this computer, delete the `remote_access_password_salt` and `remote_access_password_hash` fields from `settings.json` (in `%LOCALAPPDATA%\MediaGrab` with the Windows installer, `./data/` on Docker, the project folder for a source install) and restart MediaGrab, then set a new password from Settings. Whenever the password changes (including through this recovery path), every logged-in device - including the one that changed it - is signed out and has to log back in with the new password.
+- **Storage mode** — **Keep Here** (default): downloaded files stay permanently in this computer's downloads folder, same as always; recommended for a personal computer. **Relay To Device**: if you're running this on a storage-constrained device (e.g. a Raspberry Pi), once another device such as a phone has fully downloaded a file, this computer's copy is deleted. Downloads you make from this computer itself (the host's own browser) aren't affected and are never deleted automatically. If you run Docker on your own computer and open it via `localhost`, you get **Save to Folder**: the copy is only deleted after the file has actually been saved to the folder you picked, and cancelling the dialog leaves it untouched. Known limit: if another computer's browser is set to ask where to save each file, a cancel can't be detected, because the browser downloads the file while that dialog is still open.
 
 > **Security note:** this connection runs over plain HTTP, not HTTPS - only use it on a home/office network you trust, and never forward the port to expose it directly to the internet. Sessions are kept in memory only; whenever the server restarts (an update, the computer shutting down, etc.) everyone has to log back in with the password - a deliberate simplification, since a personal/local tool doesn't need sessions to survive on disk.
 
@@ -382,8 +352,8 @@ After saving you get a summary: how many sites and cookies, when it was uploaded
   ```yaml
       - ./data/cookies:/data/cookies
   ```
-  New installs made with "Install with Docker" and the repo's compose file already include it. The "From browser" option isn't available on Docker, since there's no browser inside the container.
-- **On a local install** the file sits in the project folder as `cookies.txt`, next to `settings.json`, and isn't tracked by git.
+  Installs made with the Windows installer's "Install with Docker" option and the repo's compose file already include it. The "From browser" option isn't available on Docker, since there's no browser inside the container.
+- **On a local install** the file sits next to `settings.json` as `cookies.txt` (in `%LOCALAPPDATA%\MediaGrab` with the Windows installer, in the project folder when run from source) and isn't tracked by git.
 
 ### Privacy and security
 
@@ -414,16 +384,16 @@ When you open MediaGrab from a phone or tablet through [Remote Access](#remote-a
 
 ## Tests
 
-There's a small suite that needs no network access and finishes in a couple of seconds (path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, front-end HTML escaping).
+There's a test suite that needs no network access (path safety, VTT/transcript parsing, version comparison, backup-and-restore, translation integrity, front-end HTML escaping, the downloads folder and moving it, the Windows installer's logic).
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-The JavaScript tests need Node.js installed; they're skipped automatically if it isn't.
+The JavaScript tests need Node.js installed; they're skipped automatically if it isn't. The Windows-only tests (the notification-area icon, `MediaGrab.exe`) run only on Windows; the ones that try the installer's Pascal code also need [Inno Setup 6](https://jrsoftware.org/isinfo.php) (point `MEDIAGRAB_ISCC` at `ISCC.exe` if it's somewhere else).
 
-On GitHub the tests also run automatically on every push to `master` (Actions → "Tests"). There's a separate smoke test for the Docker image - it starts the image and tries logging in, ffmpeg/ffprobe/Deno, History and statistics:
+On GitHub the tests also run automatically on every push to `master` and on every PR, on Linux and on Windows (Actions → "Tests"). There's a separate smoke test for the Docker image - it starts the image and tries logging in, ffmpeg/ffprobe/Deno, History and statistics:
 
 ```bash
 docker build -t mediagrab:dev .
@@ -431,6 +401,9 @@ bash .github/scripts/smoke-docker.sh mediagrab:dev 8422
 ```
 
 ## Troubleshooting
+
+**Installed with the Windows installer, but MediaGrab doesn't open**
+First look for the blue **M** icon in the notification area (on Windows 11 it may be under the `^` arrow) — if it's there, MediaGrab is running; click it. If an error box appeared, or nothing happens at all, the details are in `%LOCALAPPDATA%\MediaGrab\mediagrab.log`; attach that file when reporting a bug.
 
 **`ModuleNotFoundError` or "package not found" errors**
 Make sure the virtual environment is active (you should see `(.venv)` in your prompt), then run `pip install -r requirements.txt` again.
@@ -478,24 +451,31 @@ mediagrab/
     deps.py         # ffmpeg/ffprobe and Python package version checks
     store.py        # reads/writes channels.json / settings.json / stats.json, not a DB
     stats.py        # download statistics: classifying, first-start import, day/week/month summary
-    paths.py         # resolves the right folders whether running from source or as the exe
+    paths.py        # resolves the program/data/download folders for each install type
+    mover.py        # moving earlier downloads when the download folder changes
+    tray.py         # the Windows notification-area icon (Windows installer only)
+    folder_picker.py  # Windows' folder picker dialog
+    uninstall.py    # the Windows uninstaller's "also delete my videos" helper
     templates/      # Jinja2: base, index, history, item, channels, settings, supported_sites, about
     static/         # style.css, app.js
     static/icons/   # supported-site logos (from Simple Icons, kept locally)
-indirilenler/       # downloaded files, auto-organized into per-channel subfolders (not in git)
+                    # the data files below sit in the project folder for a source install
+                    # (%LOCALAPPDATA%\MediaGrab with the Windows installer, ./data/ on Docker)
+indirilenler/       # the default downloads folder, auto-organized into per-channel subfolders (not in git)
     Channel Name/
         Video.mp4
         Video.json  # metadata sidecar
 channels.json       # followed channels (not in git)
-settings.json       # cookie source and default audio-language settings (not in git)
+settings.json       # all settings (not in git)
 cookies.txt         # the file uploaded in Settings → Cookies (not in git; ./data/cookies/ on Docker)
 stats.json          # download statistics, numbers only (not in git; ./data/stats/ on Docker)
 run.py              # entry point for `python run.py`
-setup_mediagrab.py  # the installer tool (source of MediaGrabSetup.exe on Releases, with its Docker mode)
+packaging/          # the Windows installer: build_windows.py (embedded Python + packages + ffmpeg), mediagrab.iss and helper .iss files (Inno Setup), exe_branding.py, mediagrab.ico
 Dockerfile          # the Docker image (python:3.12-slim + ffmpeg)
 docker-compose.yml  # example compose file (for a manual Docker install)
 .dockerignore
 tests/              # pytest suite (no network required)
+.github/            # CI: tests, building and smoke-testing the Windows installer and the Docker image, issue templates
 docs/               # this file, its Turkish counterpart, the language code reference (language-codes.*.md) and screenshots (images/)
 maps/               # detailed project map and route map (test-guarded, for AI tools and contributors)
 requirements.txt
@@ -511,9 +491,9 @@ README.md
 
 **MediaGrab v1.9.0 and later is licensed under the GNU GPL-3.0 (or later)** (see [LICENSE](../LICENSE)). The reason for the switch is simple: staying MIT while depending on a GPL package like `mutagen` meant never importing it directly and relying entirely on yt-dlp running it as a separate process at arm's length (explained below). Moving to GPL-3.0 removes that constraint — if a future feature genuinely needs to import a GPL-licensed library directly, we can, without the workaround MIT required. GPL-3.0 was chosen over something more restrictive like AGPL because MediaGrab isn't offered as a network service, only a local tool.
 
-**The application itself ships as source code.** You clone the repo, install dependencies into your own environment with `pip install -r requirements.txt`, and run it. None of the packages below are bundled with MediaGrab — `pip` fetches each one itself, which makes this "mere aggregation" as far as licensing goes.
+**When installed from source** (Method B), you clone the repo, install dependencies into your own environment with `pip install -r requirements.txt`, and run it; none of the packages below are bundled with MediaGrab — `pip` fetches each one itself.
 
-**`MediaGrabSetup.exe` on the Releases page is not an exception:** it is only a small helper that *performs the install*, and it contains **no third-party packages at all** — just MediaGrab's own code, the Python standard library ([PSF license](https://docs.python.org/3/license.html)), and Tcl/Tk (BSD-style) for its window. yt-dlp, ffmpeg and the rest are **not** inside that exe; `pip` and your system package manager fetch them when you run it.
+**The Windows installer (from v2.4.0) is a distribution:** Python 3.14 (the embeddable package, PSF license), FFmpeg (the GPL build from yt-dlp/FFmpeg-Builds), Deno and the Python packages below come inside it. Each one's license text ships right next to it; the full list, with versions, licenses and source links, is in `THIRD-PARTY-NOTICES.txt` in the install folder and on the app's **About** page. Because FFmpeg is GPL, every release's attachments also include the source code and build scripts of the FFmpeg it ships. The Docker image likewise contains the Python packages and Debian's ffmpeg package.
 
 | Package | License | Note |
 |---|---|---|
@@ -525,9 +505,9 @@ README.md
 | [`jinja2`](https://github.com/pallets/jinja) | [BSD-3-Clause](https://github.com/pallets/jinja/blob/main/LICENSE.txt) | HTML templating |
 | [`mutagen`](https://github.com/quodlibet/mutagen) | [GPL-2.0-or-later](https://github.com/quodlibet/mutagen/blob/master/COPYING) | **not imported by MediaGrab** — yt-dlp uses it to embed cover art into Opus files |
 | [`zeroconf`](https://github.com/python-zeroconf/python-zeroconf) | [LGPL-2.1-or-later](https://github.com/python-zeroconf/python-zeroconf/blob/master/LICENSE) | publishes the `mediagrab.local` (mDNS) address used by Home Server Mode — unlike mutagen, **this one IS imported directly by MediaGrab's own code** (`_register_mdns`, on a background thread; fails silently and never affects the rest of the app). LGPL permits use by code under any license, GPL-3.0 included, so this isn't a conflict |
-| [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ or GPL-2+](https://www.ffmpeg.org/legal.html) (depends on the build) | NOT bundled — the user installs it separately on their own system; tag/cover-art reading and duration are also done through it via subprocess |
+| [`ffmpeg`](https://github.com/FFmpeg/FFmpeg) / `ffprobe` | [LGPL-2.1+ or GPL-2+](https://www.ffmpeg.org/legal.html) (depends on the build) | The Windows installer ships a GPL build (its source is attached to each release); when installed from source, the user installs it on their own system. Either way it's only invoked as a separate program via subprocess (merging, converting, tag/cover-art and duration reading) |
 
-**About `mutagen`:** MediaGrab's source currently contains no `import mutagen` — yt-dlp uses it internally, and `pip` fetches it into your own environment; we neither bundle nor redistribute it. That's exactly why v1.8.0 and earlier could stay MIT: GPL's copyleft obligation only attaches once you combine and distribute GPL code, and we never did. From v1.9.0 on, that's no longer a requirement, just a fact — MediaGrab itself is GPL-3.0, so importing `mutagen` (GPL-2.0-or-later, compatible with GPL-3.0) directly in the future wouldn't be a problem either way. `ffmpeg` is unchanged: never redistributed, only invoked as a separate program via `subprocess`.
+**About `mutagen`:** MediaGrab's source currently contains no `import mutagen` — yt-dlp uses it internally, and `pip` fetches it into your own environment; we neither bundle nor redistribute it. That's exactly why v1.8.0 and earlier could stay MIT: GPL's copyleft obligation only attaches once you combine and distribute GPL code, and we never did. From v1.9.0 on, that's no longer a requirement, just a fact — MediaGrab itself is GPL-3.0, so importing `mutagen` (GPL-2.0-or-later, compatible with GPL-3.0) directly in the future wouldn't be a problem either way. `ffmpeg` is always invoked as a separate program via `subprocess`; in the Windows package it's part of the distribution (see above).
 
 If you find MediaGrab useful, a ⭐ helps other people find it.
 

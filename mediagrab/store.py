@@ -5,18 +5,20 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from .paths import app_dir, is_docker
+from .paths import data_dir, is_docker
 
 # NOTE: same "no real database" philosophy as the rest of the app - followed
-# channels and their pending-notification queue live in one small JSON file
-# next to indirilenler/, not in a DB.
-STORE_PATH = os.path.join(app_dir(), "channels.json")
+# channels and their pending-notification queue live in one small JSON file,
+# not in a DB. All of this module's files sit in paths.data_dir(): next to
+# the app for source/Docker installs (as always), %LOCALAPPDATA%\MediaGrab
+# for the Windows installer.
+STORE_PATH = os.path.join(data_dir(), "channels.json")
 _lock = threading.Lock()
 
 # NOTE: kept in its own file rather than inside channels.json - these are
 # unrelated concerns, and a corrupt settings file shouldn't take the followed
 # channel list down with it. Neither file is committed (see .gitignore).
-SETTINGS_PATH = os.path.join(app_dir(), "settings.json")
+SETTINGS_PATH = os.path.join(data_dir(), "settings.json")
 _settings_lock = threading.Lock()
 
 # NOTE: only the cookie SOURCE is stored - a browser name or a path to a
@@ -63,6 +65,16 @@ DEFAULT_SETTINGS = {
     # Pi/mini PC, or a desktop someone chooses to keep open). Independent of
     # remote_access_enabled: either can be on without the other.
     "home_server_mode": False,
+    # NOTE: empty = the default (downloader.DOWNLOAD_DIR). A path on THIS
+    # machine, so it's never part of a settings backup (see app.py's
+    # _SETTINGS_BACKUP_EXCLUDED_KEYS) and is ignored in Docker, where the
+    # compose file's volume decides where downloads go.
+    "download_dir": "",
+    # NOTE: earlier downloads folders that still hold downloads after the
+    # folder was changed - Settings offers "Move here" / "Leave them there"
+    # for each (app.py's _remember_previous_download_dir). Machine paths too,
+    # so likewise never in a backup.
+    "previous_download_dirs": [],
 }
 
 
@@ -106,6 +118,9 @@ def save_settings(**fields) -> dict:
             except Exception:
                 pass
         current.update({k: v for k, v in fields.items() if k in DEFAULT_SETTINGS})
+        # NOTE: the Windows installer's data folder doesn't exist until the
+        # first thing is saved into it.
+        os.makedirs(os.path.dirname(SETTINGS_PATH) or ".", exist_ok=True)
         with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
             json.dump(current, f, ensure_ascii=False, indent=2)
         return current
@@ -125,6 +140,7 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
+    os.makedirs(os.path.dirname(STORE_PATH) or ".", exist_ok=True)
     with open(STORE_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -215,7 +231,7 @@ def replace_channels(channels: list[dict], pending: list[dict]) -> None:
 # file must never take settings or followed channels down with it. In Docker
 # it's a FOLDER mount (see docker-compose.yml, same reasoning as cookies), so
 # no placeholder file has to exist before the container first starts.
-STATS_PATH = "/data/stats/stats.json" if is_docker() else os.path.join(app_dir(), "stats.json")
+STATS_PATH = "/data/stats/stats.json" if is_docker() else os.path.join(data_dir(), "stats.json")
 _stats_lock = threading.Lock()
 
 # NOTE: what's stored is deliberately coarse - per UTC hour, how many files

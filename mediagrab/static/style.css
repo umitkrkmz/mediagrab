@@ -3689,3 +3689,89 @@ button:disabled {
     display: none;
   }
 }
+
+/* --- Settings -> Downloads -> Download folder --- */
+
+.download-dir-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+
+.download-dir-current code {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.download-dir-tag {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.download-dir-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.download-dir-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+#download-dir-edit .cookie-actions {
+  margin-bottom: 12px;
+}
+
+/* NOTE: a move's result can list several lines (moved / conflicts / failed). */
+#download-dir-status {
+  white-space: pre-line;
+}
+
+.download-dir-previous-card {
+  margin: 12px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.download-dir-previous-card p {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.download-dir-previous-card .cookie-actions {
+  margin-top: 10px;
+}
+
+#download-dir-reset-btn,
+.download-dir-previous-card .btn-secondary {
+  background: transparent;
+  color: var(--text-muted-alt);
+  border: 1px solid var(--border-strong-alt);
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .download-dir-input-row {
+    flex-direction: column;
+  }
+
+  .download-dir-input-row input {
+    font-size: 16px;
+  }
+}

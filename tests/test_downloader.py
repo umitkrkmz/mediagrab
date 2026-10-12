@@ -852,3 +852,78 @@ def test_stream_info_reads_a_real_file(tmp_path):
     assert info["audio"]["codec"] == "AAC"
     assert info["audio"]["sample_rate"] == 48000
     assert info["audio"]["channels"] == 2
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="ffmpeg is not installed")
+def test_metadata_keeps_non_ascii_titles(tmp_path):
+    # NOTE: regression. ffprobe prints UTF-8, but text=True decoded it with
+    # the Windows ANSI code page (cp1254 on Turkish Windows): the detail page
+    # showed "YaÅŸ AltÄ±na" for "Yaş Altına" (found trying the installer).
+    path = tmp_path / "clip.m4a"
+    title = "15 Yaş Altına Sosyal Medya Yasağı Geldi! — ğüşiöç ĞÜŞİÖÇ 日本"
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=duration=1",
+            "-metadata", f"title={title}", "-metadata", "artist=Murat Gamsız",
+            "-c:a", "aac", str(path),
+        ],
+        check=True,
+        timeout=60,
+    )
+    meta = downloader.get_metadata(str(path))
+    assert meta["title"] == title
+    assert meta["artist"] == "Murat Gamsız"
+
+
+# --- yt-dlp's own progress line ------------------------------------------------------
+
+
+def _download_opts(monkeypatch):
+    """The options download() hands yt-dlp (the fake stops it right there)."""
+    seen = {}
+
+    class StopHere(Exception):
+        pass
+
+    class FakeYdl:
+        def __init__(self, params):
+            seen.update(params)
+            raise StopHere()
+
+    monkeypatch.setattr(downloader, "YoutubeDL", FakeYdl)
+    with pytest.raises(StopHere):
+        downloader.download("https://www.youtube.com/watch?v=x", "video", "18", lambda d: None, lambda d: None)
+    return seen
+
+
+class _Stream:
+    def __init__(self, tty):
+        self.tty = tty
+
+    def isatty(self):
+        return self.tty
+
+    def write(self, text):
+        return len(text)
+
+    def flush(self):
+        pass
+
+
+def test_no_progress_line_without_a_console(monkeypatch):
+    # NOTE: regression - under pythonw stdout is mediagrab.log, and yt-dlp's
+    # in-place "[download] 45%" redraws piled up into a ~300 KB line.
+    monkeypatch.setattr(downloader.sys, "stdout", _Stream(False))
+    opts = _download_opts(monkeypatch)
+    assert opts["noprogress"] is True
+    assert opts["progress_hooks"], "MediaGrab's own progress bar still gets its updates"
+
+
+def test_a_console_window_still_shows_it(monkeypatch):
+    monkeypatch.setattr(downloader.sys, "stdout", _Stream(True))
+    assert _download_opts(monkeypatch)["noprogress"] is False
+
+
+def test_no_stdout_at_all_means_no_progress_line(monkeypatch):
+    monkeypatch.setattr(downloader.sys, "stdout", None)
+    assert downloader._console_attached() is False

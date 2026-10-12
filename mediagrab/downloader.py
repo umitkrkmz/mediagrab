@@ -16,7 +16,7 @@ from yt_dlp import YoutubeDL as _YtDlpYoutubeDL
 from yt_dlp.cookies import YoutubeDLCookieJar
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
-from .paths import app_dir, is_docker
+from .paths import data_dir, default_download_dir, is_docker
 
 # NOTE: guards every write to a cookies.txt - a yt-dlp run writing refreshed
 # cookies back (YoutubeDL.save_cookies below) and an upload replacing the file
@@ -81,8 +81,34 @@ def strip_ansi_codes(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
-DOWNLOAD_DIR = os.path.join(app_dir(), "indirilenler")
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# NOTE: the DEFAULT downloads folder; Settings -> Download folder can point
+# elsewhere, so everything that reads or writes downloads asks
+# download_dir() instead of using this directly.
+DOWNLOAD_DIR = default_download_dir()
+try:
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+except OSError:
+    pass
+
+
+def download_dir() -> str:
+    """The downloads folder in effect right now (the setting, else DOWNLOAD_DIR)."""
+    # NOTE: imported here, not at the top - see cookie_opts() for why
+    # store.py and this module only depend one way.
+    from . import store
+
+    folder = DOWNLOAD_DIR
+    if not is_docker():
+        # NOTE: in Docker the compose file's volume decides; a path that
+        # arrived some other way (an old settings file) can't apply there.
+        folder = store.get_settings().get("download_dir") or DOWNLOAD_DIR
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except OSError:
+        # NOTE: e.g. an unplugged USB drive - the download itself then fails
+        # with a clear "path not found" instead of this crashing every page.
+        pass
+    return folder
 
 # NOTE: where an UPLOADED cookies.txt lives (Settings -> Cookies). Never
 # inside DOWNLOAD_DIR - that folder is listed by History and served to
@@ -90,7 +116,7 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 # docker-compose.yml) so it survives the container being recreated; from
 # source it sits next to settings.json (and is gitignored, like it).
 COOKIES_PATH = (
-    "/data/cookies/cookies.txt" if is_docker() else os.path.join(app_dir(), "cookies.txt")
+    "/data/cookies/cookies.txt" if is_docker() else os.path.join(data_dir(), "cookies.txt")
 )
 
 # NOTE: the video ID is deliberately left out of the filename - removed at the
@@ -103,7 +129,29 @@ COOKIES_PATH = (
 # get a stable folder name (extractor is always present) instead of "NA".
 # yt-dlp sanitizes each templated field for the filesystem automatically, the
 # same way it already does for %(title)s.
-OUTTMPL = os.path.join(DOWNLOAD_DIR, "%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
+OUTTMPL_TAIL = os.path.join("%(uploader,channel,extractor)s", "%(title).120B.%(ext)s")
+
+
+def outtmpl() -> str:
+    # NOTE: built per download, not once at import - the folder can change in
+    # Settings while the app runs.
+    return os.path.join(download_dir(), OUTTMPL_TAIL)
+
+
+def _console_attached() -> bool:
+    """True when stdout is a real terminal someone is watching.
+
+    NOTE: yt-dlp draws its own "[download] 45%" line even with quiet=True,
+    redrawn in place with \\r. Fine in a console window; but from the Windows
+    installer (pythonw: stdout is mediagrab.log) and in Docker (docker logs)
+    every redraw piles up - one download left a single ~300 KB line in the
+    log. MediaGrab's own progress bar comes from progress_hooks, which keep
+    working with noprogress; errors and warnings are unaffected.
+    """
+    try:
+        return bool(sys.stdout and sys.stdout.isatty())
+    except (AttributeError, ValueError):
+        return False
 
 
 # NOTE: the browsers yt-dlp can read cookies from at all. Firefox is listed
@@ -1056,9 +1104,10 @@ def download(
 
     opts.update(
         {
-            "outtmpl": OUTTMPL,
+            "outtmpl": outtmpl(),
             "quiet": True,
             "no_warnings": True,
+            "noprogress": not _console_attached(),
             "retries": 10,
             "fragment_retries": 10,
             "concurrent_fragment_downloads": 4,
@@ -1130,7 +1179,13 @@ def _ffprobe_json(path: str, entries: str) -> dict:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", entries, "-of", "json", path],
             capture_output=True,
-            text=True,
+            # NOTE: ffprobe always prints UTF-8. Plain text=True decoded it
+            # with the Windows ANSI code page instead (cp1254 on Turkish
+            # Windows): "Yaş Altına" came back as "YaÅŸ AltÄ±na", and a title
+            # with a character outside that code page failed to decode at
+            # all, leaving the detail page with no title.
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
         )
         return json.loads(result.stdout or "{}")
@@ -1181,7 +1236,8 @@ def _ffprobe_duration(path: str) -> Optional[int]:
                 path,
             ],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
         )
         return int(float(result.stdout.strip()))
@@ -1419,6 +1475,9 @@ def update_ytdlp() -> dict:
             [sys.executable, "-m", "pip", "install", *pip_args, "--upgrade", YTDLP_PIP_SPEC],
             capture_output=True,
             text=True,
+            # NOTE: pip's output is only shown, never parsed - an odd byte
+            # must not turn a successful update into a crash.
+            errors="replace",
             timeout=120,
         )
         return {

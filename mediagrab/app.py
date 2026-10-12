@@ -7,12 +7,13 @@ import os
 import platform
 import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
@@ -23,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, auth, deps, downloader, stats, store
+from . import __version__, auth, deps, downloader, mover, stats, store
 from .i18n import ui_text
 from .models import (
     ChannelAddRequest,
@@ -31,6 +32,7 @@ from .models import (
     ClientInfoResponse,
     CookieInspectRequest,
     CookieUploadRequest,
+    DownloadDirRequest,
     DownloadRequest,
     DownloadStartResponse,
     HistoryItem,
@@ -49,7 +51,14 @@ from .models import (
     StatusResponse,
     YtdlpVersionResponse,
 )
-from .paths import install_type, is_docker, resource_dir
+from .paths import (
+    bundled_ffmpeg_dir,
+    cloud_service_in_path,
+    install_type,
+    is_docker,
+    resource_dir,
+    windows_install_dir,
+)
 
 
 # NOTE: the running event loop, captured once at startup by `lifespan` below -
@@ -103,6 +112,11 @@ async def lifespan(_app: FastAPI):
     # runs either way.
     if is_docker():
         _ensure_docker_has_a_password()
+    # NOTE: the Windows installer's hand-offs come first - the channel check
+    # and the statistics import below read channels.json/stats.json and the
+    # downloads folder, which these two can bring over or change.
+    _apply_installer_migration()
+    _apply_installer_download_dir()
     global _event_loop
     _event_loop = asyncio.get_running_loop()
     _sweep_orphaned_parts()
@@ -253,8 +267,8 @@ executor = ThreadPoolExecutor(max_workers=3)
 
 # NOTE: we don't keep a separate DB for download history; the indirilenler/
 # folder already holds the actual files, so the history list is built by
-# reading that folder.
-HISTORY_EXTS = {"mp3", "m4a", "opus", "mp4", "mkv", "srt", "txt"}
+# reading that folder. (The list itself lives in mover.py.)
+HISTORY_EXTS = mover.HISTORY_EXTS
 
 
 def _detect_system_lang() -> str:
@@ -307,7 +321,7 @@ def lan_ip() -> Optional[str]:
     # resolves to the container's OWN internal bridge IP (e.g. 172.19.0.2) -
     # unreachable from any other device, and even from the host's own
     # browser (Docker Desktop's VM sits in between). MEDIAGRAB_HOST_LAN_IP is
-    # set by setup_mediagrab.py's Docker install flow (computed on the HOST,
+    # set by the Windows installer's Docker install (computed on the HOST,
     # before the container even exists, where this same socket call is
     # correct) to work around exactly that; a manual docker-compose install
     # can set the same variable by hand - see that file's own comment.
@@ -411,7 +425,7 @@ def _history_path(rel_path: str) -> str:
     # NOTE: rel_path may include a channel subfolder (e.g. "Kanal Adi/Video.mp4")
     # now that downloads are auto-organized - os.path.commonpath guards against
     # ".." escaping DOWNLOAD_DIR while still allowing that one nesting level.
-    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    download_dir = os.path.abspath(downloader.download_dir())
     path = os.path.abspath(os.path.join(download_dir, rel_path))
     if os.path.commonpath([path, download_dir]) != download_dir or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Dosya bulunamadi")
@@ -510,10 +524,39 @@ _DISK_SPACE_SAFETY_MARGIN = 1.1
 
 
 def _has_enough_disk_space(estimated_size_bytes: Optional[int]) -> bool:
-    free = shutil.disk_usage(downloader.DOWNLOAD_DIR).free
+    free = shutil.disk_usage(downloader.download_dir()).free
     if estimated_size_bytes:
         return free >= estimated_size_bytes * _DISK_SPACE_SAFETY_MARGIN
     return free >= _MIN_FREE_DISK_BYTES
+
+
+# NOTE: a move of the downloads folder (Settings -> "Move here") and
+# downloads never run at the same time: a download landing mid-move could
+# collide with a file being moved, and the move's free-space check would be
+# stale. Downloads submitted meanwhile simply wait here, shown as queued.
+_move_cond = threading.Condition()
+_running_downloads = 0
+_move_state: dict = {"running": False, "path": None, "done": 0, "total": 0, "result": None, "error": None}
+
+
+@contextmanager
+def _download_slot():
+    global _running_downloads
+    with _move_cond:
+        while _move_state["running"]:
+            _move_cond.wait()
+        _running_downloads += 1
+    try:
+        yield
+    finally:
+        with _move_cond:
+            _running_downloads -= 1
+            _move_cond.notify_all()
+
+
+def _run_gated_job(*args) -> None:
+    with _download_slot():
+        _run_job(*args)
 
 
 def _run_job(
@@ -632,7 +675,7 @@ def _submit_auto_download(job_id: str, url: str, kind: str, choice: str, audio_l
 
 def _run_auto_download_job(job_id: str, url: str, kind: str, choice: str, audio_langs: list[str]) -> None:
     try:
-        _run_job(job_id, url, kind, choice, [], audio_langs)
+        _run_gated_job(job_id, url, kind, choice, [], audio_langs)
     finally:
         _finish_auto_download()
 
@@ -656,7 +699,7 @@ def _finish_auto_download() -> None:
 # survive, and the ".part"/".ytdl" sweep below never sees them because a
 # finished stream carries neither marker. They are large (a 1080p video stream
 # runs to hundreds of MB), so they are worth deleting rather than hiding.
-# OUTTMPL has no %(format_id)s in it, so a file MediaGrab finished writing can
+# downloader.OUTTMPL_TAIL has no %(format_id)s in it, so a file MediaGrab finished writing can
 # never carry this infix.
 _FORMAT_STREAM_RE = re.compile(r"^(?P<stem>.+)\.f\d+\.[^.]+$")
 
@@ -666,7 +709,7 @@ def _cleanup_partial_download(job_id: str) -> None:
         tmp = (jobs.get(job_id) or {}).get("tmpfile")
     if not tmp:
         return
-    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    download_dir = os.path.abspath(downloader.download_dir())
     # NOTE: a fragmented (DASH) download leaves far more than one file behind:
     # "<name>.part" plus a "<name>.part-FragNN[.part]" per in-flight fragment.
     # They all start with the tmpfilename yt-dlp reported, so one glob catches
@@ -724,7 +767,7 @@ def _sweep_orphaned_parts() -> None:
     # finished file, so this can't touch a real download.
     removed = 0
     restored = 0
-    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+    for root, _dirs, files in os.walk(downloader.download_dir()):
         # NOTE: worked out per directory - an unmerged stream is only provably
         # debris once the merged output is sitting right there beside it, and
         # then it is redundant by definition. This is also what protects the
@@ -877,7 +920,31 @@ def supported_sites_page(request: Request, lang: Optional[str] = None):
 
 @app.get("/about")
 def about_page(request: Request, lang: Optional[str] = None):
-    return templates.TemplateResponse(request, "about.html", _page_context(request, lang, "about"))
+    context = _page_context(request, lang, "about")
+    context["has_notices"] = _notices_path() is not None
+    return templates.TemplateResponse(request, "about.html", context)
+
+
+# NOTE: written by packaging/build_windows.py next to python\ and app\ - the
+# Windows package ships Python, FFmpeg (GPL) and many Python packages, and
+# says here what each is, under which license and where its source is.
+# Nothing to show for a source checkout or Docker.
+NOTICES_NAME = "THIRD-PARTY-NOTICES.txt"
+
+
+def _notices_path() -> Optional[str]:
+    install = windows_install_dir()
+    path = os.path.join(install, NOTICES_NAME) if install else None
+    return path if path and os.path.isfile(path) else None
+
+
+@app.get("/third-party-notices")
+def third_party_notices() -> Response:
+    path = _notices_path()
+    if not path:
+        raise HTTPException(status_code=404, detail="Not found")
+    with open(path, "r", encoding="utf-8-sig") as f:
+        return Response(f.read(), media_type="text/plain; charset=utf-8")
 
 
 # --- login gate for optional LAN/remote access --------------------------------
@@ -1051,7 +1118,7 @@ def start_download(req: DownloadRequest) -> dict:
     with jobs_lock:
         jobs[job_id] = _new_job_record()
     executor.submit(
-        _run_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs, req.estimated_size_bytes
+        _run_gated_job, job_id, req.url, req.kind, req.choice, req.subtitle_langs, req.audio_langs, req.estimated_size_bytes
     )
     return {"job_id": job_id}
 
@@ -1263,7 +1330,8 @@ def _disk_status() -> Optional[dict]:
     # live on Docker Desktop: the numbers match the Windows drive.
     # NOTE: before the first download the folder may not exist yet - the
     # nearest existing parent is on the same drive.
-    folder = os.path.abspath(downloader.DOWNLOAD_DIR)
+    downloads = downloader.download_dir()
+    folder = os.path.abspath(downloads)
     while not os.path.isdir(folder) and os.path.dirname(folder) != folder:
         folder = os.path.dirname(folder)
     try:
@@ -1274,7 +1342,7 @@ def _disk_status() -> Optional[dict]:
         "total": usage.total,
         "used": usage.used,
         "free": usage.free,
-        "downloads": _folder_size(downloader.DOWNLOAD_DIR),
+        "downloads": _folder_size(downloads),
     }
 
 
@@ -1297,6 +1365,345 @@ def stats_summary(period: str = "day", tz: int = 0) -> dict:
 def stats_reset() -> dict:
     store.reset_stats()
     return {"ok": True}
+
+
+# --- download folder (Settings -> Downloads) ------------------------------------
+
+
+def _download_dir_editable(request: Request) -> bool:
+    # NOTE: only from the computer MediaGrab runs on - a phone choosing a
+    # folder on someone else's disk makes no sense - and never in Docker,
+    # where the compose file's volume decides (store.py's download_dir note).
+    return _is_same_machine(request) and not is_docker()
+
+
+def _forbidden_download_roots() -> list[str]:
+    # NOTE: never inside MediaGrab's own program files: an update replaces
+    # them and an uninstall deletes them - downloads must not ride along.
+    roots = [os.path.dirname(os.path.abspath(__file__))]
+    install = windows_install_dir()
+    if install:
+        roots.append(install)
+    return [os.path.normcase(os.path.abspath(r)) for r in roots]
+
+
+def _check_download_dir(path: str) -> str:
+    """Validate (and create) a chosen downloads folder; return it normalised."""
+    if not os.path.isabs(path):
+        raise HTTPException(status_code=400, detail="relative")
+    folder = os.path.abspath(path)
+    key = os.path.normcase(folder)
+    for root in _forbidden_download_roots():
+        if key == root or key.startswith(root + os.sep):
+            raise HTTPException(status_code=400, detail="inside_app")
+    if os.path.exists(folder) and not os.path.isdir(folder):
+        raise HTTPException(status_code=400, detail="not_a_folder")
+    # NOTE: proven by actually writing, not guessed from permission bits -
+    # Windows ACLs, read-only media and full disks all fail here the same way.
+    probe = os.path.join(folder, f".mediagrab-write-test-{uuid.uuid4().hex}")
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write("ok")
+        os.remove(probe)
+    except OSError:
+        raise HTTPException(status_code=400, detail="not_writable")
+    return folder
+
+
+def _move_exclude(old: str, current: str) -> Optional[str]:
+    # NOTE: when the current folder lies INSIDE the old one, its files are
+    # already where they belong - a move must not pick them up again.
+    return current if mover.is_inside(current, old) else None
+
+
+def _change_download_dir(setting: str) -> None:
+    """Save a new download_dir setting and remember the folder it replaces."""
+    old = downloader.download_dir()
+    store.save_settings(download_dir=setting)
+    current = downloader.download_dir()
+    previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if isinstance(p, str)]
+    # NOTE: back in a folder (or above it - History walks subfolders): its
+    # files are visible again, nothing left to offer.
+    previous = [p for p in previous if not mover.is_inside(p, current)]
+    if (
+        not mover.is_inside(old, current)
+        and not any(mover.is_inside(old, p) and mover.is_inside(p, old) for p in previous)
+        and mover.movable_files(old, HISTORY_EXTS, _move_exclude(old, current))
+    ):
+        previous.append(old)
+    store.save_settings(previous_download_dirs=previous)
+
+
+def _previous_download_dirs() -> list[dict]:
+    """Earlier folders still holding downloads; drops the ones now empty."""
+    current = downloader.download_dir()
+    kept, info = [], []
+    for path in store.get_settings().get("previous_download_dirs") or []:
+        if not isinstance(path, str):
+            continue
+        if not os.path.isdir(path):
+            # NOTE: e.g. a USB drive that's unplugged right now - kept, so the
+            # offer comes back when it's plugged in again.
+            kept.append(path)
+            info.append({"path": path, "available": False, "files": 0, "bytes": 0})
+            continue
+        files = mover.movable_files(path, HISTORY_EXTS, _move_exclude(path, current))
+        if files:
+            kept.append(path)
+            info.append(
+                {"path": path, "available": True, "files": mover.count_shown(files, HISTORY_EXTS), "bytes": sum(s for _r, s in files)}
+            )
+    if kept != store.get_settings().get("previous_download_dirs"):
+        store.save_settings(previous_download_dirs=kept)
+    return info
+
+
+def _download_dir_info(request: Request) -> dict:
+    current = downloader.download_dir()
+    editable = _download_dir_editable(request)
+    return {
+        "previous": [] if is_docker() else _previous_download_dirs(),
+        "move": _move_status(),
+        "path": current,
+        "default": downloader.DOWNLOAD_DIR,
+        "is_default": os.path.normcase(os.path.abspath(current))
+        == os.path.normcase(os.path.abspath(downloader.DOWNLOAD_DIR)),
+        "editable": editable,
+        # NOTE: the native folder picker runs on THIS machine's screen
+        # (Windows only, see download_dir_browse).
+        "can_browse": editable and os.name == "nt",
+        "cloud": cloud_service_in_path(current),
+        "is_docker": is_docker(),
+    }
+
+
+# NOTE: the Windows installer's "where should videos be saved?" page leaves
+# the answer here (see packaging/mediagrab.iss) instead of editing
+# settings.json from Pascal - this way the app's own checks
+# (_check_download_dir) decide, exactly as if it was chosen in Settings.
+INSTALLER_DOWNLOAD_DIR_FILE = "install-download-dir.txt"
+
+
+# NOTE: "Bring over my settings from the old MediaGrab" in the Windows
+# installer (the pre-v2.4.0 Tk installer kept everything next to the app, in
+# the folder it remembered in installer.json). The installer only names the
+# folder; the app does the copying, by its own rules and tested.
+INSTALLER_MIGRATE_FILE = "install-migrate-from.txt"
+
+
+def _migrated_targets() -> dict:
+    # NOTE: what the old Tk installer kept as user data (its
+    # USER_DATA_ENTRIES) minus "indirilenler" - videos aren't copied, they
+    # stay where they are (see below).
+    return {
+        "settings.json": store.SETTINGS_PATH,
+        "channels.json": store.STORE_PATH,
+        "cookies.txt": downloader.COOKIES_PATH,
+        "stats.json": store.STATS_PATH,
+    }
+
+
+def _apply_installer_migration() -> None:
+    handoff = os.path.join(os.path.dirname(store.SETTINGS_PATH), INSTALLER_MIGRATE_FILE)
+    if not os.path.isfile(handoff):
+        return
+    try:
+        with open(handoff, "r", encoding="utf-8-sig") as f:
+            old = f.read().strip()
+        if not old or not os.path.isdir(old):
+            return
+        copied = set()
+        for name, target in _migrated_targets().items():
+            source = os.path.join(old, name)
+            # NOTE: never over something already here - a reinstall with data
+            # kept already has its own, newer copy.
+            if os.path.isfile(source) and not os.path.exists(target):
+                os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+                shutil.copy2(source, target)
+                copied.add(name)
+        settings = store.get_settings()
+        cookie_file = settings.get("cookie_file") or ""
+        # NOTE: an uploaded cookies.txt was recorded by its full path in the
+        # OLD folder; it now lives at COOKIES_PATH. A path the user typed in
+        # themselves (somewhere else) is theirs and left alone.
+        if "cookies.txt" in copied and cookie_file and mover.is_inside(cookie_file, old):
+            store.save_settings(cookie_file=downloader.COOKIES_PATH)
+        # NOTE: the videos stay put. Unless the installer's download-folder
+        # page chose that very folder (then this entry is dropped again by
+        # _change_download_dir), Settings offers "Move here" for them.
+        videos = os.path.join(old, "indirilenler")
+        if mover.movable_files(videos, HISTORY_EXTS):
+            previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if isinstance(p, str)]
+            if not any(mover.is_inside(p, videos) and mover.is_inside(videos, p) for p in previous):
+                store.save_settings(previous_download_dirs=previous + [videos])
+    except OSError:
+        pass
+    finally:
+        try:
+            os.remove(handoff)
+        except OSError:
+            pass
+
+
+def _apply_installer_download_dir() -> None:
+    handoff = os.path.join(os.path.dirname(store.SETTINGS_PATH), INSTALLER_DOWNLOAD_DIR_FILE)
+    if not os.path.isfile(handoff):
+        return
+    try:
+        with open(handoff, "r", encoding="utf-8-sig") as f:
+            chosen = f.read().strip()
+        # NOTE: the installer's choice wins over an existing setting (a
+        # reinstall with data kept): its page started from that setting, so
+        # whatever it hands over is what the user last saw and confirmed.
+        # The default needs no setting at all.
+        if chosen:
+            same_as_default = os.path.normcase(os.path.abspath(chosen)) == os.path.normcase(
+                os.path.abspath(downloader.DOWNLOAD_DIR)
+            )
+            _change_download_dir("" if same_as_default else _check_download_dir(chosen))
+    except (OSError, HTTPException):
+        # NOTE: an unusable choice (a drive that's gone, say) just leaves the
+        # default in place; Settings can change it any time.
+        pass
+    finally:
+        try:
+            os.remove(handoff)
+        except OSError:
+            pass
+
+
+@app.get("/api/download-dir")
+def get_download_dir(request: Request) -> dict:
+    return _download_dir_info(request)
+
+
+@app.post("/api/download-dir")
+def set_download_dir(req: DownloadDirRequest, request: Request) -> dict:
+    if not _download_dir_editable(request):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    if _move_status()["running"]:
+        # NOTE: the move's target is the current folder - it can't change
+        # under a move that's halfway through.
+        raise HTTPException(status_code=409, detail="already_moving")
+    path = req.path.strip()
+    # NOTE: switches right away, for NEW downloads; files already in the old
+    # folder stay put until the user picks "Move here" or "Leave them there"
+    # in Settings (the folder is remembered by _change_download_dir).
+    _change_download_dir(_check_download_dir(path) if path else "")
+    return _download_dir_info(request)
+
+
+def _move_status() -> dict:
+    with _move_cond:
+        return dict(_move_state)
+
+
+def _known_previous_dir(path: str) -> str:
+    # NOTE: only a folder MediaGrab itself remembered can be moved from or
+    # forgotten - never an arbitrary path sent in a request.
+    for known in store.get_settings().get("previous_download_dirs") or []:
+        if isinstance(known, str) and mover.is_inside(known, path) and mover.is_inside(path, known):
+            return known
+    raise HTTPException(status_code=404, detail="unknown_folder")
+
+
+def _run_move(src: str) -> None:
+    current = downloader.download_dir()
+
+    def progress(done: int, total: int) -> None:
+        with _move_cond:
+            _move_state.update(done=done, total=total)
+
+    result, error = None, None
+    try:
+        result = mover.move_files(src, current, HISTORY_EXTS, _move_exclude(src, current), progress)
+    except mover.NotEnoughSpace as exc:
+        error = {"code": "no_space", "needed": exc.needed, "free": exc.free}
+    except OSError:
+        error = {"code": "failed"}
+    finally:
+        with _move_cond:
+            _move_state.update(running=False, result=result, error=error)
+            _move_cond.notify_all()
+    # NOTE: dropped here, not left to _previous_download_dirs: a move that
+    # emptied the folder also removed it, and a missing folder there means
+    # "drive unplugged, keep offering".
+    if not os.path.isdir(src) or not mover.movable_files(src, HISTORY_EXTS, _move_exclude(src, current)):
+        previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if p != src]
+        store.save_settings(previous_download_dirs=previous)
+
+
+@app.post("/api/download-dir/move")
+def download_dir_move(req: DownloadDirRequest, request: Request) -> dict:
+    """Move an earlier folder's downloads into the current one, in the background."""
+    if not _download_dir_editable(request):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    src = _known_previous_dir(req.path)
+    if not os.path.isdir(src):
+        raise HTTPException(status_code=404, detail="unavailable")
+    with _move_cond:
+        if _move_state["running"]:
+            raise HTTPException(status_code=409, detail="already_moving")
+        # NOTE: running downloads finish first; ones that start meanwhile
+        # wait in _download_slot until the move is over.
+        if _running_downloads:
+            raise HTTPException(status_code=409, detail="downloads_running")
+        _move_state.update(running=True, path=src, done=0, total=0, result=None, error=None)
+    threading.Thread(target=_run_move, args=(src,), daemon=True).start()
+    return _move_status()
+
+
+@app.get("/api/download-dir/move")
+def download_dir_move_status() -> dict:
+    return _move_status()
+
+
+@app.post("/api/download-dir/forget")
+def download_dir_forget(req: DownloadDirRequest, request: Request) -> dict:
+    """ "Leave them there": stop offering to move this folder. Deletes nothing."""
+    if not _download_dir_editable(request):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    src = _known_previous_dir(req.path)
+    with _move_cond:
+        if _move_state["running"] and _move_state["path"] == src:
+            raise HTTPException(status_code=409, detail="already_moving")
+    previous = [p for p in store.get_settings().get("previous_download_dirs") or [] if p != src]
+    store.save_settings(previous_download_dirs=previous)
+    return _download_dir_info(request)
+
+
+# NOTE: Windows' modern Explorer-style folder dialog, in its own process
+# (see folder_picker.py for why it isn't run inside the server).
+FOLDER_PICKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "folder_picker.py")
+
+
+@app.post("/api/download-dir/browse")
+def download_dir_browse(request: Request, lang: Optional[str] = None) -> dict:
+    """Open Windows' own folder picker on this machine's screen."""
+    # NOTE: a browser page can't hand back a real folder path (only file
+    # contents), and asking a non-technical user to type one is a dead end.
+    # So the picker runs server-side - which is exactly why this is limited
+    # to the same machine: a phone must never pop dialogs on the host.
+    if not _download_dir_editable(request) or os.name != "nt":
+        raise HTTPException(status_code=403, detail="not_allowed")
+    title = ui_text(_resolve_lang(lang, request))["settings_download_dir_picker_title"]
+    env = {**os.environ, "MEDIAGRAB_PICKER_TITLE": title, "MEDIAGRAB_PICKER_START": downloader.download_dir()}
+    try:
+        # NOTE: the strings travel in environment variables, not on the
+        # command line - nothing in a folder name can be read as an option.
+        result = subprocess.run(
+            [sys.executable, "-I", FOLDER_PICKER_SCRIPT],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            timeout=600,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise HTTPException(status_code=500, detail="picker_failed")
+    chosen = (result.stdout or "").strip()
+    return {"path": chosen or None}
 
 
 @app.get("/api/diagnostics")
@@ -1336,6 +1743,10 @@ def _delayed_restart() -> None:
     # 'Formatter'"). sys.orig_argv preserves the exact original invocation,
     # "-m" and all.
     time.sleep(1.0)
+    if os.name == "nt":
+        from . import tray  # NOTE: Windows-only module (Win32 API)
+
+        tray.remove_running_icon()
     argv = getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv
     os.execv(sys.executable, argv)
 
@@ -1394,7 +1805,16 @@ def update_settings(req: SettingsUpdateRequest) -> dict:
 # remote-access password to travel in it or be silently overwritten by
 # importing someone else's file. The receiving device always sets its own
 # password fresh (see docs/README's remote-access section).
-_SETTINGS_BACKUP_EXCLUDED_KEYS = {"remote_access_password_salt", "remote_access_password_hash"}
+#
+# download_dir is left out for a different reason: it's a path on THIS
+# machine. Restored on another computer (or into Docker) it would point at a
+# folder that doesn't exist there.
+_SETTINGS_BACKUP_EXCLUDED_KEYS = {
+    "remote_access_password_salt",
+    "remote_access_password_hash",
+    "download_dir",
+    "previous_download_dirs",
+}
 
 
 @app.get("/api/settings/export")
@@ -1524,8 +1944,9 @@ def cookie_delete() -> dict:
 def ffmpeg_version() -> dict:
     # NOTE: in Docker ffmpeg is baked into the image, so the per-OS install
     # commands are meaningless there (and "your system" would say Linux - the
-    # container's OS, not the user's).
-    return {**deps.check_ffmpeg(), "is_docker": is_docker()}
+    # container's OS, not the user's). The same goes for the Windows
+    # installer, which ships its own ffmpeg (paths.bundled_ffmpeg_dir).
+    return {**deps.check_ffmpeg(), "is_docker": is_docker(), "bundled": bundled_ffmpeg_dir() is not None}
 
 
 @app.get("/api/dependencies")
@@ -1560,13 +1981,14 @@ def history() -> list[dict]:
     # older files from before that change may still sit flat in DOWNLOAD_DIR,
     # so both must keep showing up here.
     items = []
-    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+    downloads = downloader.download_dir()
+    for root, _dirs, files in os.walk(downloads):
         for name in files:
             path = os.path.join(root, name)
             ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
             if ext not in HISTORY_EXTS or not os.path.isfile(path):
                 continue
-            rel = os.path.relpath(path, downloader.DOWNLOAD_DIR).replace(os.sep, "/")
+            rel = os.path.relpath(path, downloads).replace(os.sep, "/")
             folder = rel.rsplit("/", 1)[0] if "/" in rel else None
             stat = os.stat(path)
             items.append(
@@ -1709,7 +2131,7 @@ def _cleanup_empty_dir(path: str) -> None:
     # NOTE: best-effort - after deleting the last file in a per-channel
     # folder, remove the now-empty folder too so indirilenler/ doesn't
     # accumulate stray empty channel folders over time.
-    download_dir = os.path.abspath(downloader.DOWNLOAD_DIR)
+    download_dir = os.path.abspath(downloader.download_dir())
     parent = os.path.abspath(os.path.dirname(path))
     if parent != download_dir and os.path.isdir(parent) and not os.listdir(parent):
         try:
@@ -1739,7 +2161,8 @@ def delete_history(filename: str) -> dict:
 @app.delete("/api/history")
 def clear_history() -> dict:
     removed = 0
-    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+    folder = downloader.download_dir()
+    for root, _dirs, files in os.walk(folder):
         for name in files:
             path = os.path.join(root, name)
             ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
@@ -1747,8 +2170,8 @@ def clear_history() -> dict:
                 os.remove(path)
                 _remove_sidecar_json(path)
                 removed += 1
-    for entry in os.listdir(downloader.DOWNLOAD_DIR):
-        sub = os.path.join(downloader.DOWNLOAD_DIR, entry)
+    for entry in os.listdir(folder):
+        sub = os.path.join(folder, entry)
         if os.path.isdir(sub) and not os.listdir(sub):
             try:
                 os.rmdir(sub)

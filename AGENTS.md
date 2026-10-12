@@ -48,7 +48,7 @@ Bunlar üslup tercihi değil — kodun şu anki tasarımı bunlara dayanıyor. B
 - **Veritabanı yok.** Kalıcı durum düz JSON dosyalarında (`channels.json`, `settings.json`) tutulur, `mediagrab/store.py` üzerinden. Yeni bir bağımlılık (SQLite dahil) önermeden önce bunun neden yetmediğini açıklayın.
 - **`mediagrab/i18n.py`'deki `tr` ve `en` sözlükleri her zaman aynı anahtar kümesine sahip olmalı.** Yeni bir arayüz metni eklerken ikisini birden yazın; `test_i18n.py` bunu doğruluyor, atlamayın.
 - **Kullanıcı verisine dokunan hiçbir işlem (indirilenler klasörü, `channels.json`, `settings.json`) geri alınamaz şekilde yazılmaz.** Önce yedekleyip sonra üzerine yazma deseni için `mediagrab/downloader.py`'deki `_backup_existing_outputs`/`_restore_backups` işlevlerine bakın.
-- **`setup_mediagrab.py` (kurulum aracı), `mediagrab` paketi diskte var olmadan ÖNCE çalışır** — bu yüzden `mediagrab`'i import etmez, kendi küçük kopyalarını tutar. Bunu "kod tekrarı" diye birleştirmeyin.
+- **Windows kurulum programı (`packaging/*.iss`, Inno Setup Pascal) ile uygulama arasındaki devir dosyalarının ve sabitlerin adları iki tarafta da elle yazılıdır** (ör. `install-download-dir.txt`, `MediaGrabTrayWindow`, `MEDIAGRAB_INSTALLED_BY`). Pascal Python'u import edemez; testler iki tarafın eşleştiğini denetler — birini değiştirirken diğerini de değiştirin.
 
 ### Genel ilke
 
@@ -97,7 +97,7 @@ These aren't style preferences — the code's current design depends on them. If
 - **No database.** Persistent state lives in plain JSON files (`channels.json`, `settings.json`) via `mediagrab/store.py`. Before proposing a new dependency (SQLite included), explain why this isn't enough.
 - **The `tr` and `en` dicts in `mediagrab/i18n.py` must always share the same key set.** Add both when adding a new UI string; `test_i18n.py` enforces this — don't skip it.
 - **Nothing touching user data (the downloads folder, `channels.json`, `settings.json`) writes destructively.** See the `_backup_existing_outputs`/`_restore_backups` pattern in `mediagrab/downloader.py` for backup-then-overwrite.
-- **`setup_mediagrab.py` (the installer) runs BEFORE the `mediagrab` package exists on disk** — so it doesn't import `mediagrab` and keeps small duplicates of its own. Don't "deduplicate" this away.
+- **The Windows installer (`packaging/*.iss`, Inno Setup Pascal) and the app spell out their shared handoff file names and constants on both sides** (e.g. `install-download-dir.txt`, `MediaGrabTrayWindow`, `MEDIAGRAB_INSTALLED_BY`). Pascal can't import Python; tests check the two sides match — change both together.
 
 ### General principle
 

@@ -452,6 +452,8 @@ const I18N = {
     errInsufficientDisk: "Diskte yeterli boş alan yok. Yer açıp tekrar deneyin.",
     errNetworkIssue: "Ağ bağlantısı sorunu — internet bağlantınızı kontrol edip tekrar deneyin.",
     historyEmpty: "Henüz indirme yok",
+    historyPreviousNote: "Önceki indirme klasörünüzde {files} daha var ({path}). Burada görünmeleri için onları bu klasöre taşıyabilirsiniz.",
+    historyPreviousLink: "Ayarlar'da taşı →",
     historyNoMatches: "Aramayla eşleşen indirme yok",
     historyAllChannels: "Tüm kanallar",
     historyAllTypes: "Tüm türler",
@@ -484,8 +486,10 @@ const I18N = {
       "docker-compose.yml dosyanızın bulunduğu klasörde şu iki komutu çalıştırın. Ayarlarınız, çerezleriniz ve indirdikleriniz ./data/ klasöründe kalır.",
     mgUpdateDockerBuild:
       "Compose dosyanız image: yerine build: . kullanıyorsa (repodan elle kurulum) bunun yerine:",
-    mgUpdateInstaller: "MediaGrabSetup.exe'yi çalıştırıp \"Onar / Güncelle\"yi seçin. Elinizde yoksa son sürümü indirin:",
-    mgDownloadInstaller: "MediaGrabSetup.exe (son sürüm)",
+    mgUpdateInstaller:
+      "MediaGrab artık yeni bir kurulum programıyla geliyor; Python, Git ya da ffmpeg kurmanız gerekmez. Son sürümü indirip çalıştırın: eski kurulumunuzu bulur ve ayarlarınızı, kanallarınızı ve videolarınızı aktarmayı teklif eder.",
+    mgUpdateWindows: "Son sürümün kurulum programını indirip çalıştırın; ayarlarınız ve videolarınız korunur.",
+    mgDownloadInstaller: "Kurulum programı (son sürüm)",
     mgUpdateSource:
       "Proje klasöründe, sanal ortam etkinken şunları çalıştırın, sonra MediaGrab'ı yeniden başlatın:",
     ytdlpUpToDate: "Güncel",
@@ -514,6 +518,34 @@ const I18N = {
     ffmpegYourSystem: "sisteminiz",
     ffmpegRestartNote: "Kurulumdan sonra MediaGrab'ı kapatıp yeniden açın (PATH güncellemesi için).",
     ffmpegDockerNote: "Docker imajıyla birlikte gelir; imaj güncellendiğinde o da güncellenir.",
+    ffmpegBundledNote: "MediaGrab ile birlikte gelir; MediaGrab güncellendiğinde o da güncellenir.",
+    downloadDirDefaultTag: "(varsayılan)",
+    downloadDirSaved: "Kaydedildi. Yeni indirmeler bu klasöre gidecek; öncekiler eski yerinde kaldı.",
+    downloadDirResetDone: "Varsayılan klasöre dönüldü. Yeni indirmeler oraya gidecek.",
+    downloadDirPickerOpen: "Klasör seçme penceresi açıldı (tarayıcının arkasında kalmış olabilir)…",
+    downloadDirCloud: "Uyarı: bu klasör {service} ile eşitleniyor gibi görünüyor. İndirdiğiniz her video internete yüklenir ve indirme sırasında dosya kilitlenmeleri olabilir.",
+    downloadDirErrRelative: "Tam bir klasör yolu girin (ör. D:\\Videolar).",
+    downloadDirErrInsideApp: "Bu klasör MediaGrab'ın kendi program klasörünün içinde; güncellemede ya da kaldırmada silinebilir. Başka bir klasör seçin.",
+    downloadDirErrNotFolder: "Bu yol bir dosyayı gösteriyor, klasörü değil.",
+    downloadDirErrNotWritable: "Bu klasöre yazılamıyor (izin yok, disk dolu ya da sürücü çıkarılmış olabilir).",
+    downloadDirErrNotAllowed: "Bu klasör yalnızca MediaGrab'ın kurulu olduğu bilgisayardan değiştirilebilir.",
+    downloadDirErrPicker: "Klasör seçme penceresi açılamadı. Yolu elle yazabilirsiniz.",
+    downloadDirPrevTitle: "Önceki klasörde indirmeleriniz var",
+    downloadDirPrevText: "{path} klasöründe {files} ({size}) duruyor. Geçmiş yalnızca şu anki klasörü gösterir.",
+    downloadDirPrevFileOne: "{n} dosya",
+    downloadDirPrevFileMany: "{n} dosya",
+    downloadDirPrevMove: "Buraya taşı",
+    downloadDirPrevLeave: "Yerinde bırak",
+    downloadDirPrevHint: "Yerinde bırakırsanız hiçbir dosya silinmez; yalnızca bu soru kapanır. Taşıma sürerken yeni indirmeler sırada bekler.",
+    downloadDirPrevUnavailable: "{path} klasörüne şu an ulaşılamıyor (sürücü takılı olmayabilir). Takıldığında taşıyabilirsiniz.",
+    downloadDirMoving: "Taşınıyor… {done} / {total}",
+    downloadDirMoveDone: "Taşıma bitti: {files} taşındı.",
+    downloadDirMoveConflicts: "Yeni klasörde aynı adlı farklı bir dosya olduğu için taşınmadı (ikisi de yerinde): {list}",
+    downloadDirMoveFailed: "Taşınamadı, eski yerinde duruyor (açık olabilir; kapatıp yeniden deneyin): {list}",
+    downloadDirMoveNoSpace: "Yeni klasörün diskinde yeterli boş alan yok: {needed} gerekiyor, {free} boş. Hiçbir dosyaya dokunulmadı.",
+    downloadDirMoveBusy: "Önce süren indirmelerin bitmesini bekleyin, sonra yeniden deneyin.",
+    downloadDirErrMoving: "Bir taşıma sürüyor; bitmesini bekleyin.",
+    downloadDirMoveError: "Taşıma tamamlanamadı; taşınamayan dosyalar eski yerinde duruyor. Yeniden deneyebilirsiniz.",
     depsUpdatesAvailable: "paket güncellenebilir",
     depsUpdateBtn: "Tümünü Güncelle",
     ytdlpCreditText: "yt-dlp, açık kaynak katkıda bulunanlar tarafından geliştirilip sürdürülüyor.",
@@ -880,6 +912,8 @@ const I18N = {
     errInsufficientDisk: "Not enough free disk space. Make some room and try again.",
     errNetworkIssue: "Network connection issue — check your internet connection and try again.",
     historyEmpty: "No downloads yet",
+    historyPreviousNote: "There are {files} more in your earlier downloads folder ({path}). Move them into this folder to see them here.",
+    historyPreviousLink: "Move them in Settings →",
     historyNoMatches: "No downloads match your search",
     historyAllChannels: "All channels",
     historyAllTypes: "All types",
@@ -911,8 +945,10 @@ const I18N = {
     mgUpdateDocker:
       "Run these two commands in the folder that has your docker-compose.yml. Your settings, cookies and downloads stay in ./data/.",
     mgUpdateDockerBuild: "If your compose file uses build: . instead of image: (a manual install from the repo), run this instead:",
-    mgUpdateInstaller: "Run MediaGrabSetup.exe and choose \"Repair / Update\". If you don't have it anymore, download the latest:",
-    mgDownloadInstaller: "MediaGrabSetup.exe (latest)",
+    mgUpdateInstaller:
+      "MediaGrab now comes with a new installer - no Python, Git or ffmpeg to install. Download and run the latest: it finds your current install and offers to bring over your settings, channels and videos.",
+    mgUpdateWindows: "Download and run the latest version's installer; your settings and videos are kept.",
+    mgDownloadInstaller: "Installer (latest version)",
     mgUpdateSource: "In the project folder, with the virtual environment active, run these, then restart MediaGrab:",
     ytdlpUpToDate: "Up to date",
     ytdlpUpdateAvailable: "Update available",
@@ -940,6 +976,34 @@ const I18N = {
     ffmpegYourSystem: "your system",
     ffmpegRestartNote: "Restart MediaGrab after installing, so it picks up the updated PATH.",
     ffmpegDockerNote: "Bundled with the Docker image; it's updated whenever the image is.",
+    ffmpegBundledNote: "Comes with MediaGrab; it's updated whenever MediaGrab is.",
+    downloadDirDefaultTag: "(default)",
+    downloadDirSaved: "Saved. New downloads will go to this folder; earlier ones stay where they were.",
+    downloadDirResetDone: "Back to the default folder. New downloads will go there.",
+    downloadDirPickerOpen: "The folder picker is open (it may be behind your browser)…",
+    downloadDirCloud: "Warning: this folder seems to be synced by {service}. Every video you download gets uploaded, and files can get locked mid-download.",
+    downloadDirErrRelative: "Enter a full folder path (e.g. D:\\Videos).",
+    downloadDirErrInsideApp: "This folder is inside MediaGrab's own program folder; an update or uninstall could delete it. Choose another folder.",
+    downloadDirErrNotFolder: "This path points to a file, not a folder.",
+    downloadDirErrNotWritable: "Can't write to this folder (no permission, disk full, or the drive was removed).",
+    downloadDirErrNotAllowed: "This folder can only be changed on the computer MediaGrab is installed on.",
+    downloadDirErrPicker: "Couldn't open the folder picker. You can type the path instead.",
+    downloadDirPrevTitle: "You have downloads in an earlier folder",
+    downloadDirPrevText: "{files} ({size}) are still in {path}. History only shows the current folder.",
+    downloadDirPrevFileOne: "{n} file",
+    downloadDirPrevFileMany: "{n} files",
+    downloadDirPrevMove: "Move here",
+    downloadDirPrevLeave: "Leave them there",
+    downloadDirPrevHint: "Leaving them there deletes nothing; it only closes this question. New downloads wait in the queue while a move runs.",
+    downloadDirPrevUnavailable: "{path} can't be reached right now (the drive may be unplugged). You can move them once it's back.",
+    downloadDirMoving: "Moving… {done} / {total}",
+    downloadDirMoveDone: "Move finished: {files} moved.",
+    downloadDirMoveConflicts: "Not moved because a different file with the same name is already in the new folder (both kept): {list}",
+    downloadDirMoveFailed: "Couldn't be moved and stayed where it was (it may be open; close it and try again): {list}",
+    downloadDirMoveNoSpace: "Not enough free space on the new folder's drive: {needed} needed, {free} free. No file was touched.",
+    downloadDirMoveBusy: "Wait for the running downloads to finish, then try again.",
+    downloadDirErrMoving: "A move is in progress; wait for it to finish.",
+    downloadDirMoveError: "The move couldn't finish; files that weren't moved are still in the old folder. You can try again.",
     depsUpdatesAvailable: "packages can be updated",
     depsUpdateBtn: "Update All",
     ytdlpCreditText: "yt-dlp is built and maintained by its open-source contributors.",
@@ -1957,6 +2021,36 @@ function resumeTrackedDockJobs() {
   dockJobs.forEach((j) => refreshJobOnce(j.jobId));
 }
 
+// NOTE: History lists only the current downloads folder - after the folder
+// changed (or an old install was brought over by the Windows installer) the
+// earlier videos would just seem gone. Settings has the "Move here" card;
+// this points there. Host only - only the host can move them.
+async function loadPreviousDownloadsNote() {
+  const note = document.getElementById("history-previous-note");
+  if (!note) return;
+  try {
+    const info = await (await fetch("/api/download-dir")).json();
+    const waiting = (info.previous || []).filter((p) => p.available && p.files > 0);
+    if (!info.editable || waiting.length === 0) {
+      note.classList.add("hidden");
+      return;
+    }
+    const files = waiting.reduce((sum, p) => sum + p.files, 0);
+    const text = document.createElement("span");
+    text.textContent =
+      t()
+        .historyPreviousNote.replace("{files}", downloadDirFiles(files))
+        .replace("{path}", waiting.map((p) => p.path).join(", ")) + " ";
+    const link = document.createElement("a");
+    link.href = "/settings#downloads";
+    link.textContent = t().historyPreviousLink;
+    note.replaceChildren(text, link);
+    note.classList.remove("hidden");
+  } catch {
+    note.classList.add("hidden");
+  }
+}
+
 async function loadHistory() {
   if (!historyList && !recentList) return;
   try {
@@ -2391,9 +2485,12 @@ function mediagrabUpdateHtml(info) {
       ${cmd("docker compose up -d")}
       <p class="settings-hint">${t().mgUpdateDockerBuild}</p>
       ${cmd("git pull && docker compose up -d --build")}`;
-  } else if (info.install_type === "installer") {
+  } else if (["windows", "docker-windows", "installer"].includes(info.install_type)) {
+    // NOTE: the v2.4.0 Windows installer (normal or Docker) updates by
+    // running a newer one; the old Tk installer's users move over to it.
+    const text = info.install_type === "installer" ? t().mgUpdateInstaller : t().mgUpdateWindows;
     steps = `
-      <p class="settings-hint">${t().mgUpdateInstaller}
+      <p class="settings-hint">${text}
         <a href="https://github.com/umitkrkmz/mediagrab/releases/latest" target="_blank" rel="noopener noreferrer">${t().mgDownloadInstaller}</a>
       </p>`;
   } else {
@@ -2672,12 +2769,14 @@ async function loadFfmpegVersion() {
     <span class="ytdlp-badge ${info.ok ? "uptodate" : "outdated"}">${info.ok ? t().ffmpegInstalled : t().ffmpegNotFound}</span>
     <span class="ytdlp-version-row">${versions}</span>`;
 
-  // NOTE: in Docker ffmpeg comes with the image - per-OS install commands
-  // (and the "not bundled, install it yourself" hint) would be wrong there.
-  if (info.is_docker) {
+  // NOTE: in Docker ffmpeg comes with the image, and the Windows installer
+  // ships its own copy - per-OS install commands (and the "not bundled,
+  // install it yourself" hint) would be wrong in both.
+  if (info.is_docker || info.bundled) {
     ffmpegHint?.classList.add("hidden");
     ffmpegInstructions?.classList.add("hidden");
-    ffmpegStatus.insertAdjacentHTML("beforeend", `<p class="settings-hint">${t().ffmpegDockerNote}</p>`);
+    const note = info.is_docker ? t().ffmpegDockerNote : t().ffmpegBundledNote;
+    ffmpegStatus.insertAdjacentHTML("beforeend", `<p class="settings-hint">${note}</p>`);
     return;
   }
   ffmpegHint?.classList.remove("hidden");
@@ -3016,6 +3115,265 @@ function saveCustomSpeedLimit() {
   }
   saveSpeedLimit(value);
 }
+
+// --- Settings -> Downloads -> Download folder ----------------------------------
+// NOTE: the folder lives on the computer MediaGrab runs on, so only that
+// computer can change it (the server says so in "editable"); a phone sees
+// it read-only, and Docker hides the controls entirely - the compose file's
+// volume decides there.
+
+const downloadDirSection = document.getElementById("download-dir-section");
+const downloadDirPath = document.getElementById("download-dir-path");
+const downloadDirDefaultTag = document.getElementById("download-dir-default-tag");
+const downloadDirCloud = document.getElementById("download-dir-cloud");
+const downloadDirEdit = document.getElementById("download-dir-edit");
+const downloadDirBrowseBtn = document.getElementById("download-dir-browse-btn");
+const downloadDirResetBtn = document.getElementById("download-dir-reset-btn");
+const downloadDirInput = document.getElementById("download-dir-input");
+const downloadDirSaveBtn = document.getElementById("download-dir-save-btn");
+const downloadDirReadonly = document.getElementById("download-dir-readonly");
+const downloadDirDocker = document.getElementById("download-dir-docker");
+const downloadDirStatus = document.getElementById("download-dir-status");
+
+// NOTE: the server answers a rejected folder with a short code in "detail"
+// (see app.py's _check_download_dir); this turns it into a sentence.
+function downloadDirErrorText(code) {
+  const messages = {
+    relative: t().downloadDirErrRelative,
+    inside_app: t().downloadDirErrInsideApp,
+    not_a_folder: t().downloadDirErrNotFolder,
+    not_writable: t().downloadDirErrNotWritable,
+    not_allowed: t().downloadDirErrNotAllowed,
+    picker_failed: t().downloadDirErrPicker,
+    already_moving: t().downloadDirErrMoving,
+  };
+  return messages[code] || code || t().errUnknown;
+}
+
+function showDownloadDirStatus(text, kind) {
+  if (!downloadDirStatus) return;
+  downloadDirStatus.textContent = text;
+  downloadDirStatus.classList.remove("hidden", "ok", "bad");
+  downloadDirStatus.classList.add(kind);
+}
+
+function renderDownloadDir(info) {
+  downloadDirPath.textContent = info.path;
+  downloadDirDefaultTag.textContent = t().downloadDirDefaultTag;
+  downloadDirDefaultTag.classList.toggle("hidden", !info.is_default);
+  downloadDirCloud.textContent = info.cloud ? t().downloadDirCloud.replace("{service}", info.cloud) : "";
+  downloadDirCloud.classList.toggle("hidden", !info.cloud);
+  downloadDirEdit.classList.toggle("hidden", !info.editable);
+  downloadDirBrowseBtn.classList.toggle("hidden", !info.can_browse);
+  downloadDirResetBtn.classList.toggle("hidden", info.is_default);
+  downloadDirDocker.classList.toggle("hidden", !info.is_docker);
+  downloadDirReadonly.classList.toggle("hidden", info.editable || info.is_docker);
+  if (info.editable && document.activeElement !== downloadDirInput) downloadDirInput.value = info.path;
+  renderPreviousDownloadDirs(info);
+  if (info.move?.running) watchDownloadDirMove();
+}
+
+const downloadDirPrevious = document.getElementById("download-dir-previous");
+let downloadDirMoveTimer = null;
+
+function downloadDirFiles(n) {
+  return (n === 1 ? t().downloadDirPrevFileOne : t().downloadDirPrevFileMany).replace("{n}", n);
+}
+
+// NOTE: one card per earlier folder that still holds downloads (app.py's
+// previous_download_dirs). Built with textContent - the paths are the
+// user's own folder names, never markup.
+function renderPreviousDownloadDirs(info) {
+  if (!downloadDirPrevious) return;
+  downloadDirPrevious.replaceChildren();
+  const moving = Boolean(info.move?.running);
+  for (const prev of info.previous || []) {
+    const card = document.createElement("div");
+    card.className = "download-dir-previous-card";
+    const title = document.createElement("strong");
+    title.textContent = t().downloadDirPrevTitle;
+    const text = document.createElement("p");
+    text.textContent = prev.available
+      ? t()
+          .downloadDirPrevText.replace("{path}", prev.path)
+          .replace("{files}", downloadDirFiles(prev.files))
+          .replace("{size}", formatBytes(prev.bytes, lang))
+      : t().downloadDirPrevUnavailable.replace("{path}", prev.path);
+    card.append(title, text);
+    if (info.editable) {
+      const actions = document.createElement("div");
+      actions.className = "cookie-actions";
+      if (prev.available) {
+        const move = document.createElement("button");
+        move.type = "button";
+        move.textContent = t().downloadDirPrevMove;
+        move.disabled = moving;
+        move.addEventListener("click", () => startDownloadDirMove(prev.path));
+        actions.append(move);
+      }
+      const leave = document.createElement("button");
+      leave.type = "button";
+      leave.className = "btn-secondary";
+      leave.textContent = t().downloadDirPrevLeave;
+      leave.disabled = moving;
+      leave.addEventListener("click", () => forgetDownloadDir(prev.path));
+      actions.append(leave);
+      const hint = document.createElement("p");
+      hint.className = "settings-hint";
+      hint.textContent = t().downloadDirPrevHint;
+      card.append(actions, hint);
+    }
+    downloadDirPrevious.append(card);
+  }
+}
+
+function downloadDirMoveErrorText(code) {
+  return code === "downloads_running" ? t().downloadDirMoveBusy : downloadDirErrorText(code);
+}
+
+async function startDownloadDirMove(path) {
+  try {
+    const res = await fetch("/api/download-dir/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirMoveErrorText(data.detail), "bad");
+      return;
+    }
+    watchDownloadDirMove();
+    await loadDownloadDir();
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+function showDownloadDirMoveResult(state) {
+  if (state.error) {
+    const text =
+      state.error.code === "no_space"
+        ? t()
+            .downloadDirMoveNoSpace.replace("{needed}", formatBytes(state.error.needed, lang))
+            .replace("{free}", formatBytes(state.error.free, lang))
+        : t().downloadDirMoveError;
+    showDownloadDirStatus(text, "bad");
+    return;
+  }
+  const r = state.result || { moved: 0, conflicts: [], failed: [] };
+  const lines = [t().downloadDirMoveDone.replace("{files}", downloadDirFiles(r.moved))];
+  if (r.conflicts.length) lines.push(t().downloadDirMoveConflicts.replace("{list}", r.conflicts.join(", ")));
+  if (r.failed.length) lines.push(t().downloadDirMoveFailed.replace("{list}", r.failed.join(", ")));
+  showDownloadDirStatus(lines.join("\n"), r.conflicts.length || r.failed.length ? "bad" : "ok");
+}
+
+// NOTE: polled, not pushed - a move is rare and short-lived, and this keeps
+// it out of the download job events.
+function watchDownloadDirMove() {
+  if (downloadDirMoveTimer) return;
+  downloadDirMoveTimer = setInterval(async () => {
+    try {
+      const state = await (await fetch("/api/download-dir/move")).json();
+      if (state.running) {
+        showDownloadDirStatus(
+          t()
+            .downloadDirMoving.replace("{done}", formatBytes(state.done, lang))
+            .replace("{total}", formatBytes(state.total, lang)),
+          "ok"
+        );
+        return;
+      }
+      clearInterval(downloadDirMoveTimer);
+      downloadDirMoveTimer = null;
+      await loadDownloadDir();
+      showDownloadDirMoveResult(state);
+    } catch {
+      // NOTE: a dropped poll just tries again on the next tick.
+    }
+  }, 1000);
+}
+
+async function forgetDownloadDir(path) {
+  try {
+    const res = await fetch("/api/download-dir/forget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirMoveErrorText(data.detail), "bad");
+      return;
+    }
+    renderDownloadDir(data);
+    downloadDirStatus?.classList.add("hidden");
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+async function loadDownloadDir() {
+  if (!downloadDirSection) return;
+  try {
+    const res = await fetch("/api/download-dir");
+    if (!res.ok) throw new Error(String(res.status));
+    renderDownloadDir(await res.json());
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+async function saveDownloadDir(path) {
+  try {
+    const res = await fetch("/api/download-dir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirErrorText(data.detail), "bad");
+      return;
+    }
+    renderDownloadDir(data);
+    showDownloadDirStatus(path ? t().downloadDirSaved : t().downloadDirResetDone, "ok");
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  }
+}
+
+downloadDirSaveBtn?.addEventListener("click", () => {
+  const value = downloadDirInput.value.trim();
+  if (value) saveDownloadDir(value);
+});
+downloadDirInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && downloadDirInput.value.trim()) saveDownloadDir(downloadDirInput.value.trim());
+});
+downloadDirResetBtn?.addEventListener("click", () => saveDownloadDir(""));
+downloadDirBrowseBtn?.addEventListener("click", async () => {
+  // NOTE: the picker opens on this computer's screen, possibly behind the
+  // browser - say so, so a "nothing happened" doesn't look like a bug.
+  downloadDirBrowseBtn.disabled = true;
+  showDownloadDirStatus(t().downloadDirPickerOpen, "ok");
+  try {
+    const res = await fetch(`/api/download-dir/browse?lang=${lang}`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showDownloadDirStatus(downloadDirErrorText(data.detail), "bad");
+      return;
+    }
+    if (data.path) {
+      await saveDownloadDir(data.path);
+    } else {
+      downloadDirStatus?.classList.add("hidden");
+    }
+  } catch (err) {
+    showDownloadDirStatus(t().errNetwork + err.message, "bad");
+  } finally {
+    downloadDirBrowseBtn.disabled = false;
+  }
+});
 
 function showSpeedLimitStatus(text, kind) {
   if (!speedLimitStatus) return;
@@ -4727,6 +5085,7 @@ updateChannelChoiceVisibility();
   // whether THIS browser supports the save picker - fixed up here.
   if (itemRevealBtn) itemRevealBtn.textContent = revealOrDownloadLabel();
   loadHistory();
+  loadPreviousDownloadsNote();
   loadChannels();
   loadPending();
   loadMediagrabVersion();
@@ -4735,6 +5094,7 @@ updateChannelChoiceVisibility();
   loadDependencies();
   wireDepsUpdateBtn();
   loadSettings();
+  loadDownloadDir();
   loadRemoteAccessStatus();
   resumeTrackedDockJobs();
 })();

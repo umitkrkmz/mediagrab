@@ -107,7 +107,7 @@ def backfill(cutoff: float) -> int:
     recovered; the UI says so.
     """
     items = []
-    for root, _dirs, files in os.walk(downloader.DOWNLOAD_DIR):
+    for root, _dirs, files in os.walk(downloader.download_dir()):
         for name in files:
             path = os.path.join(root, name)
             try:
