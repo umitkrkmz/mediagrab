@@ -35,6 +35,12 @@ def test_leading_garbage_stops_parsing():
         ("ffmpeg version n7.1 Copyright (c) 2000-2024", "7.1"),
         ("ffprobe version 6.1.1-3ubuntu5 Copyright (c)", "6.1.1-3ubuntu5"),
         ("ffmpeg version 5.1.4 Copyright", "5.1.4"),
+        # NOTE: a git build - what the Windows installer ships (yt-dlp/FFmpeg-Builds).
+        # Unmatched, Settings showed the whole banner: "ffmpeg ffmpeg version N-... Copyright ...".
+        (
+            "ffmpeg version N-127276-g8e9db1f152-20261010 Copyright (c) 2000-2026 the FFmpeg developers",
+            "N-127276-g8e9db1f152-20261010",
+        ),
     ],
 )
 def test_ffmpeg_version_is_pulled_off_the_banner_line(line, expected):

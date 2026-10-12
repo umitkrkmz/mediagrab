@@ -118,7 +118,7 @@ UI = {
         ),
         "settings_deps_title": "Python Bağımlılıkları",
         "settings_deps_hint": (
-            "Sanal ortamdaki paketler PyPI'daki güncel sürümlerle karşılaştırılır."
+            "MediaGrab'ın kullandığı Python paketleri PyPI'daki güncel sürümlerle karşılaştırılır."
         ),
         "deps_update_btn": "Tümünü Güncelle",
         "settings_deps_docker_hint": "Docker'da paketler imaja gömülü — güncellemek için yeni bir imaj çekip container'ı yeniden oluşturun (docker pull + docker compose up -d).",
@@ -365,7 +365,7 @@ UI = {
             "in the interface. yt-dlp writes refreshed cookies back into it while downloading."
         ),
         "settings_deps_title": "Python Dependencies",
-        "settings_deps_hint": "Packages in the virtual environment, compared against the latest on PyPI.",
+        "settings_deps_hint": "The Python packages MediaGrab uses, compared against the latest on PyPI.",
         "deps_update_btn": "Update All",
         "settings_deps_docker_hint": "In Docker, packages are baked into the image — to update, pull a new one and recreate the container (docker pull + docker compose up -d).",
         "settings_backup_title": "Backup",
