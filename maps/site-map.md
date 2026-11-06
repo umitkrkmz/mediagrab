@@ -108,11 +108,11 @@ own confirmation: `POST .../saved` (`_confirm_saved`).
 | `/api/stats` | GET | `?period=` day, week or month, `&tz=` minutes east of UTC - `stats.summarize` of `store.get_stats()` (bars for the last 14 days / 12 weeks / 12 months, site + format breakdowns, all-time totals) plus `disk` (`_disk_status`: the downloads folder's drive + the folder's own size) and `backfilling` (one-time import still running) |
 | `/api/stats/reset` | POST | Empty the statistics (`store.reset_stats`); downloaded files are not touched |
 | `/api/mediagrab-version` | GET | Installed MediaGrab (`__version__`) vs the latest GitHub release, `release_url`, `install_type` (`docker`/`installer`/`source` - picks the update instructions shown) |
-| `/api/ytdlp-version` | GET | Installed vs latest yt-dlp |
-| `/api/ytdlp-update` | POST | `pip install -U yt-dlp`, then restart |
+| `/api/ytdlp-version` | GET | Installed vs latest yt-dlp, plus `is_docker` / `is_store` (the Store build shows "comes with Store updates" instead of the button) |
+| `/api/ytdlp-update` | POST | `pip install -U yt-dlp`, then restart - 400 in the Microsoft Store build (`paths.is_store_package`) |
 | `/api/ffmpeg-version` | GET | ffmpeg/ffprobe versions + install commands |
-| `/api/dependencies` | GET | venv packages vs PyPI |
-| `/api/dependencies-update` | POST | Update all, then restart |
+| `/api/dependencies` | GET | venv packages vs PyPI, plus `is_docker` / `is_store` |
+| `/api/dependencies-update` | POST | Update all, then restart - 400 in Docker and in the Microsoft Store build |
 
 ## API — authentication & remote access
 

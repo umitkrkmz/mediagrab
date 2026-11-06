@@ -203,6 +203,9 @@ class YtdlpVersionResponse(BaseModel):
     js_runtime_version: Optional[str] = None
     js_solver: Optional[str] = None
     is_docker: bool = False
+    # NOTE: the Microsoft Store build - yt-dlp comes with its Store updates,
+    # so Settings shows that instead of an update button.
+    is_store: bool = False
 
 
 class ChannelAddRequest(BaseModel):

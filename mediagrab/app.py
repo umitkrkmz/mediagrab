@@ -56,6 +56,7 @@ from .paths import (
     cloud_service_in_path,
     install_type,
     is_docker,
+    is_store_package,
     resource_dir,
     windows_install_dir,
 )
@@ -1723,7 +1724,14 @@ def ytdlp_version() -> dict:
     # NOTE: is_docker - same reason as /api/dependencies below: the Settings
     # page hides the manual venv/pip steps in a container (there is no venv,
     # and the image is what actually gets updated).
-    return {**downloader.check_ytdlp_update(), "is_docker": is_docker()}
+    return {**downloader.check_ytdlp_update(), "is_docker": is_docker(), "is_store": is_store_package()}
+
+
+# NOTE: the Microsoft Store build never updates its own packages: its install
+# folder is read-only, and Store policy 10.2.2 doesn't allow a product to
+# change itself with code it downloads - a new yt-dlp arrives as a new Store
+# package instead. Refused here, server-side, not just hidden in Settings.
+_STORE_UPDATE_REFUSAL = "Microsoft Store surumunde paketler MediaGrab'in Store guncellemeleriyle gelir."
 
 
 def _delayed_restart() -> None:
@@ -1753,6 +1761,8 @@ def _delayed_restart() -> None:
 
 @app.post("/api/ytdlp-update")
 def ytdlp_update() -> dict:
+    if is_store_package():
+        raise HTTPException(status_code=400, detail=_STORE_UPDATE_REFUSAL)
     result = downloader.update_ytdlp()
     if result["ok"]:
         threading.Thread(target=_delayed_restart, daemon=True).start()
@@ -1957,11 +1967,13 @@ def dependencies() -> dict:
     # downloader.update_ytdlp) don't survive the image being recreated, so
     # "update in place" would be silently undone the next time someone pulls
     # a new image. See the route below, which refuses the same way server-side.
-    return {**deps.check_dependencies(), "is_docker": is_docker()}
+    return {**deps.check_dependencies(), "is_docker": is_docker(), "is_store": is_store_package()}
 
 
 @app.post("/api/dependencies-update")
 def dependencies_update() -> dict:
+    if is_store_package():
+        raise HTTPException(status_code=400, detail=_STORE_UPDATE_REFUSAL)
     if is_docker():
         raise HTTPException(
             status_code=400,

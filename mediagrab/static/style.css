@@ -380,6 +380,13 @@ body {
   margin-top: 14px;
 }
 
+/* NOTE: the Docker / Store notes stand in for the hidden update button, so
+   they get its gap below the list - .settings-hint's own -4px top margin
+   would glue them to the list's border. */
+.settings-hint.deps-note {
+  margin-top: 14px;
+}
+
 .theme-choice {
   display: flex;
   gap: 8px;
