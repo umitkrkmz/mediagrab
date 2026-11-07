@@ -10,6 +10,8 @@
 
 ![MediaGrab](docs/images/hero.png)
 
+<sub>Ekran görüntülerindeki filmler / Films shown in the screenshots: Big Buck Bunny, Sintel, Tears of Steel, Spring, Agent 327, Cosmos Laundromat — © Blender Foundation, CC BY ([3.0](https://creativecommons.org/licenses/by/3.0/) / [4.0](https://creativecommons.org/licenses/by/4.0/)), [studio.blender.org](https://studio.blender.org)</sub>
+
 ## Öne çıkanlar / Highlights
 
 - **TR:** Ses/video indirme, playlist ve kanal takibi · indirme istatistikleri · telefondan kullanım (QR kodla) · Raspberry Pi'de 7/24 ev sunucusu · Docker desteği · Türkçe/İngilizce arayüz

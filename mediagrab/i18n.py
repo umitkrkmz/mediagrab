@@ -156,8 +156,7 @@ UI = {
         "theme_dark": "Koyu",
         "hero_title": "Link yapıştır, indir",
         "hero_sub": (
-            "YouTube, YouTube Music ve yt-dlp'nin desteklediği diğer birçok siteden "
-            "linki yapıştırın; ses veya video olarak indirin."
+            "1700'den fazla siteden linki yapıştırın; ses veya video olarak indirin."
         ),
         "url_placeholder": "Video linkini yapıştır...",
         "paste_btn": "Panodan yapıştır",
@@ -400,8 +399,7 @@ UI = {
         "theme_dark": "Dark",
         "hero_title": "Paste a link, download",
         "hero_sub": (
-            "Paste a link from YouTube, YouTube Music, or many other sites supported by yt-dlp; "
-            "download it as audio or video."
+            "Paste a link from 1700+ sites and download it as audio or video."
         ),
         "url_placeholder": "Paste a video link...",
         "paste_btn": "Paste from clipboard",

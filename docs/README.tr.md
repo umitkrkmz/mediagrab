@@ -33,6 +33,8 @@ Link yapıştır, indir. Lokalde çalışan, kişisel kullanım için video/ses 
 
 ![Ana sayfa](images/home-tr.png)
 
+<sub>Ekran görüntülerindeki filmler: © Blender Foundation, CC BY ([3.0](https://creativecommons.org/licenses/by/3.0/) / [4.0](https://creativecommons.org/licenses/by/4.0/)), [studio.blender.org](https://studio.blender.org)</sub>
+
 ## Hızlı başlangıç
 
 | Yol | Kime uygun | Gerekenler |

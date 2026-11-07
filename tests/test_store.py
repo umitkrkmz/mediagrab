@@ -143,3 +143,19 @@ def test_version_routes_report_is_store(client_settings, monkeypatch, packaged):
 
     assert ytdlp["is_store"] is packaged
     assert deps["is_store"] is packaged
+
+
+def test_msix_manifest_version_matches_the_app():
+    # NOTE: the Store package's version is written by hand in the manifest;
+    # a release that forgets it ships a package reporting the old number (and
+    # the Store refuses an upload that doesn't go up). The 4th part is the
+    # Store's own and must stay 0.
+    import xml.etree.ElementTree as ET
+
+    from mediagrab import __version__
+
+    manifest = os.path.join(os.path.dirname(__file__), "..", "packaging", "msix", "AppxManifest.xml")
+    ns = {"m": "http://schemas.microsoft.com/appx/manifest/foundation/windows10"}
+    identity = ET.parse(manifest).getroot().find("m:Identity", ns)
+    assert identity.get("Version") == f"{__version__}.0"
+    assert identity.get("Name") == "umitkrkmz.MediaGrab"

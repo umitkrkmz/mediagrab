@@ -329,10 +329,40 @@ def lan_ip() -> Optional[str]:
     override = os.environ.get("MEDIAGRAB_HOST_LAN_IP")
     if override:
         return override
+    routed = _default_route_ip()
+    if routed:
+        return routed
     try:
         return socket.gethostbyname(socket.gethostname())
     except OSError:
         return None
+
+
+# NOTE: TEST-NET-1 (RFC 5737) - an address that is never anybody's real host,
+# used only so the OS picks the outgoing interface for it.
+_ROUTE_PROBE_ADDR = ("192.0.2.1", 9)
+
+
+def _default_route_ip() -> Optional[str]:
+    # NOTE: the address of the adapter the OS would send internet-bound
+    # traffic through - i.e. the one on the home network. gethostbyname(
+    # gethostname()) returns the FIRST adapter Windows lists instead, which on
+    # a PC with WSL / Hyper-V / Docker Desktop is a virtual switch (seen live:
+    # 172.20.224.1, WSL's vEthernet, while the Wi-Fi bridge had 192.168.1.199)
+    # - so Settings' address and QR code pointed phones at a network they can't
+    # reach. connect() on a UDP socket sends nothing; it only fills in the
+    # local address from the routing table. Same rule as the installer's
+    # HostLanIp() (the adapter with a default gateway). None without a route
+    # (offline machine) - the caller falls back to the old lookup.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(_ROUTE_PROBE_ADDR)
+            ip = s.getsockname()[0]
+    except OSError:
+        return None
+    if not ip or ip.startswith(("0.", "127.", "169.254.")):
+        return None
+    return ip
 
 
 # NOTE: the LAN IP above is always the primary, always-shown address - mDNS

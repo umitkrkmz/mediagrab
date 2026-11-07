@@ -33,6 +33,8 @@ Paste a link, download it. A local, personal-use video/audio downloader.
 
 ![Home page](images/home-en.png)
 
+<sub>Films shown in the screenshots: © Blender Foundation, CC BY ([3.0](https://creativecommons.org/licenses/by/3.0/) / [4.0](https://creativecommons.org/licenses/by/4.0/)), [studio.blender.org](https://studio.blender.org)</sub>
+
 ## Quick start
 
 | Path | Best for | Needs |
