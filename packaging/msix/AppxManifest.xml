@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The Microsoft Store package of the Windows build (build/windows/MediaGrab),
-  packed by build_msix.ps1. Identity/Publisher are placeholders - the Store
-  gives the real ones in Partner Center. Tried locally with Developer Mode on and
-  Add-AppxPackage -Register build\msix\layout\AppxManifest.xml: an unsigned
-  .msix can't be installed at all (0x80073D2B "an unsigned package cannot
-  include Executable activations"), and the unsigned-namespace OID publisher
-  is refused by -Register (0x80073D2D) - so a plain CN here.
+  packed by build_msix.ps1. Identity Name/Publisher and PublisherDisplayName
+  are the Store's own values from Partner Center (MediaGrab -> Product
+  identity); a package with any other identity is rejected at upload. The
+  Store signs the package with that Publisher. Tried locally with Developer
+  Mode on and Add-AppxPackage -Register build\msix\layout\AppxManifest.xml: an
+  unsigned .msix can't be installed at all (0x80073D2B "an unsigned package
+  cannot include Executable activations"), so local tries use -Register.
+  Version: the 4th part must stay 0 (the Store reserves it).
 
   Launch: python\MediaGrab.exe -m run - "-m run" rather than a path to
   run.py, because a packaged app's working directory is not the package
@@ -21,13 +23,13 @@
   IgnorableNamespaces="uap uap10 rescap">
 
   <Identity
-    Name="MediaGrabSpike"
-    Publisher="CN=MediaGrabSpike"
+    Name="umitkrkmz.MediaGrab"
+    Publisher="CN=299D0427-0828-45F7-8D31-BE979548312D"
     Version="2.4.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>MediaGrab (MSIX deneme)</DisplayName>
+    <DisplayName>MediaGrab</DisplayName>
     <PublisherDisplayName>umitkrkmz</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -48,11 +50,13 @@
       EntryPoint="Windows.FullTrustApplication"
       uap10:Parameters="-m run">
       <uap:VisualElements
-        DisplayName="MediaGrab (MSIX deneme)"
-        Description="MediaGrab MSIX packaging spike"
+        DisplayName="MediaGrab"
+        Description="Personal media archive: download video and music from 1700+ sites"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png" />
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
     </Application>
   </Applications>
 
