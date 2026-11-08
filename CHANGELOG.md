@@ -24,6 +24,7 @@ Microsoft Store sürümü: MediaGrab, GitHub'daki ücretsiz sürümün yanında 
 #### Değiştirilen
 
 - **Ana sayfa alt başlığı** — "1700'den fazla siteden linki yapıştırın; ses veya video olarak indirin." Önceki metin yalnızca birkaç siteyi sayıyordu
+- **Windows kurulum programındaki FFmpeg** — yt-dlp'nin 31 Ekim 2026 derlemesine güncellendi (`N-128251-g6d1bfd7609`). Önceki sabitlenen günlük derleme kaynağından kaldırılmıştı; artık uzun süre saklanan ay sonu derlemeleri kullanılıyor
 - **README** — "ücret yok" ifadesi, GitHub sürümünün ücretsiz kaldığını ve Store sürümünün ne sunduğunu anlatan bir maddeyle değişti; ekran görüntülerindeki Blender filmlerine (CC BY) atıf eklendi
 
 #### Düzeltilen
@@ -401,6 +402,7 @@ The Microsoft Store release: alongside the free version on GitHub, MediaGrab is 
 #### Changed
 
 - **Home page subtitle** — "Paste a link from 1700+ sites and download it as audio or video." The old text named only a few sites
+- **FFmpeg in the Windows installer** — updated to yt-dlp's 31 October 2026 build (`N-128251-g6d1bfd7609`). The daily build pinned before had been deleted upstream; month-end builds, which are kept long-term, are used now
 - **README** — "no payment" became a point explaining that the GitHub version stays free and what the Store version offers; credit for the Blender films (CC BY) in the screenshots
 
 #### Fixed
