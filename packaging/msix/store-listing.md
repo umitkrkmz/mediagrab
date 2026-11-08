@@ -28,7 +28,7 @@ one. Rules that shaped it (Store Policies 7.20):
 ## Pricing and availability
 
 - Base price: **$4.99** tier, all markets.
-- Turkey: **₺99** (market-specific price). Optional launch sale: ₺69 for the first month.
+- Turkey: **₺100** (market-specific price; Partner Center TRY prices go in steps of ₺5, so ₺99 isn't possible). Optional launch sale: ₺70 for the first month.
 - No free trial (enforcing it would need a Store license check in the app).
 
 ## Submission options — restricted capability (runFullTrust, ≤ 500 karakter)
