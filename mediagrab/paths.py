@@ -1,3 +1,4 @@
+import functools
 import os
 import sys
 
@@ -39,6 +40,36 @@ def is_docker() -> bool:
     recreated from a fresh image.
     """
     return os.path.exists("/.dockerenv")
+
+
+# NOTE: what GetCurrentPackageFullName returns, with a zero-length buffer, for
+# a process that HAS package identity - it only wants a bigger buffer for the
+# name. Without identity it returns APPMODEL_ERROR_NO_PACKAGE (15700).
+_ERROR_INSUFFICIENT_BUFFER = 122
+
+
+@functools.lru_cache(maxsize=1)
+def is_store_package() -> bool:
+    """True when this process runs from an MSIX package - the Microsoft Store build.
+
+    Asked from Windows itself (package identity) rather than read from a
+    marker file: identity is exactly what changes the rules - the install
+    folder is read-only (no pip updates; Store updates replace the whole
+    package instead) and writes to %LOCALAPPDATA% go to a private per-package
+    folder that Windows deletes on uninstall. Cached: a process can't gain or
+    lose its package identity.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+
+        length = ctypes.c_uint32(0)
+        result = ctypes.windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length), None)
+    except (AttributeError, OSError):
+        # NOTE: no such API (Windows 7) - nothing there can be packaged.
+        return False
+    return result == _ERROR_INSUFFICIENT_BUFFER
 
 
 def windows_install_dir() -> "str | None":
@@ -165,6 +196,8 @@ INSTALLER_LAUNCHERS = ("MediaGrab Baslat.bat", "mediagrab-baslat.sh")
 def install_type() -> str:
     """How this copy was installed.
 
+    "store"           - the Microsoft Store build (MSIX; same layout as the
+                        Windows installer, but updated by the Store);
     "windows"         - the v2.4.0 Windows installer (Inno Setup);
     "docker-windows"  - that installer's "Install with Docker" (it puts
                         MEDIAGRAB_INSTALLED_BY=windows-installer in the
@@ -177,12 +210,17 @@ def install_type() -> str:
     Decides which update instructions Settings -> Version Checks shows: both
     Windows-installer kinds update by running a newer installer, plain Docker
     pulls the image, the old Tk installer's users move to the new installer,
-    a checkout pulls and reinstalls requirements.
+    a checkout pulls and reinstalls requirements, the Store build waits for
+    the Store.
     """
     if is_docker():
         if os.environ.get("MEDIAGRAB_INSTALLED_BY") == "windows-installer":
             return "docker-windows"
         return "docker"
+    # NOTE: before windows_install_dir() - the Store package has that same
+    # app\ + python\ layout.
+    if is_store_package():
+        return "store"
     if windows_install_dir():
         return "windows"
     base = app_dir()

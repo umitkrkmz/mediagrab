@@ -268,5 +268,66 @@ def test_lan_ip_uses_the_host_override_when_set(monkeypatch):
 
 def test_lan_ip_falls_back_to_the_socket_call_without_the_override(monkeypatch):
     monkeypatch.delenv("MEDIAGRAB_HOST_LAN_IP", raising=False)
+    monkeypatch.setattr(app_module, "_default_route_ip", lambda: None)
     monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "10.1.2.3")
     assert app_module.lan_ip() == "10.1.2.3"
+
+
+# --- lan_ip(): the default-route adapter, not the first adapter -------------
+
+
+class _FakeUdpSocket:
+    def __init__(self, local_ip=None, error=None):
+        self.local_ip, self.error, self.connected_to = local_ip, error, None
+
+    def __call__(self, *args):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def connect(self, addr):
+        if self.error:
+            raise self.error
+        self.connected_to = addr
+
+    def getsockname(self):
+        return (self.local_ip, 54321)
+
+
+def test_lan_ip_prefers_the_default_route_adapter(monkeypatch):
+    # NOTE: the bug seen live - a PC with WSL: gethostbyname(gethostname())
+    # gave WSL's virtual switch (172.20.224.1), the Wi-Fi bridge had
+    # 192.168.1.199; Settings' address and QR code sent the phone nowhere.
+    monkeypatch.delenv("MEDIAGRAB_HOST_LAN_IP", raising=False)
+    fake = _FakeUdpSocket("192.168.1.199")
+    monkeypatch.setattr(app_module.socket, "socket", fake)
+    monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "172.20.224.1")
+    assert app_module.lan_ip() == "192.168.1.199"
+    # only a routing-table lookup towards a documentation-only address
+    assert fake.connected_to == ("192.0.2.1", 9)
+
+
+@pytest.mark.parametrize("bad", ["127.0.0.1", "169.254.90.38", "0.0.0.0"])
+def test_lan_ip_ignores_a_loopback_or_link_local_route(monkeypatch, bad):
+    monkeypatch.delenv("MEDIAGRAB_HOST_LAN_IP", raising=False)
+    monkeypatch.setattr(app_module.socket, "socket", _FakeUdpSocket(bad))
+    monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "10.1.2.3")
+    assert app_module.lan_ip() == "10.1.2.3"
+
+
+def test_lan_ip_without_any_route_uses_the_old_lookup(monkeypatch):
+    # NOTE: an offline machine - connect() fails with "network unreachable".
+    monkeypatch.delenv("MEDIAGRAB_HOST_LAN_IP", raising=False)
+    monkeypatch.setattr(app_module.socket, "socket", _FakeUdpSocket(error=OSError(10051, "unreachable")))
+    monkeypatch.setattr(app_module.socket, "gethostbyname", lambda host: "10.1.2.3")
+    assert app_module.lan_ip() == "10.1.2.3"
+
+
+def test_lan_ip_override_still_wins_over_the_route(monkeypatch):
+    monkeypatch.setenv("MEDIAGRAB_HOST_LAN_IP", "192.168.1.50")
+    monkeypatch.setattr(app_module.socket, "socket", _FakeUdpSocket("172.19.0.2"))
+    assert app_module.lan_ip() == "192.168.1.50"

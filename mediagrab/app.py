@@ -56,6 +56,7 @@ from .paths import (
     cloud_service_in_path,
     install_type,
     is_docker,
+    is_store_package,
     resource_dir,
     windows_install_dir,
 )
@@ -328,10 +329,40 @@ def lan_ip() -> Optional[str]:
     override = os.environ.get("MEDIAGRAB_HOST_LAN_IP")
     if override:
         return override
+    routed = _default_route_ip()
+    if routed:
+        return routed
     try:
         return socket.gethostbyname(socket.gethostname())
     except OSError:
         return None
+
+
+# NOTE: TEST-NET-1 (RFC 5737) - an address that is never anybody's real host,
+# used only so the OS picks the outgoing interface for it.
+_ROUTE_PROBE_ADDR = ("192.0.2.1", 9)
+
+
+def _default_route_ip() -> Optional[str]:
+    # NOTE: the address of the adapter the OS would send internet-bound
+    # traffic through - i.e. the one on the home network. gethostbyname(
+    # gethostname()) returns the FIRST adapter Windows lists instead, which on
+    # a PC with WSL / Hyper-V / Docker Desktop is a virtual switch (seen live:
+    # 172.20.224.1, WSL's vEthernet, while the Wi-Fi bridge had 192.168.1.199)
+    # - so Settings' address and QR code pointed phones at a network they can't
+    # reach. connect() on a UDP socket sends nothing; it only fills in the
+    # local address from the routing table. Same rule as the installer's
+    # HostLanIp() (the adapter with a default gateway). None without a route
+    # (offline machine) - the caller falls back to the old lookup.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(_ROUTE_PROBE_ADDR)
+            ip = s.getsockname()[0]
+    except OSError:
+        return None
+    if not ip or ip.startswith(("0.", "127.", "169.254.")):
+        return None
+    return ip
 
 
 # NOTE: the LAN IP above is always the primary, always-shown address - mDNS
@@ -1723,7 +1754,14 @@ def ytdlp_version() -> dict:
     # NOTE: is_docker - same reason as /api/dependencies below: the Settings
     # page hides the manual venv/pip steps in a container (there is no venv,
     # and the image is what actually gets updated).
-    return {**downloader.check_ytdlp_update(), "is_docker": is_docker()}
+    return {**downloader.check_ytdlp_update(), "is_docker": is_docker(), "is_store": is_store_package()}
+
+
+# NOTE: the Microsoft Store build never updates its own packages: its install
+# folder is read-only, and Store policy 10.2.2 doesn't allow a product to
+# change itself with code it downloads - a new yt-dlp arrives as a new Store
+# package instead. Refused here, server-side, not just hidden in Settings.
+_STORE_UPDATE_REFUSAL = "Microsoft Store surumunde paketler MediaGrab'in Store guncellemeleriyle gelir."
 
 
 def _delayed_restart() -> None:
@@ -1753,6 +1791,8 @@ def _delayed_restart() -> None:
 
 @app.post("/api/ytdlp-update")
 def ytdlp_update() -> dict:
+    if is_store_package():
+        raise HTTPException(status_code=400, detail=_STORE_UPDATE_REFUSAL)
     result = downloader.update_ytdlp()
     if result["ok"]:
         threading.Thread(target=_delayed_restart, daemon=True).start()
@@ -1957,11 +1997,13 @@ def dependencies() -> dict:
     # downloader.update_ytdlp) don't survive the image being recreated, so
     # "update in place" would be silently undone the next time someone pulls
     # a new image. See the route below, which refuses the same way server-side.
-    return {**deps.check_dependencies(), "is_docker": is_docker()}
+    return {**deps.check_dependencies(), "is_docker": is_docker(), "is_store": is_store_package()}
 
 
 @app.post("/api/dependencies-update")
 def dependencies_update() -> dict:
+    if is_store_package():
+        raise HTTPException(status_code=400, detail=_STORE_UPDATE_REFUSAL)
     if is_docker():
         raise HTTPException(
             status_code=400,

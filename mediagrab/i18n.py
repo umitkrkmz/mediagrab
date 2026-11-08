@@ -122,6 +122,7 @@ UI = {
         ),
         "deps_update_btn": "Tümünü Güncelle",
         "settings_deps_docker_hint": "Docker'da paketler imaja gömülü — güncellemek için yeni bir imaj çekip container'ı yeniden oluşturun (docker pull + docker compose up -d).",
+        "settings_deps_store_hint": "Microsoft Store sürümünde paketler MediaGrab ile birlikte gelir ve Store güncellemeleriyle yenilenir; buradan ayrıca güncellenmez.",
         "settings_backup_title": "Yedekle",
         "settings_backup_hint": "Ayarlarınızı ve kanal takip listenizi tek bir dosyaya kaydedin; başka bir bilgisayara veya Raspberry Pi'ye geçerken bu dosyayı içe aktarın.",
         "settings_backup_password_warning": "Uzaktan erişim şifreniz yedeğe dahil edilmez - yeni cihazda şifreyi yeniden belirlemeniz gerekir.",
@@ -155,8 +156,7 @@ UI = {
         "theme_dark": "Koyu",
         "hero_title": "Link yapıştır, indir",
         "hero_sub": (
-            "YouTube, YouTube Music ve yt-dlp'nin desteklediği diğer birçok siteden "
-            "linki yapıştırın; ses veya video olarak indirin."
+            "1700'den fazla siteden linki yapıştırın; ses veya video olarak indirin."
         ),
         "url_placeholder": "Video linkini yapıştır...",
         "paste_btn": "Panodan yapıştır",
@@ -368,6 +368,7 @@ UI = {
         "settings_deps_hint": "The Python packages MediaGrab uses, compared against the latest on PyPI.",
         "deps_update_btn": "Update All",
         "settings_deps_docker_hint": "In Docker, packages are baked into the image — to update, pull a new one and recreate the container (docker pull + docker compose up -d).",
+        "settings_deps_store_hint": "In the Microsoft Store version, packages come with MediaGrab and are refreshed by its Store updates; they aren't updated separately here.",
         "settings_backup_title": "Backup",
         "settings_backup_hint": "Save your settings and followed-channel list to one file; import it when moving to another computer or a Raspberry Pi.",
         "settings_backup_password_warning": "Your remote-access password is not included in the backup - you'll need to set it again on the new device.",
@@ -398,8 +399,7 @@ UI = {
         "theme_dark": "Dark",
         "hero_title": "Paste a link, download",
         "hero_sub": (
-            "Paste a link from YouTube, YouTube Music, or many other sites supported by yt-dlp; "
-            "download it as audio or video."
+            "Paste a link from 1700+ sites and download it as audio or video."
         ),
         "url_placeholder": "Paste a video link...",
         "paste_btn": "Paste from clipboard",

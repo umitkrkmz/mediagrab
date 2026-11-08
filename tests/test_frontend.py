@@ -153,6 +153,11 @@ def offer_update():
         # ships Deno; a --user install's binary isn't on yt-dlp's search path)
         ({"update_available": False, "js_runtime": None, "js_solver": None, "is_docker": True}, False),
         ({"update_available": False, "js_runtime": "deno", "js_solver": "0.8.0"}, False),
+        # NOTE: the Store build can't install a runtime itself either - it
+        # comes with a Store update.
+        ({"update_available": False, "js_runtime": None, "js_solver": None, "is_store": True}, False),
+        # ...but an available update is still shown (as "comes with the Store").
+        ({"update_available": True, "js_runtime": "deno", "js_solver": "0.8.0", "is_store": True}, True),
     ],
 )
 def test_should_offer_ytdlp_update(offer_update, info, expected):
@@ -168,21 +173,50 @@ def instructions_html():
         "const escapeHtml = (s) => s;\n"
         + _extract(r"const YTDLP_PIP_CMD = .*?;")
         + "\n"
-        + _extract(r"function ytdlpInstructionsHtml\(isDocker\) \{.*?\n\}")
+        + _extract(r"function ytdlpInstructionsHtml\(isDocker, isStore\) \{.*?\n\}")
     )
 
 
 def test_ytdlp_instructions_keep_the_update_button_in_docker(instructions_html):
-    html = _run_js(instructions_html, "ytdlpInstructionsHtml(true)")
+    html = _run_js(instructions_html, "ytdlpInstructionsHtml(true, false)")
     assert "ytdlp-update-now-btn" in html
     assert "ytdlp-manual" not in html
     assert ".venv" not in html
 
 
 def test_ytdlp_instructions_include_manual_steps_outside_docker(instructions_html):
-    html = _run_js(instructions_html, "ytdlpInstructionsHtml(false)")
+    html = _run_js(instructions_html, "ytdlpInstructionsHtml(false, false)")
     assert "ytdlp-update-now-btn" in html
     assert "ytdlp-manual" in html
+
+
+def test_the_store_build_gets_no_update_button_and_no_pip_steps(instructions_html):
+    # NOTE: the server refuses /api/ytdlp-update there anyway (test_store.py).
+    html = _run_js(instructions_html, "ytdlpInstructionsHtml(false, true)")
+    assert "ytdlpStoreNote" in html
+    assert "ytdlp-update-now-btn" not in html
+    assert "pip install" not in html and "ytdlp-manual" not in html
+
+
+@pytest.fixture(scope="module")
+def js_runtime_hint():
+    return "const t = () => new Proxy({}, { get: (_, key) => key });\n" + _extract(
+        r"function jsRuntimeMissingHintText\(info\) \{.*?\n\}"
+    )
+
+
+@pytest.mark.parametrize(
+    "info, key",
+    [
+        ({"is_docker": True}, "jsRuntimeMissingHintDocker"),
+        ({"is_store": True}, "jsRuntimeMissingHintStore"),
+        ({}, "jsRuntimeMissingHint"),
+    ],
+)
+def test_the_missing_runtime_hint_matches_the_install(js_runtime_hint, info, key):
+    # NOTE: the plain hint says "Update Now below installs it" - a button
+    # Docker and the Store build don't have.
+    assert _run_js(js_runtime_hint, f"jsRuntimeMissingHintText({json.dumps(info)})") == key
 
 
 # --- Settings: uploaded cookies.txt review list -------------------------------
@@ -337,6 +371,15 @@ def test_the_windows_installer_gets_a_new_installer_link(mediagrab_update_html, 
     html = _run_js(mediagrab_update_html, f"mediagrabUpdateHtml({{install_type: '{kind}'}})")
     assert "mgUpdateWindows" in html and "releases/latest" in html
     assert "docker compose" not in html and "pip install" not in html and "mgUpdateInstaller" not in html
+
+
+def test_the_store_build_is_pointed_at_the_store(mediagrab_update_html):
+    # NOTE: never the GitHub installer - that's a different build, and
+    # installing it next to the Store copy gives two MediaGrabs.
+    html = _run_js(mediagrab_update_html, "mediagrabUpdateHtml({install_type: 'store'})")
+    assert "mgUpdateStore" in html
+    assert "releases/latest" not in html and "mgUpdateWindows" not in html
+    assert "docker compose" not in html and "pip install" not in html
 
 
 def test_a_source_install_gets_git_pull_and_pip(mediagrab_update_html):

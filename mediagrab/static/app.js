@@ -46,6 +46,7 @@ const depsList = document.getElementById("deps-list");
 const depsActions = document.getElementById("deps-actions");
 const depsUpdateBtn = document.getElementById("deps-update-btn");
 const depsDockerHint = document.getElementById("deps-docker-hint");
+const depsStoreHint = document.getElementById("deps-store-hint");
 const depsUpdateStatus = document.getElementById("deps-update-status");
 
 const LANG_KEY = "mediagrab_lang";
@@ -489,6 +490,8 @@ const I18N = {
     mgUpdateInstaller:
       "MediaGrab artık yeni bir kurulum programıyla geliyor; Python, Git ya da ffmpeg kurmanız gerekmez. Son sürümü indirip çalıştırın: eski kurulumunuzu bulur ve ayarlarınızı, kanallarınızı ve videolarınızı aktarmayı teklif eder.",
     mgUpdateWindows: "Son sürümün kurulum programını indirip çalıştırın; ayarlarınız ve videolarınız korunur.",
+    mgUpdateStore:
+      "Bu MediaGrab Microsoft Store'dan güncellenir. Yeni sürüm Store'a genellikle birkaç gün içinde gelir ve kendiliğinden iner; hemen almak için Microsoft Store → Kitaplık → Güncelleştirmeleri al.",
     mgDownloadInstaller: "Kurulum programı (son sürüm)",
     mgUpdateSource:
       "Proje klasöründe, sanal ortam etkinken şunları çalıştırın, sonra MediaGrab'ı yeniden başlatın:",
@@ -557,6 +560,9 @@ const I18N = {
       "Bu olmadan YouTube'da bazı biçimler eksik kalabilir; yaş sınırlı veya giriş gerektiren videolar çerezlerle bile inmeyebilir. Aşağıdaki \"Şimdi Güncelle\" ile kurulur.",
     jsRuntimeMissingHintDocker:
       "Bu olmadan YouTube'da bazı biçimler eksik kalabilir; yaş sınırlı veya giriş gerektiren videolar çerezlerle bile inmeyebilir. Düzeltmek için Docker imajını güncelleyin.",
+    jsRuntimeMissingHintStore:
+      "Bu olmadan YouTube'da bazı biçimler eksik kalabilir; yaş sınırlı veya giriş gerektiren videolar çerezlerle bile inmeyebilir. Store sürümünde MediaGrab ile birlikte gelir; düzeltmek için MediaGrab'ı Microsoft Store'dan güncelleyin.",
+    ytdlpStoreNote: "Microsoft Store sürümünde yt-dlp, MediaGrab'ın Store güncellemeleriyle birlikte gelir; buradan ayrıca güncellenmez.",
     settingsRemoteAccessRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
     settingsHomeServerRestartNote: "Ayar uygulanıyor, sunucu yeniden başlatılıyor...",
     settingsRemoteAccessPasswordTooShort: "Şifre en az 8 karakter olmalı.",
@@ -948,6 +954,8 @@ const I18N = {
     mgUpdateInstaller:
       "MediaGrab now comes with a new installer - no Python, Git or ffmpeg to install. Download and run the latest: it finds your current install and offers to bring over your settings, channels and videos.",
     mgUpdateWindows: "Download and run the latest version's installer; your settings and videos are kept.",
+    mgUpdateStore:
+      "This MediaGrab is updated through the Microsoft Store. A new version usually reaches the Store within a few days and installs on its own; to get it right away, open Microsoft Store → Library → Get updates.",
     mgDownloadInstaller: "Installer (latest version)",
     mgUpdateSource: "In the project folder, with the virtual environment active, run these, then restart MediaGrab:",
     ytdlpUpToDate: "Up to date",
@@ -1015,6 +1023,9 @@ const I18N = {
       "Without it some YouTube formats may be missing, and age-restricted or sign-in-only videos may fail even with cookies. \"Update Now\" below installs it.",
     jsRuntimeMissingHintDocker:
       "Without it some YouTube formats may be missing, and age-restricted or sign-in-only videos may fail even with cookies. Update the Docker image to fix this.",
+    jsRuntimeMissingHintStore:
+      "Without it some YouTube formats may be missing, and age-restricted or sign-in-only videos may fail even with cookies. In the Store version it comes with MediaGrab; update MediaGrab from the Microsoft Store to fix this.",
+    ytdlpStoreNote: "In the Microsoft Store version, yt-dlp comes with MediaGrab's Store updates; it isn't updated separately here.",
     settingsRemoteAccessRestartNote: "Applying the setting, restarting the server...",
     settingsHomeServerRestartNote: "Applying the setting, restarting the server...",
     settingsRemoteAccessPasswordTooShort: "Password must be at least 8 characters.",
@@ -2485,6 +2496,10 @@ function mediagrabUpdateHtml(info) {
       ${cmd("docker compose up -d")}
       <p class="settings-hint">${t().mgUpdateDockerBuild}</p>
       ${cmd("git pull && docker compose up -d --build")}`;
+  } else if (info.install_type === "store") {
+    // NOTE: no installer link - the GitHub installer is a different build;
+    // a Store copy only ever updates from the Store.
+    steps = `<p class="settings-hint">${t().mgUpdateStore}</p>`;
   } else if (["windows", "docker-windows", "installer"].includes(info.install_type)) {
     // NOTE: the v2.4.0 Windows installer (normal or Docker) updates by
     // running a newer one; the old Tk installer's users move over to it.
@@ -2576,8 +2591,11 @@ async function loadYtdlpVersion() {
 // NOTE: the "Update Now" button works in Docker too (update_ytdlp installs
 // with --user into the volume-mounted PYTHONUSERBASE, so it survives the
 // container being recreated) - only the manual venv/pip steps are dropped
-// there, since a container has no venv to activate.
-function ytdlpInstructionsHtml(isDocker) {
+// there, since a container has no venv to activate. The Microsoft Store build
+// gets neither: its packages only change with a Store update (the server
+// refuses /api/ytdlp-update there too).
+function ytdlpInstructionsHtml(isDocker, isStore) {
+  if (isStore) return `<p class="settings-hint">${t().ytdlpStoreNote}</p>`;
   const button = `
     <button type="button" id="ytdlp-update-now-btn" class="ytdlp-update-btn">${t().ytdlpUpdateNowBtn}</button>
     <div id="ytdlp-update-status" class="ytdlp-update-status hidden"></div>`;
@@ -2689,10 +2707,17 @@ function jsRuntimeMissing(info) {
 // NOTE: the update button also installs a missing JS runtime (YTDLP_PIP_CMD's
 // extras), so it's offered then too - but NOT in Docker, where the image
 // already ships Deno and a --user install's deno binary would land outside
-// the paths yt-dlp searches. There, the fix is updating the image.
+// the paths yt-dlp searches. There, the fix is updating the image - and in
+// the Store build, the Store package.
 function shouldOfferYtdlpUpdate(info) {
   if (info.update_available) return true;
-  return jsRuntimeMissing(info) && !info.is_docker;
+  return jsRuntimeMissing(info) && !info.is_docker && !info.is_store;
+}
+
+function jsRuntimeMissingHintText(info) {
+  if (info.is_docker) return t().jsRuntimeMissingHintDocker;
+  if (info.is_store) return t().jsRuntimeMissingHintStore;
+  return t().jsRuntimeMissingHint;
 }
 
 function renderJsRuntime(info) {
@@ -2705,7 +2730,7 @@ function renderJsRuntime(info) {
     ytdlpJsStatus.innerHTML = `
       <span class="ytdlp-badge outdated">${t().jsRuntimeMissing}</span>
       <span class="ytdlp-version-row">${t().jsRuntimeLabel}</span>
-      <p class="settings-hint">${info.is_docker ? t().jsRuntimeMissingHintDocker : t().jsRuntimeMissingHint}</p>`;
+      <p class="settings-hint">${jsRuntimeMissingHintText(info)}</p>`;
     return;
   }
   ytdlpJsStatus.innerHTML = `
@@ -2720,7 +2745,7 @@ function renderYtdlpVersion() {
   const showInstructions = () => {
     if (!ytdlpInstructions) return;
     ytdlpInstructions.classList.remove("hidden");
-    ytdlpInstructions.innerHTML = ytdlpInstructionsHtml(info.is_docker);
+    ytdlpInstructions.innerHTML = ytdlpInstructionsHtml(info.is_docker, info.is_store);
     wireYtdlpCopyBtn();
     wireYtdlpUpdateBtn();
   };
@@ -2873,9 +2898,13 @@ async function loadDependencies() {
   // recreated, so it's replaced with a "docker pull" pointer instead. yt-dlp
   // is the one exception (see downloader.update_ytdlp's PYTHONUSERBASE
   // override) and keeps its own always-shown button elsewhere on this page.
-  if (info.is_docker) {
+  // The Microsoft Store build can't update in place at all (read-only
+  // install folder, and the server refuses it) - its packages come with
+  // MediaGrab's Store updates.
+  depsStoreHint?.classList.toggle("hidden", !(info.is_store && outdated));
+  if (info.is_docker || info.is_store) {
     depsActions?.classList.add("hidden");
-    depsDockerHint?.classList.toggle("hidden", !outdated);
+    depsDockerHint?.classList.toggle("hidden", !(info.is_docker && outdated));
     return;
   }
   depsDockerHint?.classList.add("hidden");

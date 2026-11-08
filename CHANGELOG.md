@@ -11,6 +11,25 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.5.0] — 2026-11-08
+
+Microsoft Store sürümü: MediaGrab, GitHub'daki ücretsiz sürümün yanında Microsoft Store'da da yayımlanıyor.
+
+#### Eklenen
+
+- **Microsoft Store sürümü** — aynı uygulama, MSIX paketi olarak: tek tıkla kurulum, SmartScreen uyarısı yok, güncellemeler Store'dan kendiliğinden geliyor. Ücretli; GitHub'daki sürüm ücretsiz kalıyor, özellikler aynı. Store sürümünde ayarlar Windows'un uygulamaya ayırdığı klasörde duruyor ve uygulama kaldırılınca siliniyor (indirilen dosyalar kalıyor); Ayarlar'daki yedekleme bu yüzden önemli
+- **Store modu** — uygulama Store paketinden çalıştığını kendisi anlıyor. Bu sürümde yt-dlp ve bağımlılıklar uygulama içinden güncellenmiyor (Store kuralı; paket klasörü salt okunur), yeni sürümleri Store güncellemesiyle geliyor. Ayarlar'da güncelleme düğmeleri yerine bu bilgi, tanılama bilgisinde kurulum türü `store` görünüyor
+- **Gizlilik politikası** — `docs/PRIVACY.md` (Türkçe ve İngilizce): cihazda neyin tutulduğu, uygulamanın hangi bağlantıları neden kurduğu, telemetri olmadığı
+
+#### Değiştirilen
+
+- **Ana sayfa alt başlığı** — "1700'den fazla siteden linki yapıştırın; ses veya video olarak indirin." Önceki metin yalnızca birkaç siteyi sayıyordu
+- **README** — "ücret yok" ifadesi, GitHub sürümünün ücretsiz kaldığını ve Store sürümünün ne sunduğunu anlatan bir maddeyle değişti; ekran görüntülerindeki Blender filmlerine (CC BY) atıf eklendi
+
+#### Düzeltilen
+
+- **Uzaktan Erişim'de yanlış adres** — WSL, Hyper-V ya da Docker Desktop kurulu bilgisayarlarda Ayarlar'daki bağlantı adresi, QR kod ve `mediagrab.local` sanal ağ kartının adresini (ör. `172.20.224.1`) gösteriyordu; telefon bu adrese ulaşamıyordu. Artık internete çıkılan ağ kartının adresi (ev ağındaki adres) kullanılıyor
+
 ### [2.4.0] — 2026-10-12
 
 Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyasıyla, başka hiçbir şey kurmadan çalışıyor.
@@ -368,6 +387,25 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 ---
 
 ## English
+
+### [2.5.0] — 2026-11-08
+
+The Microsoft Store release: alongside the free version on GitHub, MediaGrab is now published in the Microsoft Store.
+
+#### Added
+
+- **Microsoft Store version** — the same app as an MSIX package: one-click install, no SmartScreen warning, updates arriving on their own through the Store. It's paid; the version on GitHub stays free, with the same features. In the Store version settings live in the folder Windows sets aside for the app and are deleted when the app is uninstalled (downloaded files stay), which makes the backup in Settings worth using
+- **Store mode** — the app tells by itself that it runs from a Store package. There, yt-dlp and the dependencies aren't updated from inside the app (a Store rule; the package folder is read-only) - new versions arrive with a Store update. Settings shows that instead of the update buttons, and the diagnostic info reports the install type as `store`
+- **Privacy policy** — `docs/PRIVACY.md` (Turkish and English): what's kept on the device, which connections the app makes and why, no telemetry
+
+#### Changed
+
+- **Home page subtitle** — "Paste a link from 1700+ sites and download it as audio or video." The old text named only a few sites
+- **README** — "no payment" became a point explaining that the GitHub version stays free and what the Store version offers; credit for the Blender films (CC BY) in the screenshots
+
+#### Fixed
+
+- **Wrong address in Remote Access** — on PCs with WSL, Hyper-V or Docker Desktop, the address, QR code and `mediagrab.local` in Settings pointed at a virtual network adapter (e.g. `172.20.224.1`) that a phone can't reach. The address of the adapter used for internet traffic (the one on the home network) is used now
 
 ### [2.4.0] — 2026-10-12
 
