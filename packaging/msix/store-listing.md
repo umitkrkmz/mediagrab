@@ -31,9 +31,9 @@ one. Rules that shaped it (Store Policies 7.20):
 - Turkey: **₺99** (market-specific price). Optional launch sale: ₺69 for the first month.
 - No free trial (enforcing it would need a Store license check in the app).
 
-## Submission options — restricted capability (runFullTrust)
+## Submission options — restricted capability (runFullTrust, ≤ 500 karakter)
 
-> MediaGrab is a desktop (Win32) application packaged as MSIX. It runs a small local web server (Python, bundled in the package) that the user opens in their own browser, and it starts helper programs that ship inside the package: ffmpeg/ffprobe to merge audio and video and to convert to MP3, and Deno to run the media sites' JavaScript needed to read formats. It writes the user's downloads to a folder the user chooses (Downloads\MediaGrab by default) and shows a system tray icon. None of this is possible in an AppContainer, so the app needs runFullTrust. It does not install drivers or services, does not elevate, and does not download or run code from outside the package.
+> MediaGrab is a desktop (Win32) app. It runs a local web server (bundled Python) opened in the user's browser, and starts helper programs shipped in the package: ffmpeg to merge audio/video and convert to MP3, and Deno to read media formats. It saves downloads to a user-chosen folder and shows a tray icon. This is not possible in an AppContainer. It installs no drivers or services, never elevates, and runs no code from outside the package.
 
 ---
 

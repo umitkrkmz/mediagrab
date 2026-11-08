@@ -11,7 +11,7 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
-### [2.5.0] — yayımlanmadı
+### [2.5.0] — 2026-11-08
 
 Microsoft Store sürümü: MediaGrab, GitHub'daki ücretsiz sürümün yanında Microsoft Store'da da yayımlanıyor.
 
@@ -388,7 +388,7 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 
 ## English
 
-### [2.5.0] — unreleased
+### [2.5.0] — 2026-11-08
 
 The Microsoft Store release: alongside the free version on GitHub, MediaGrab is now published in the Microsoft Store.
 
