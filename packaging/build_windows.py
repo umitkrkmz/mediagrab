@@ -38,14 +38,16 @@ PYTHON_TAG = "314"  # python314._pth, cp314 wheels
 PYTHON_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
 PYTHON_SHA256 = "a93abe456ab01bd96d7a085b3cdb6566b3063f4241360d114142fbdb07f0a310"
 
-# NOTE: yt-dlp's own FFmpeg builds (patched for yt-dlp's needs). The dated
-# "autobuild" releases are kept for a long time; "latest" is not pinnable.
+# NOTE: yt-dlp's own FFmpeg builds (patched for yt-dlp's needs). Pin a
+# MONTH-END autobuild: the daily ones are deleted after about two weeks (the
+# 2026-10-10 pin 404'd on the v2.5.0 tag), the last build of each month is
+# kept for years; "latest" is not pinnable.
 # "gpl-shared" rather than the static "gpl" zip: ffmpeg and ffprobe share
 # one set of DLLs instead of each carrying its own (~89 MB vs ~200 MB).
-FFMPEG_TAG = "autobuild-2026-10-10-18-21"
-FFMPEG_ASSET = "ffmpeg-N-127276-g8e9db1f152-win64-gpl-shared.zip"
+FFMPEG_TAG = "autobuild-2026-10-31-18-18"
+FFMPEG_ASSET = "ffmpeg-N-128251-g6d1bfd7609-win64-gpl-shared.zip"
 FFMPEG_URL = f"https://github.com/yt-dlp/FFmpeg-Builds/releases/download/{FFMPEG_TAG}/{FFMPEG_ASSET}"
-FFMPEG_SHA256 = "974866fd96bd439398398d9fd7e2bdb1d639f3d00a2a83f504b388416ab1e2c2"
+FFMPEG_SHA256 = "de0839788c3f9a649dfb49f6f800a58532c5055ad9af7a75c0aa02043b880591"
 FFMPEG_COMMIT = FFMPEG_ASSET.split("-g", 1)[1].split("-", 1)[0]
 # NOTE: FFmpeg is GPL, and we distribute it - so every release carries the
 # source of exactly this build next to the installer (release.yml attaches
