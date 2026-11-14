@@ -562,6 +562,40 @@ def test_app_js_tr_and_en_strings_have_the_same_keys():
     assert set(keys["tr"]) ^ set(keys["en"]) == set()
 
 
+# --- quality list --------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def size_hint():
+    return _extract(r"const STANDARD_VIDEO_HEIGHTS = \[.*?\];") + "\n" + _extract(
+        r"function hasNonStandardHeights\(formats\) \{.*?\n\}"
+    )
+
+
+@pytest.mark.parametrize(
+    "labels, expected",
+    [
+        (["1080p", "720p", "480p", "360p", "240p", "144p"], False),
+        (["2160p", "1440p"], False),
+        # NOTE: the real case - a 1920x1020 video YouTube's own menu calls 1080p
+        (["1020p", "680p", "454p", "340p", "226p", "136p"], True),
+        (["768p", "720p"], True),
+        # NOTE: a portrait Short (1080x1920) is labelled by its height too
+        (["1920p"], True),
+        ([], False),
+    ],
+)
+def test_non_standard_video_sizes_get_a_hint(size_hint, labels, expected):
+    formats = [{"label": label} for label in labels]
+    assert _run_js(size_hint, f"hasNonStandardHeights({json.dumps(formats)})") is expected
+
+
+def test_the_size_hint_is_shown_under_the_quality_list():
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "hasNonStandardHeights(info.video)" in source
+    assert "${t().videoNonStandardHint}" in source
+
+
 # --- media player ------------------------------------------------------------
 
 

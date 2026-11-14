@@ -11,6 +11,18 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.5.1] — yayımlanmadı
+
+Microsoft Store sürümü için düzeltme ve kalite listesine küçük bir not.
+
+#### Düzeltilen
+
+- **Store sürümünde bazı videolar inmiyordu** — YouTube'un yalnızca HLS biçiminde sunduğu videolarda her kalite "[Errno 13] Permission denied: 'C:\WINDOWS\System32\tmp….tmp'" hatasıyla duruyordu. yt-dlp böyle bir biçimi indirmeden önce deneme dosyasını çalışma klasörüne yazıyor; Windows ise Store uygulamalarını yazılamayan `C:\Windows\System32` klasöründe başlatıyor. MediaGrab artık açılışta kendi veri klasörüne geçiyor. GitHub sürümü etkilenmiyordu
+
+#### Eklenen
+
+- **Standart dışı boyutlu videolar için not** — kalite listesi her formatı videonun gerçek yüksekliğiyle gösteriyor (ör. 1920×1020 bir videoda "1020p"); YouTube ise aynı kaliteyi en yakın standart adla ("1080p") anıyor. Böyle bir videoda listenin altında bunu açıklayan kısa bir not çıkıyor
+
 ### [2.5.0] — 2026-11-08
 
 Microsoft Store sürümü: MediaGrab, GitHub'daki ücretsiz sürümün yanında Microsoft Store'da da yayımlanıyor.
@@ -388,6 +400,18 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 ---
 
 ## English
+
+### [2.5.1] — unreleased
+
+A fix for the Microsoft Store version, and a small note in the quality list.
+
+#### Fixed
+
+- **Some videos wouldn't download in the Store version** — on videos YouTube serves only as HLS, every quality stopped with "[Errno 13] Permission denied: 'C:\WINDOWS\System32\tmp….tmp'". yt-dlp writes a test file into the working directory before downloading such a format, and Windows starts Store apps in the unwritable `C:\Windows\System32`. MediaGrab now moves to its own data folder on start. The GitHub version wasn't affected
+
+#### Added
+
+- **A note for videos with non-standard sizes** — the quality list shows each format by the video's real height ("1020p" for a 1920×1020 video), while YouTube names the same quality after the nearest standard size ("1080p"). For such a video a short note under the list now explains this
 
 ### [2.5.0] — 2026-11-08
 

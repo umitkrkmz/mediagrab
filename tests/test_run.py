@@ -21,6 +21,9 @@ def clean_port_env(monkeypatch):
     # test happens to run next. Establishing this as monkeypatch's restore
     # point undoes that mutation at teardown regardless of what main() did.
     monkeypatch.delenv("MEDIAGRAB_PORT", raising=False)
+    # NOTE: main() also changes the working directory (_leave_unwritable_cwd);
+    # this makes monkeypatch put the test run's own one back at teardown.
+    monkeypatch.chdir(os.getcwd())
 
 
 class FakeServer:
@@ -74,6 +77,22 @@ def base_env(monkeypatch, clean_port_env, uvicorn_calls, thread_calls):
     monkeypatch.setattr(run, "remote_access_active", lambda settings: False)
     monkeypatch.setattr(run, "get_settings", lambda: {})
     return {"uvicorn": uvicorn_calls, "threads": thread_calls}
+
+
+def test_works_from_the_data_folder_not_the_starting_directory(base_env, monkeypatch, tmp_path):
+    # NOTE: a Store (MSIX) app starts in C:\Windows\System32, and yt-dlp's
+    # format test writes a temp file into the working directory - so HLS-only
+    # YouTube downloads failed with "Permission denied: ...System32\tmp....tmp"
+    # in the Store build only. main() must move to the (writable) data folder.
+    data = tmp_path / "data"
+    start = tmp_path / "start"
+    start.mkdir()
+    monkeypatch.setattr(run, "data_dir", lambda: str(data))
+    monkeypatch.chdir(start)
+
+    run.main()
+
+    assert os.path.samefile(os.getcwd(), data)
 
 
 def test_binds_to_loopback_by_default(base_env):

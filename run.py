@@ -193,7 +193,25 @@ def _start_tray(server: "uvicorn.Server", port: int):
     return None
 
 
+def _leave_unwritable_cwd(folder: str) -> None:
+    """Work from MediaGrab's own data folder, not wherever Windows started us.
+
+    A Microsoft Store (MSIX) app is started with C:\\Windows\\System32 as its
+    working directory. yt-dlp writes a throwaway file into the working
+    directory when it has to test a format before downloading it (HLS-only
+    YouTube videos, for one: YoutubeDL._check_formats with no "temp" path),
+    so every such download failed with "[Errno 13] Permission denied:
+    'C:\\WINDOWS\\System32\\tmp….tmp'" - reproduced inside the installed
+    Store package, and gone once the working directory was writable. The
+    data folder always is (settings live there), and nothing in MediaGrab
+    resolves paths against the working directory, so this is safe everywhere.
+    """
+    os.makedirs(folder, exist_ok=True)
+    os.chdir(folder)
+
+
 def main() -> None:
+    _leave_unwritable_cwd(data_dir())
     log_path = _ensure_output_streams(data_dir())
     if log_path:
         # NOTE: no console of our own (pythonw) - see the function.

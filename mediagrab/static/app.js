@@ -316,6 +316,7 @@ const I18N = {
     subtitleHint: "Seçtiğiniz video ile birlikte, aynı dosya adıyla iner",
     subtitleAutoSuffix: "(otomatik)",
     noVideoFormats: "Video seçeneği bulunamadı",
+    videoNonStandardHint: "Bu videonun boyutları standart değil, bu yüzden kaliteler videonun gerçek yüksekliğiyle gösteriliyor. YouTube aynı kaliteleri en yakın standart adla (1080p, 720p…) gösterebilir.",
     sectionTranscript: "Transkript",
     transcriptDownload: "Transkript indir (.txt)",
     transcriptManual: "elle eklenmiş altyazıdan",
@@ -781,6 +782,7 @@ const I18N = {
     subtitleHint: "Downloads together with the video you pick, using the same filename",
     subtitleAutoSuffix: "(auto)",
     noVideoFormats: "No video options found",
+    videoNonStandardHint: "This video has non-standard dimensions, so qualities are shown by its real height. YouTube may name the same qualities after the nearest standard size (1080p, 720p…).",
     sectionTranscript: "Transcript",
     transcriptDownload: "Download transcript (.txt)",
     transcriptManual: "from manual subtitles",
@@ -1411,6 +1413,19 @@ function probeNoticesHtml(info) {
   return `<p class="cookie-warning preview-notice">${t().noticeAgeVerification}</p>`;
 }
 
+// NOTE: the quality list shows each format's real height ("1020p"), while
+// YouTube's own menu names it after the nearest standard size ("1080p") - a
+// 1920x1020 video looked broken next to it. Only the hint below the list
+// depends on this; the labels themselves stay the honest real height.
+const STANDARD_VIDEO_HEIGHTS = [144, 240, 360, 480, 720, 1080, 1440, 2160, 4320];
+
+function hasNonStandardHeights(formats) {
+  return (formats || []).some((f) => {
+    const height = parseInt(f && f.label, 10);
+    return Number.isFinite(height) && !STANDARD_VIDEO_HEIGHTS.includes(height);
+  });
+}
+
 function renderCard(url, info) {
   card.classList.remove("hidden");
 
@@ -1470,6 +1485,8 @@ function renderCard(url, info) {
 
   if (!videoHtml) {
     videoHtml = `<div class="opt-desc">${t().noVideoFormats}</div>`;
+  } else if (hasNonStandardHeights(info.video)) {
+    videoHtml += `<div class="subtitle-hint video-size-hint">${t().videoNonStandardHint}</div>`;
   }
 
   let subtitleHtml = "";
