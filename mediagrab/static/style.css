@@ -1214,6 +1214,13 @@ button:disabled {
   margin: -4px 0 8px;
 }
 
+/* NOTE: under the quality buttons, not under a section title like the other
+   hints - so it needs room above instead of the negative top margin. */
+.video-size-hint {
+  margin: 10px 2px 4px;
+  line-height: 1.4;
+}
+
 .subtitle-grid {
   display: flex;
   flex-wrap: wrap;
