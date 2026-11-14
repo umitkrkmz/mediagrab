@@ -11,7 +11,7 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
-### [2.5.1] — yayımlanmadı
+### [2.5.1] — 2026-11-14
 
 Microsoft Store sürümü için düzeltme ve kalite listesine küçük bir not.
 
@@ -401,7 +401,7 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 
 ## English
 
-### [2.5.1] — unreleased
+### [2.5.1] — 2026-11-14
 
 A fix for the Microsoft Store version, and a small note in the quality list.
 

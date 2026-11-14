@@ -73,7 +73,9 @@ Ekran görüntülerindeki filmler: Big Buck Bunny, Sintel, Tears of Steel, Sprin
 
 **Bu sürümdeki yenilikler**
 
-> Microsoft Store'daki ilk sürüm.
+> • Düzeltme: Bazı videolarda her kalite "Permission denied" hatasıyla indirilemiyordu; artık sorunsuz iniyor.
+> • Kalite listesine, boyutları standart olmayan videolar için bir not eklendi (ör. burada 1020p görünen kalite sitede 1080p olarak geçebilir).
+> • Video işleme bileşeni (FFmpeg) güncellendi.
 
 **Ürün özellikleri** (en fazla 20, her biri ≤ 200 karakter)
 
@@ -146,7 +148,9 @@ Films shown in the screenshots: Big Buck Bunny, Sintel, Tears of Steel, Spring, 
 
 **What's new in this version**
 
-> First release in the Microsoft Store.
+> • Fix: on some videos every quality failed with a "Permission denied" error; they download fine now.
+> • The quality list now explains non-standard video sizes (e.g. a quality shown here as 1020p may be called 1080p on the site).
+> • The video processing component (FFmpeg) has been updated.
 
 **Product features** (up to 20, each ≤ 200 characters)
 
