@@ -11,7 +11,7 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
-### [2.5.2] — yayımlanmadı
+### [2.5.2] — 2026-11-24
 
 Uzun YouTube videolarında yarıda kalan indirmeler için düzeltme.
 
@@ -413,7 +413,7 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 
 ## English
 
-### [2.5.2] — unreleased
+### [2.5.2] — 2026-11-24
 
 A fix for long YouTube downloads that stopped halfway.
 

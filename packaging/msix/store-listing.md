@@ -73,9 +73,8 @@ Ekran görüntülerindeki filmler: Big Buck Bunny, Sintel, Tears of Steel, Sprin
 
 **Bu sürümdeki yenilikler**
 
-> • Düzeltme: Bazı videolarda her kalite "Permission denied" hatasıyla indirilemiyordu; artık sorunsuz iniyor.
-> • Kalite listesine, boyutları standart olmayan videolar için bir not eklendi (ör. burada 1020p görünen kalite sitede 1080p olarak geçebilir).
-> • Video işleme bileşeni (FFmpeg) güncellendi.
+> • Düzeltme: Bazı uzun videolar indirmenin ortasında "No such file or directory" hatasıyla duruyordu; artık sonuna kadar iniyor.
+> • İndirme motoru (yt-dlp) ve diğer bileşenler güncellendi.
 
 **Ürün özellikleri** (en fazla 20, her biri ≤ 200 karakter)
 
@@ -148,9 +147,8 @@ Films shown in the screenshots: Big Buck Bunny, Sintel, Tears of Steel, Spring, 
 
 **What's new in this version**
 
-> • Fix: on some videos every quality failed with a "Permission denied" error; they download fine now.
-> • The quality list now explains non-standard video sizes (e.g. a quality shown here as 1020p may be called 1080p on the site).
-> • The video processing component (FFmpeg) has been updated.
+> • Fix: some long videos stopped partway through with a "No such file or directory" error; they now download to the end.
+> • The download engine (yt-dlp) and other components have been updated.
 
 **Product features** (up to 20, each ≤ 200 characters)
 
