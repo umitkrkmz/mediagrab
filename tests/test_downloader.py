@@ -878,7 +878,7 @@ def test_metadata_keeps_non_ascii_titles(tmp_path):
 # --- yt-dlp's own progress line ------------------------------------------------------
 
 
-def _download_opts(monkeypatch):
+def _download_opts(monkeypatch, url="https://www.youtube.com/watch?v=x"):
     """The options download() hands yt-dlp (the fake stops it right there)."""
     seen = {}
 
@@ -892,8 +892,29 @@ def _download_opts(monkeypatch):
 
     monkeypatch.setattr(downloader, "YoutubeDL", FakeYdl)
     with pytest.raises(StopHere):
-        downloader.download("https://www.youtube.com/watch?v=x", "video", "18", lambda d: None, lambda d: None)
+        downloader.download(url, "video", "18", lambda d: None, lambda d: None)
     return seen
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/watch?v=1ubIOP5Fy6Y",
+        "https://youtu.be/1ubIOP5Fy6Y",
+        "https://www.youtube.com/shorts/1ubIOP5Fy6Y",
+        "https://music.youtube.com/watch?v=1ubIOP5Fy6Y",
+    ],
+)
+def test_youtube_fragments_are_fetched_one_at_a_time(monkeypatch, url):
+    # NOTE: four at a time made YouTube answer HLS-only videos' fragments with
+    # 401 until one ran out of retries ("No such file ... .part-Frag41") -
+    # every time; one at a time finished the same 1226-fragment video.
+    assert _download_opts(monkeypatch, url)["concurrent_fragment_downloads"] == 1
+
+
+@pytest.mark.parametrize("url", ["https://vimeo.com/76979871", "https://www.twitch.tv/videos/1"])
+def test_other_sites_keep_parallel_fragments(monkeypatch, url):
+    assert _download_opts(monkeypatch, url)["concurrent_fragment_downloads"] == 4
 
 
 class _Stream:
