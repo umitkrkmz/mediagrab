@@ -2556,6 +2556,26 @@ button:disabled {
   box-shadow: 0 4px 14px var(--accent-glow);
 }
 
+/* NOTE: Settings -> Feedback has two links side by side - the support page
+   first (readable without any account, which the Store's testers needed),
+   then the GitHub issue templates as the quieter second choice. */
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.feedback-btn-alt {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.feedback-btn-alt:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
 .github-btn {
   display: inline-flex;
   align-items: center;

@@ -44,7 +44,7 @@ MediaGrab çocuklara yönelik değildir ve kimseden bilerek kişisel veri toplam
 
 ### Değişiklikler ve iletişim
 
-Bu politika değişirse yeni hâli bu sayfada, tarihiyle yayımlanır. Sorularınız için: [GitHub üzerinden iletişim](https://github.com/umitkrkmz/mediagrab/issues/new/choose). Kaynak kodu açıktır; yukarıdakilerin hepsini [depoda](https://github.com/umitkrkmz/mediagrab) doğrulayabilirsiniz.
+Bu politika değişirse yeni hâli bu sayfada, tarihiyle yayımlanır. Sorularınız için: [Yardım ve destek](https://github.com/umitkrkmz/mediagrab/blob/master/SUPPORT.md) sayfasındaki e-posta adresi ya da [GitHub](https://github.com/umitkrkmz/mediagrab/issues). Kaynak kodu açıktır; yukarıdakilerin hepsini [depoda](https://github.com/umitkrkmz/mediagrab) doğrulayabilirsiniz.
 
 ---
 
@@ -86,4 +86,4 @@ MediaGrab is not directed at children and does not knowingly collect personal da
 
 ### Changes and contact
 
-If this policy changes, the new version is published on this page with its date. Questions: [contact via GitHub](https://github.com/umitkrkmz/mediagrab/issues/new/choose). The source code is open; you can verify all of the above in the [repository](https://github.com/umitkrkmz/mediagrab).
+If this policy changes, the new version is published on this page with its date. Questions: the e-mail address on the [help and support](https://github.com/umitkrkmz/mediagrab/blob/master/SUPPORT.md) page, or [GitHub](https://github.com/umitkrkmz/mediagrab/issues). The source code is open; you can verify all of the above in the [repository](https://github.com/umitkrkmz/mediagrab).

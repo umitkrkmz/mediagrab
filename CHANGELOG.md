@@ -11,6 +11,18 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.5.3] — 2026-11-24
+
+Yardım ve destek sayfası.
+
+#### Eklenen
+
+- **Yardım ve destek sayfası** — `SUPPORT.md` (Türkçe ve İngilizce): e-posta ile iletişim, başlarken, indirme, telefondan kullanım, Microsoft Store sürümüne dair notlar ve sık karşılaşılan sorunların çözümleri. GitHub hesabı olmadan okunabilir; Ayarlar → Geri Bildirim'deki **Yardım ve Destek** düğmesi ve Hakkında sayfası buraya bağlanıyor
+
+#### Değiştirilen
+
+- **Gizlilik politikasında iletişim** — GitHub sorun formu (hesap gerektiriyor) yerine destek sayfasındaki e-posta adresi
+
 ### [2.5.2] — 2026-11-24
 
 Uzun YouTube videolarında yarıda kalan indirmeler için düzeltme.
@@ -412,6 +424,18 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 ---
 
 ## English
+
+### [2.5.3] — 2026-11-24
+
+A help and support page.
+
+#### Added
+
+- **Help and support page** — `SUPPORT.md` (Turkish and English): e-mail contact, getting started, downloading, using it from a phone, notes on the Microsoft Store version and fixes for common problems. Readable without a GitHub account; the **Help & Support** button in Settings → Feedback and the About page link to it
+
+#### Changed
+
+- **Contact in the privacy policy** — the e-mail address on the support page instead of the GitHub issue form (which needs an account)
 
 ### [2.5.2] — 2026-11-24
 
