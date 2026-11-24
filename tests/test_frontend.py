@@ -726,3 +726,25 @@ def test_bucket_labels_follow_the_page_language(bucket_label):
     assert _run_js(bucket_label, "statsBucketLabel('2026-10-05', 'day', 'tr')") == "5 Eki"
     assert _run_js(bucket_label, "statsBucketLabel('2026-10-05', 'day', 'en')") == "Oct 5"
     assert _run_js(bucket_label, "statsBucketLabel('2026-01-01', 'month', 'tr')") == "Oca 26"
+
+
+# --- support page link -------------------------------------------------------------
+
+SUPPORT_URL = "https://github.com/umitkrkmz/mediagrab/blob/master/SUPPORT.md"
+
+
+@pytest.mark.parametrize("page", ["/settings", "/about"])
+@pytest.mark.parametrize("lang", ["tr", "en"])
+def test_settings_and_about_link_the_support_page(page, lang):
+    # NOTE: Store certification couldn't use the GitHub issue form (it needs a
+    # GitHub account); SUPPORT.md opens for anyone, so the app points there too.
+    from fastapi.testclient import TestClient
+
+    from mediagrab import app as app_module
+
+    with TestClient(app_module.app) as client:
+        assert SUPPORT_URL in client.get(f"{page}?lang={lang}").text
+
+
+def test_the_support_page_exists():
+    assert (APP_JS.parents[2] / "SUPPORT.md").is_file()

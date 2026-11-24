@@ -140,4 +140,5 @@ in JSON files beside the app. yt-dlp does the downloading, ffmpeg the merging.
 | `maps/project-map.md`, `maps/site-map.md` | This file and the route map |
 | `CHANGELOG.md` | Per-release notes, TR then EN |
 | `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md` | Contributor guide, vulnerability reporting, rules for AI tools |
+| `SUPPORT.md` | Help & support page, TR + EN: contact (e-mail - readable without a GitHub account, which Store certification needs), getting started, downloading, phone use, Store-version notes, troubleshooting. Partner Center's "Support contact info" and Settings -> Feedback / About link here |
 | `LICENSE`, `LICENSE-MIT` | GPL-3.0-or-later (v1.9.0+), MIT (v1.0.0–v1.8.0) |

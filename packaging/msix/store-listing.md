@@ -22,7 +22,7 @@ one. Rules that shaped it (Store Policies 7.20):
 | Category | Photo & video (subcategory: none) |
 | Privacy policy URL | https://github.com/umitkrkmz/mediagrab/blob/master/docs/PRIVACY.md |
 | Website | https://github.com/umitkrkmz/mediagrab |
-| Support contact | https://github.com/umitkrkmz/mediagrab/issues/new/choose |
+| Support contact | https://github.com/umitkrkmz/mediagrab/blob/master/SUPPORT.md (not the issue form: certification testers have no GitHub account) |
 | System requirements | Windows 10 version 2004 (19041) or later, x64; about 450 MB of disk space; an internet connection |
 
 ## Pricing and availability
@@ -74,6 +74,7 @@ Ekran görüntülerindeki filmler: Big Buck Bunny, Sintel, Tears of Steel, Sprin
 **Bu sürümdeki yenilikler**
 
 > • Düzeltme: Bazı uzun videolar indirmenin ortasında "No such file or directory" hatasıyla duruyordu; artık sonuna kadar iniyor.
+> • Ayarlar → Geri Bildirim'e "Yardım ve Destek" bağlantısı eklendi: sık karşılaşılan sorunların çözümleri ve e-posta ile iletişim.
 > • İndirme motoru (yt-dlp) ve diğer bileşenler güncellendi.
 
 **Ürün özellikleri** (en fazla 20, her biri ≤ 200 karakter)
@@ -148,6 +149,7 @@ Films shown in the screenshots: Big Buck Bunny, Sintel, Tears of Steel, Spring, 
 **What's new in this version**
 
 > • Fix: some long videos stopped partway through with a "No such file or directory" error; they now download to the end.
+> • A "Help & Support" link in Settings → Feedback: fixes for common problems and e-mail contact.
 > • The download engine (yt-dlp) and other components have been updated.
 
 **Product features** (up to 20, each ≤ 200 characters)

@@ -130,8 +130,10 @@ UI = {
         "settings_backup_import_btn": "İçe Aktar",
         "settings_feedback_title": "Geri Bildirim",
         "settings_feedback_hint": (
-            "Bir hata mı buldunuz, yoksa bir özellik mi önereceksiniz? GitHub üzerinden bildirin."
+            "Yardım, sık karşılaşılan sorunların çözümleri ve e-posta ile iletişim destek sayfasında. "
+            "Hata bildirmek ya da özellik önermek için GitHub'ı da kullanabilirsiniz."
         ),
+        "settings_support_btn": "Yardım ve Destek",
         "settings_feedback_btn": "Hata Bildir / Özellik Öner",
         "settings_diagnostics_btn": "Tanılama bilgisini kopyala",
         "settings_diagnostics_hint": (
@@ -375,7 +377,11 @@ UI = {
         "settings_backup_export_btn": "Export",
         "settings_backup_import_btn": "Import",
         "settings_feedback_title": "Feedback",
-        "settings_feedback_hint": "Found a bug, or have a feature to suggest? Report it on GitHub.",
+        "settings_feedback_hint": (
+            "Help, fixes for common problems and e-mail contact are on the support page. "
+            "You can also report a bug or suggest a feature on GitHub."
+        ),
+        "settings_support_btn": "Help & Support",
         "settings_feedback_btn": "Report a Bug / Suggest a Feature",
         "settings_diagnostics_btn": "Copy diagnostic info",
         "settings_diagnostics_hint": (
