@@ -14,6 +14,7 @@ from typing import Callable, Optional
 
 from yt_dlp import YoutubeDL as _YtDlpYoutubeDL
 from yt_dlp.cookies import YoutubeDLCookieJar
+from yt_dlp.extractor.youtube import YoutubeIE
 from yt_dlp.version import __version__ as YT_DLP_VERSION
 
 from .paths import data_dir, default_download_dir, is_docker
@@ -1073,6 +1074,22 @@ def _discard_backups(backups: list[tuple[str, str]]) -> None:
             pass
 
 
+def _fragment_threads(url: str) -> int:
+    """How many fragments of an HLS/DASH download to fetch at once.
+
+    YouTube serves some videos ONLY as HLS (format ids like 229/230/270).
+    Fetched four fragments at a time, YouTube starts answering them with
+    "HTTP Error 401: Unauthorized" a few dozen fragments in; once a fragment
+    runs out of retries yt-dlp stops with "[Errno 2] No such file or
+    directory: '....part-FragNN'". Reproduced 4 times out of 4 (Store app,
+    CLI with yt-dlp 2026.10.26 and 2026.11.23, MediaGrab's own path), while
+    one at a time finished all 1226 fragments with only a few retried 401s.
+    YouTube's regular formats are single HTTP files, which this setting never
+    touches - so only the HLS-only case slows down. Other sites keep 4.
+    """
+    return 1 if YoutubeIE.suitable(url) else 4
+
+
 def download(
     url: str,
     kind: str,
@@ -1110,7 +1127,7 @@ def download(
             "noprogress": not _console_attached(),
             "retries": 10,
             "fragment_retries": 10,
-            "concurrent_fragment_downloads": 4,
+            "concurrent_fragment_downloads": _fragment_threads(url),
             # NOTE: cookies apply to the download too, not just the probe -
             # age-gated or members-only media needs them at both stages.
             **cookie_opts(),

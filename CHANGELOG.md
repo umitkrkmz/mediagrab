@@ -11,6 +11,18 @@ This file lists notable changes to MediaGrab, by release.
 
 ## Türkçe
 
+### [2.5.2] — yayımlanmadı
+
+Uzun YouTube videolarında yarıda kalan indirmeler için düzeltme.
+
+#### Düzeltilen
+
+- **Bazı YouTube videoları yarıda kalıyordu** — YouTube'un yalnızca HLS biçiminde sunduğu videolarda (kalite numaraları 229, 230, 270…) indirme birkaç dakika sonra "[Errno 2] No such file or directory: '….part-FragNN'" hatasıyla duruyordu. Parçalar dörder dörder indirilirken YouTube bir süre sonra onlara "401 Unauthorized" diyordu. YouTube adreslerinde parçalar artık tek tek iniyor; iki farklı videoda tam uzunlukta dosya doğrulandı. Diğer siteler etkilenmedi
+
+#### Değiştirilen
+
+- **Paketlenen bileşenler güncellendi** — yt-dlp 2026.11.23 ve Python bağımlılıklarının güncel sürümleri (kurulum programı ve Microsoft Store sürümü)
+
 ### [2.5.1] — 2026-11-14
 
 Microsoft Store sürümü için düzeltme ve kalite listesine küçük bir not.
@@ -400,6 +412,18 @@ Kurulum ve güven sürümü: Windows'ta MediaGrab artık tek bir kurulum dosyas�
 ---
 
 ## English
+
+### [2.5.2] — unreleased
+
+A fix for long YouTube downloads that stopped halfway.
+
+#### Fixed
+
+- **Some YouTube videos stopped halfway** — on videos YouTube serves only as HLS (quality ids 229, 230, 270…), the download stopped after a few minutes with "[Errno 2] No such file or directory: '….part-FragNN'". With four fragments fetched at a time, YouTube began answering them with "401 Unauthorized". Fragments of YouTube downloads are now fetched one at a time; verified as full-length files on two different videos. Other sites are unaffected
+
+#### Changed
+
+- **Bundled components updated** — yt-dlp 2026.11.23 and current Python dependencies (installer and Microsoft Store version)
 
 ### [2.5.1] — 2026-11-14
 
